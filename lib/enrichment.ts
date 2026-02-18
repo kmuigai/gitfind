@@ -40,17 +40,24 @@ interface RepoData {
   forks: number
   contributors: number
   language: string | null
+  topics?: string[]
+  readme_excerpt?: string
 }
 
 function buildPrompt(repo: RepoData): string {
+  const topicsLine =
+    repo.topics && repo.topics.length > 0 ? `\nTopics: ${repo.topics.join(', ')}` : ''
+  const readmeLine =
+    repo.readme_excerpt ? `\n\nREADME excerpt:\n${repo.readme_excerpt}` : ''
+
   return `You are writing for GitFind, a directory that helps non-technical product managers understand what's being built on GitHub.
 
 Repository: ${repo.owner}/${repo.name}
-Description: ${repo.description ?? 'No description provided'}
+Description: ${repo.description ?? 'No description provided'}${topicsLine}
 Language: ${repo.language ?? 'Unknown'}
 Stars: ${repo.stars.toLocaleString()}
 Forks: ${repo.forks.toLocaleString()}
-Contributors: ${repo.contributors}
+Contributors: ${repo.contributors}${readmeLine}
 
 Write a JSON response with exactly these 3 fields:
 

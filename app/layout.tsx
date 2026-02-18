@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import Link from 'next/link'
+import ThemeToggle from '@/components/ThemeToggle'
 import './globals.css'
 
 const geistSans = Geist({
@@ -31,20 +32,11 @@ export const metadata: Metadata = {
     title: 'GitFind — Rising GitHub Projects for Product People',
     description:
       'Find the next big open source project before it goes mainstream. Plain-English context for PMs, founders, and investors.',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'GitFind — Git Smarter',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'GitFind — Rising GitHub Projects for Product People',
     description: 'Find the next big open source project before it goes mainstream.',
-    images: ['/og-image.png'],
   },
   robots: {
     index: true,
@@ -72,7 +64,14 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var s=localStorage.getItem('gitfind-theme');if(s==='dark'||s==='light'){document.documentElement.setAttribute('data-theme',s);}else if(window.matchMedia('(prefers-color-scheme: light)').matches){document.documentElement.setAttribute('data-theme','light');}else{document.documentElement.setAttribute('data-theme','dark');}})();`,
+          }}
+        />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {/* Navigation */}
         <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/90 backdrop-blur-sm">
@@ -101,12 +100,15 @@ export default function RootLayout({
             </div>
 
             {/* Right side */}
-            <Link
-              href="/submit"
-              className="rounded-md border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-            >
-              Submit a project
-            </Link>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Link
+                href="/submit"
+                className="rounded-md border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              >
+                Submit a project
+              </Link>
+            </div>
           </nav>
         </header>
 

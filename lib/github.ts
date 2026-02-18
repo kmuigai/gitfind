@@ -16,6 +16,7 @@ export interface GitHubRepo {
   url: string
   pushed_at: string
   created_at: string
+  topics?: string[]
 }
 
 export interface StarVelocity {
@@ -96,6 +97,7 @@ interface GitHubSearchItem {
   html_url: string
   pushed_at: string
   created_at: string
+  topics?: string[]
 }
 
 // Fetch repos for a given category slug, ordered by stars, pushed in last 90 days
@@ -132,6 +134,7 @@ export async function searchReposByCategory(categorySlug: string): Promise<GitHu
           url: item.html_url,
           pushed_at: item.pushed_at,
           created_at: item.created_at,
+          topics: item.topics ?? [],
         })
       }
     }
@@ -275,4 +278,105 @@ function sumRecentCommits(weeklyData: WeeklyCommitActivity[]): number {
   // Last 4 weeks = last 30 days (approximately)
   const recent = weeklyData.slice(-4)
   return recent.reduce((sum, week) => sum + week.total, 0)
+}
+
+interface ReadmeResponse {
+  content: string
+  encoding: string
+}
+
+// Fetch raw README markdown for a repo. Returns null if not found or on error.
+export async function getReadme(owner: string, repo: string): Promise<string | null> {
+  try {
+    const data = await githubFetch<ReadmeResponse>(`/repos/${owner}/${repo}/readme`)
+    if (data.encoding !== 'base64' || !data.content) return null
+    return Buffer.from(data.content.replace(/\n/g, ''), 'base64').toString('utf-8')
+  } catch {
+    return null
+  }
+}
+
+// Headings whose sections are noise for PM-facing summaries
+const SKIP_SECTION_HEADING = /^#{1,4}\s+(install|installation|getting\s+started|usage|requirements|setup|quick\s+start|prerequisites|license|contributing|changelog|faq|troubleshoot)/i
+
+// Headings that introduce the useful "what is this" content
+const INTRO_SECTION_HEADING = /^#{1,4}\s+(overview|about|introduction|what\s+is|description)/i
+
+function extractIntro(text: string): string {
+  const lines = text.split('\n')
+  const firstHeadingIdx = lines.findIndex((l) => /^#{1,4}\s/.test(l))
+
+  // Content before the first heading is usually the most PM-relevant
+  const preHeading =
+    firstHeadingIdx > 0
+      ? lines.slice(0, firstHeadingIdx).join('\n').trim()
+      : firstHeadingIdx === -1
+        ? text.trim()
+        : ''
+
+  if (preHeading.length >= 100) return preHeading.slice(0, 2000)
+
+  // Fall back to a named intro section
+  const sectionIdx = lines.findIndex((l) => INTRO_SECTION_HEADING.test(l))
+  if (sectionIdx !== -1) {
+    const start = sectionIdx + 1
+    const nextHeading = lines.slice(start).findIndex((l) => /^#{1,4}\s/.test(l))
+    const end = nextHeading !== -1 ? start + nextHeading : lines.length
+    const section = lines.slice(start, end).join('\n').trim()
+    if (section.length >= 100) return section.slice(0, 2000)
+  }
+
+  return text.slice(0, 2000)
+}
+
+// Clean a raw README and return up to 2,000 chars of PM-relevant content.
+// Returns empty string if the result is below the quality threshold (< 100 chars).
+export function cleanReadme(raw: string): string {
+  const lines = raw.split('\n')
+  const cleaned: string[] = []
+  let inCodeBlock = false
+  let skipSection = false
+
+  for (const line of lines) {
+    // Track fenced code blocks
+    if (/^(```|~~~)/.test(line)) {
+      inCodeBlock = !inCodeBlock
+      continue
+    }
+    if (inCodeBlock) continue
+
+    // Skip indented code (4 spaces or a tab)
+    if (/^( {4}|\t)/.test(line)) continue
+
+    // Heading — decide whether to keep or skip the following section
+    if (/^#{1,4}\s/.test(line)) {
+      if (SKIP_SECTION_HEADING.test(line)) {
+        skipSection = true
+      } else {
+        skipSection = false
+        cleaned.push(line)
+      }
+      continue
+    }
+
+    if (skipSection) continue
+
+    // Badge lines
+    if (line.includes('[![') || line.includes('img.shields.io')) continue
+
+    // Pure image lines
+    if (/^\s*!\[.*?\]\(.*?\)\s*$/.test(line)) continue
+
+    // Strip inline HTML tags
+    const stripped = line.replace(/<[^>]+>/g, '').trim()
+
+    // Collapse consecutive blank lines
+    if (stripped === '' && (cleaned.length === 0 || cleaned[cleaned.length - 1] === '')) continue
+
+    cleaned.push(stripped)
+  }
+
+  const result = cleaned.join('\n').trim()
+  const excerpt = extractIntro(result)
+  return excerpt.length >= 100 ? excerpt : ''
 }

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-:root {
-  /* GitFind dark-mode-first palette */
+:root,
+[data-theme="dark"] {
   --background: #0a0a0f;
   --background-elevated: #111118;
   --background-card: #14141c;
@@ -16,6 +16,42 @@
   --score-high: #22c55e;
   --score-mid: #f59e0b;
   --score-low: #6b7280;
+}
+
+[data-theme="light"] {
+  --background: #f5f4ef;
+  --background-elevated: #eceae4;
+  --background-card: #e8e6e0;
+  --border: #cccac0;
+  --border-subtle: #d8d6ce;
+  --foreground: #1c1c2e;
+  --foreground-muted: #4e4e72;
+  --foreground-subtle: #9090a8;
+  --accent: #5553d4;
+  --accent-hover: #4442c0;
+  --accent-subtle: #eeeeff;
+  --score-high: #16a34a;
+  --score-mid: #d97706;
+  --score-low: #6b7280;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --background: #f5f4ef;
+    --background-elevated: #eceae4;
+    --background-card: #e8e6e0;
+    --border: #cccac0;
+    --border-subtle: #d8d6ce;
+    --foreground: #1c1c2e;
+    --foreground-muted: #4e4e72;
+    --foreground-subtle: #9090a8;
+    --accent: #5553d4;
+    --accent-hover: #4442c0;
+    --accent-subtle: #eeeeff;
+    --score-high: #16a34a;
+    --score-mid: #d97706;
+    --score-low: #6b7280;
+  }
 }
 
 @theme inline {

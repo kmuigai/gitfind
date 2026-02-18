@@ -9,16 +9,11 @@
 
 import { config } from 'dotenv'
 config({ path: '.env.local' })
-import {
-  searchReposByCategory,
-  getStarVelocity,
-  getContributorCount,
-  getCommitFrequency,
-} from '../lib/github.js'
-import { calculateScore } from '../lib/score.js'
-import { getHNMentions } from '../lib/hn.js'
-import { enrichRepo } from '../lib/enrichment.js'
-import { createServiceClient } from '../lib/supabase.js'
+
+// NOTE: All imports that touch Supabase/Anthropic/GitHub clients are done via
+// dynamic import() inside main() — this ensures dotenv has populated env vars
+// before those modules initialise their clients. Static imports are hoisted
+// before any module body code runs, which breaks dotenv in CJS mode.
 
 const CATEGORY_SLUGS = [
   'ai-ml',
@@ -54,44 +49,95 @@ function logError(msg: string, err: unknown): void {
   console.error(`[ERROR] ${msg}: ${message}`)
 }
 
-async function processRepo(
-  db: ReturnType<typeof createServiceClient>,
-  repoData: Awaited<ReturnType<typeof searchReposByCategory>>[number]
-): Promise<void> {
-  const { owner, name: repoName, github_id } = repoData
-  const label = `${owner}/${repoName}`
+async function main(): Promise<void> {
+  // Dynamic imports — evaluated after dotenv.config() has run
+  const [
+    { searchReposByCategory, getStarVelocity, getContributorCount, getCommitFrequency, getReadme, cleanReadme },
+    { calculateScore },
+    { getHNMentions },
+    { enrichRepo },
+    { createServiceClient },
+  ] = await Promise.all([
+    import('../lib/github.js'),
+    import('../lib/score.js'),
+    import('../lib/hn.js'),
+    import('../lib/enrichment.js'),
+    import('../lib/supabase.js'),
+  ])
 
-  try {
-    log(`  Processing ${label}...`)
+  type Repo = Awaited<ReturnType<typeof searchReposByCategory>>[number]
+  type DB = ReturnType<typeof createServiceClient>
 
-    // Fetch enriching signals in parallel
-    const [starVelocity, contributorCount, commitFrequency, hnMentions] =
-      await Promise.all([
-        getStarVelocity(owner, repoName, repoData.stars),
-        getContributorCount(owner, repoName),
-        getCommitFrequency(owner, repoName),
-        getHNMentions(owner, repoName),
-      ])
+  async function processRepo(db: DB, repoData: Repo): Promise<void> {
+    const { owner, name: repoName, github_id } = repoData
+    const label = `${owner}/${repoName}`
 
-    // Calculate Early Signal Score
-    const { score } = calculateScore({
-      stars: repoData.stars,
-      stars_7d: starVelocity.stars_7d,
-      stars_30d: starVelocity.stars_30d,
-      contributors: contributorCount,
-      forks: repoData.forks,
-      hn_mentions_7d: hnMentions.mentions_7d,
-      hn_mentions_30d: hnMentions.mentions_30d,
-      commits_30d: commitFrequency,
-    })
+    try {
+      log(`  Processing ${label}...`)
 
-    log(`  ${label} → score: ${score}`)
+      const [starVelocity, contributorCount, commitFrequency, hnMentions, rawReadme] =
+        await Promise.all([
+          getStarVelocity(owner, repoName, repoData.stars),
+          getContributorCount(owner, repoName),
+          getCommitFrequency(owner, repoName),
+          getHNMentions(owner, repoName),
+          getReadme(owner, repoName),
+        ])
 
-    // Upsert repo into database
-    const { data: upsertedRepo, error: repoError } = await db
-      .from('repos')
-      .upsert(
-        {
+      const readmeExcerpt = rawReadme ? cleanReadme(rawReadme) : undefined
+
+      const { score } = calculateScore({
+        stars: repoData.stars,
+        stars_7d: starVelocity.stars_7d,
+        stars_30d: starVelocity.stars_30d,
+        contributors: contributorCount,
+        forks: repoData.forks,
+        hn_mentions_7d: hnMentions.mentions_7d,
+        hn_mentions_30d: hnMentions.mentions_30d,
+        commits_30d: commitFrequency,
+      })
+
+      log(`  ${label} → score: ${score}`)
+
+      const { data: upsertedRepo, error: repoError } = await db
+        .from('repos')
+        .upsert(
+          {
+            github_id,
+            name: repoName,
+            owner,
+            description: repoData.description,
+            stars: repoData.stars,
+            forks: repoData.forks,
+            contributors: contributorCount,
+            language: repoData.language,
+            url: repoData.url,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'github_id' }
+        )
+        .select('id')
+        .single()
+
+      if (repoError || !upsertedRepo) {
+        logError(`Failed to upsert repo ${label}`, repoError)
+        return
+      }
+
+      const repoId = upsertedRepo.id
+
+      const { data: existing } = await db
+        .from('enrichments')
+        .select('early_signal_score')
+        .eq('repo_id', repoId)
+        .maybeSingle()
+
+      const needsEnrichment =
+        !existing || Math.abs(existing.early_signal_score - score) > 10
+
+      if (needsEnrichment) {
+        log(`  Enriching ${label} with Claude...`)
+        await enrichRepo(repoId, {
           github_id,
           name: repoName,
           owner,
@@ -100,59 +146,22 @@ async function processRepo(
           forks: repoData.forks,
           contributors: contributorCount,
           language: repoData.language,
-          url: repoData.url,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'github_id' }
-      )
-      .select('id')
-      .single()
-
-    if (repoError || !upsertedRepo) {
-      logError(`Failed to upsert repo ${label}`, repoError)
-      return
+          topics: repoData.topics,
+          readme_excerpt: readmeExcerpt || undefined,
+        }, score)
+        log(`  ${label} enriched ✓`)
+      } else {
+        await db
+          .from('enrichments')
+          .update({ early_signal_score: score, scored_at: new Date().toISOString() })
+          .eq('repo_id', repoId)
+        log(`  ${label} score updated (no re-enrichment needed)`)
+      }
+    } catch (err) {
+      logError(`Failed to process ${label}`, err)
     }
-
-    const repoId = upsertedRepo.id
-
-    // Check if we need to enrich this repo
-    // Re-enrich if: no existing enrichment, or score changed significantly (>10 points)
-    const { data: existing } = await db
-      .from('enrichments')
-      .select('early_signal_score')
-      .eq('repo_id', repoId)
-      .maybeSingle()
-
-    const needsEnrichment =
-      !existing || Math.abs(existing.early_signal_score - score) > 10
-
-    if (needsEnrichment) {
-      log(`  Enriching ${label} with Claude...`)
-      await enrichRepo(repoId, {
-        github_id,
-        name: repoName,
-        owner,
-        description: repoData.description,
-        stars: repoData.stars,
-        forks: repoData.forks,
-        contributors: contributorCount,
-        language: repoData.language,
-      }, score)
-      log(`  ${label} enriched ✓`)
-    } else {
-      // Update just the score even if we skip re-enrichment
-      await db
-        .from('enrichments')
-        .update({ early_signal_score: score, scored_at: new Date().toISOString() })
-        .eq('repo_id', repoId)
-      log(`  ${label} score updated (no re-enrichment needed)`)
-    }
-  } catch (err) {
-    logError(`Failed to process ${label}`, err)
   }
-}
 
-async function runPipeline(): Promise<void> {
   log('=== GitFind Pipeline Starting ===')
 
   const db = createServiceClient()
@@ -167,11 +176,9 @@ async function runPipeline(): Promise<void> {
       const repos = await searchReposByCategory(categorySlug)
       log(`Found ${repos.length} repos in ${categoryName}`)
 
-      // Process repos sequentially to respect GitHub rate limits
       for (const repo of repos) {
         await processRepo(db, repo)
         totalProcessed++
-        // Small delay between repos to avoid secondary rate limits
         await new Promise((r) => setTimeout(r, 500))
       }
     } catch (err) {
@@ -179,7 +186,6 @@ async function runPipeline(): Promise<void> {
       totalErrors++
     }
 
-    // Delay between categories
     log(`Completed ${categoryName}. Waiting before next category...`)
     await new Promise((r) => setTimeout(r, 2000))
   }
@@ -189,8 +195,7 @@ async function runPipeline(): Promise<void> {
   log(`Errors: ${totalErrors}`)
 }
 
-// Entry point
-runPipeline().catch((err) => {
+main().catch((err) => {
   console.error('Pipeline failed with unexpected error:', err)
   process.exit(1)
 })

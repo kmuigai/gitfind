@@ -31,14 +31,8 @@ export default async function HomePage() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative border-b border-[var(--border)] px-4 pb-16 pt-20 sm:px-6 sm:pt-28">
+      <section className="relative border-b border-[var(--border)] px-4 pb-12 pt-12 sm:px-6 sm:pt-16">
         <div className="mx-auto max-w-4xl">
-          {/* OpenClaw proof point — small callout */}
-          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[var(--accent)]/20 bg-[var(--accent-subtle)] px-3 py-1.5 text-xs text-[var(--accent)]">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
-            OpenClaw hit 200K stars. GitFind subscribers knew at 9K.
-          </div>
-
           {/* Animated headline */}
           <HeroAnimation />
 
@@ -52,19 +46,6 @@ export default async function HomePage() {
           {/* Search */}
           <div className="mt-8">
             <SearchBar />
-          </div>
-
-          {/* Category links */}
-          <div className="mt-6 flex flex-wrap gap-2">
-            {CATEGORIES.map((cat) => (
-              <Link
-                key={cat.slug}
-                href={`/category/${cat.slug}`}
-                className="rounded-md border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)] hover:text-[var(--foreground)]"
-              >
-                {cat.emoji} {cat.name}
-              </Link>
-            ))}
           </div>
         </div>
       </section>
@@ -95,26 +76,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Categories overview */}
-      <section className="border-t border-[var(--border)] px-4 py-12 sm:px-6">
-        <div className="mx-auto max-w-7xl">
-          <h2 className="mb-8 text-lg font-semibold text-[var(--foreground)]">
-            Browse by category
-          </h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {CATEGORIES.map((cat) => (
-              <Link
-                key={cat.slug}
-                href={`/category/${cat.slug}`}
-                className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--background-card)] px-4 py-4 transition-all hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)]"
-              >
-                <span className="text-xl">{cat.emoji}</span>
-                <span className="text-sm font-medium text-[var(--foreground)]">{cat.name}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* Newsletter */}
       <NewsletterSignup />

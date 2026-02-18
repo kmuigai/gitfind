@@ -110,6 +110,21 @@ export async function searchRepos(query: string, limit = 10): Promise<RepoWithEn
   return joinReposAndEnrichments(typedRepos, typedEnrichments)
 }
 
+// Get project counts per category
+export async function getCategoryCounts(): Promise<Record<string, number>> {
+  const { data } = await supabase
+    .from('enrichments')
+    .select('category')
+
+  if (!data) return {}
+
+  const counts: Record<string, number> = {}
+  for (const row of data as unknown as Array<{ category: string }>) {
+    counts[row.category] = (counts[row.category] ?? 0) + 1
+  }
+  return counts
+}
+
 // Get all repos for sitemap generation
 export async function getAllReposForSitemap(): Promise<
   Array<{ owner: string; name: string; updated_at: string }>

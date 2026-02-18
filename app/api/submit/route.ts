@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { getContributorCount, getCommitFrequency, getStarVelocity } from '@/lib/github'
 import { getHNMentions } from '@/lib/hn'
 import { calculateScore } from '@/lib/score'
+import { enrichRepo } from '@/lib/enrichment'
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -18,6 +19,19 @@ function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
   } catch {
     return null
   }
+}
+
+interface GitHubRepoResponse {
+  id: number
+  name: string
+  owner: { login: string }
+  description: string | null
+  stargazers_count: number
+  forks_count: number
+  language: string | null
+  html_url: string
+  pushed_at: string
+  created_at: string
 }
 
 export async function POST(request: NextRequest) {
@@ -71,12 +85,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to save submission. Please try again.' }, { status: 500 })
   }
 
-  // Try to score the repo
+  // Try to score and potentially add the repo to the directory
   let score = 0
   let autoApproved = false
 
   try {
-    // Fetch basic repo info via GitHub search (by owner/repo name)
     const repoInfo = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
       headers: {
         Accept: 'application/vnd.github.v3+json',
@@ -86,11 +99,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (repoInfo.ok) {
-      const repoData = (await repoInfo.json()) as {
-        id: number
-        stargazers_count: number
-        forks_count: number
-      }
+      const repoData = (await repoInfo.json()) as GitHubRepoResponse
 
       const [starVelocity, contributors, commits, hnMentions] = await Promise.all([
         getStarVelocity(owner, repo, repoData.stargazers_count),
@@ -112,13 +121,55 @@ export async function POST(request: NextRequest) {
 
       score = result.score
 
-      // Auto-approve if Early Signal Score >= 60
+      // Auto-approve if Early Signal Score >= 60: add to directory
       if (score >= 60) {
         autoApproved = true
+
+        // Mark submission approved
         await db
           .from('submissions')
           .update({ status: 'approved' })
           .eq('id', submission.id)
+
+        // Upsert the repo into the directory
+        const { data: upsertedRepo, error: repoError } = await db
+          .from('repos')
+          .upsert(
+            {
+              github_id: repoData.id,
+              name: repoData.name,
+              owner: repoData.owner.login,
+              description: repoData.description,
+              stars: repoData.stargazers_count,
+              forks: repoData.forks_count,
+              contributors,
+              language: repoData.language,
+              url: repoData.html_url,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'github_id' }
+          )
+          .select('id')
+          .single()
+
+        // Enrich with Claude so summary appears in the directory immediately
+        if (!repoError && upsertedRepo) {
+          await enrichRepo(
+            upsertedRepo.id,
+            {
+              github_id: repoData.id,
+              name: repoData.name,
+              owner: repoData.owner.login,
+              description: repoData.description,
+              stars: repoData.stargazers_count,
+              forks: repoData.forks_count,
+              contributors,
+              language: repoData.language,
+            },
+            score,
+            true // force refresh — brand new submission
+          )
+        }
       }
     }
   } catch (err) {
@@ -136,14 +187,3 @@ export async function POST(request: NextRequest) {
       : `Thanks for submitting ${owner}/${repo}. We'll review it and be in touch at ${emailStr} about listing options.`,
   }, { status: 201 })
 }
-
-// SQL to create the submissions table (run in Supabase SQL editor):
-//
-// CREATE TABLE IF NOT EXISTS submissions (
-//   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-//   repo_url TEXT NOT NULL,
-//   email TEXT NOT NULL,
-//   note TEXT,
-//   status TEXT NOT NULL DEFAULT 'pending',
-//   submitted_at TIMESTAMPTZ DEFAULT now()
-// );
