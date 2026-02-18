@@ -35,25 +35,6 @@
   --score-low: #6b7280;
 }
 
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --background: #f5f4ef;
-    --background-elevated: #eceae4;
-    --background-card: #e8e6e0;
-    --border: #cccac0;
-    --border-subtle: #d8d6ce;
-    --foreground: #1c1c2e;
-    --foreground-muted: #4e4e72;
-    --foreground-subtle: #9090a8;
-    --accent: #5553d4;
-    --accent-hover: #4442c0;
-    --accent-subtle: #eeeeff;
-    --score-high: #16a34a;
-    --score-mid: #d97706;
-    --score-low: #6b7280;
-  }
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-background-elevated: var(--background-elevated);

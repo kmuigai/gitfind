@@ -8,7 +8,7 @@ function getInitialTheme(): Theme {
   if (typeof window === 'undefined') return 'dark'
   const saved = localStorage.getItem('gitfind-theme') as Theme | null
   if (saved === 'dark' || saved === 'light') return saved
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+  return 'dark'
 }
 
 export default function ThemeToggle() {

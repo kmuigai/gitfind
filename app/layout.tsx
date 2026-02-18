@@ -68,7 +68,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var s=localStorage.getItem('gitfind-theme');if(s==='dark'||s==='light'){document.documentElement.setAttribute('data-theme',s);}else if(window.matchMedia('(prefers-color-scheme: light)').matches){document.documentElement.setAttribute('data-theme','light');}else{document.documentElement.setAttribute('data-theme','dark');}})();`,
+            __html: `(function(){var s=localStorage.getItem('gitfind-theme');document.documentElement.setAttribute('data-theme',(s==='light'||s==='dark')?s:'dark');})();`,
           }}
         />
       </head>
