@@ -1,0 +1,50 @@
+name: GitFind Data Pipeline
+
+on:
+  # Run nightly at midnight UTC
+  schedule:
+    - cron: '0 0 * * *'
+  # Allow manual trigger from the GitHub Actions UI
+  workflow_dispatch:
+
+jobs:
+  run-pipeline:
+    name: Fetch, Score & Enrich Repos
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install tsx (TypeScript runner)
+        run: npm install -g tsx
+
+      - name: Run pipeline
+        run: npx tsx scripts/pipeline.ts
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITFIND_GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+# Secrets to add in GitHub → repo Settings → Secrets and variables → Actions:
+#
+#   NEXT_PUBLIC_SUPABASE_URL      — your Supabase project URL
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY — your Supabase anon (public) key
+#   SUPABASE_SERVICE_ROLE_KEY     — your Supabase service role (private) key
+#   GITFIND_GITHUB_TOKEN          — your GitHub PAT (scope: public_repo)
+#   ANTHROPIC_API_KEY             — your Claude API key
+#
+# Note: GITFIND_GITHUB_TOKEN is used instead of GITHUB_TOKEN because GitHub
+# automatically populates GITHUB_TOKEN with a limited-scope token that cannot
+# be overridden. Using a custom secret name avoids this conflict.

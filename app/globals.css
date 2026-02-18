@@ -1,26 +1,83 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* GitFind dark-mode-first palette */
+  --background: #0a0a0f;
+  --background-elevated: #111118;
+  --background-card: #14141c;
+  --border: #1e1e2e;
+  --border-subtle: #16161f;
+  --foreground: #e8e8f0;
+  --foreground-muted: #7a7a9a;
+  --foreground-subtle: #4a4a6a;
+  --accent: #6c6af6;
+  --accent-hover: #5a58e8;
+  --accent-subtle: #1a1a3a;
+  --score-high: #22c55e;
+  --score-mid: #f59e0b;
+  --score-low: #6b7280;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-elevated: var(--background-elevated);
+  --color-background-card: var(--background-card);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
   --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-subtle: var(--foreground-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-score-high: var(--score-high);
+  --color-score-mid: var(--score-mid);
+  --color-score-low: var(--score-low);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--foreground-subtle);
+}
+
+/* Selection */
+::selection {
+  background: var(--accent-subtle);
+  color: var(--foreground);
+}
+
+/* Focus visible */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
