@@ -7,7 +7,8 @@
 // Environment variables required:
 //   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GITHUB_TOKEN, ANTHROPIC_API_KEY
 
-import 'dotenv/config'
+import { config } from 'dotenv'
+config({ path: '.env.local' })
 import {
   searchReposByCategory,
   getStarVelocity,
