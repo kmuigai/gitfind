@@ -3,9 +3,12 @@
 // Writes only to `tool_contributions` (+ minimal `repos` rows for FK).
 //
 // Run: npx tsx scripts/tool-scan.ts
+// Run with --force to re-scan repos already scanned this month
 
 import { config } from 'dotenv'
 config({ path: '.env.local' })
+
+const forceRescan = process.argv.includes('--force')
 
 function log(msg: string): void {
   const timestamp = new Date().toISOString().replace('T', ' ').split('.')[0]
@@ -111,17 +114,19 @@ async function main(): Promise<void> {
 
         const repoId = upsertedRepo.id
 
-        // Check if already scanned this month
-        const { data: existing } = await db
-          .from('tool_contributions')
-          .select('id')
-          .eq('repo_id', repoId)
-          .eq('month', currentMonth)
-          .limit(1)
+        // Check if already scanned this month (skip unless --force)
+        if (!forceRescan) {
+          const { data: existing } = await db
+            .from('tool_contributions')
+            .select('id')
+            .eq('repo_id', repoId)
+            .eq('month', currentMonth)
+            .limit(1)
 
-        if (existing && existing.length > 0) {
-          totalSkipped++
-          continue
+          if (existing && existing.length > 0) {
+            totalSkipped++
+            continue
+          }
         }
 
         // Scan for Co-Authored-By

@@ -416,7 +416,7 @@ export async function getCoAuthoredByTools(
     for (const entry of commits) {
       const message = entry.commit.message
       const date = entry.commit.author.date
-      const month = date.slice(0, 7) // 'YYYY-MM'
+      const month = date.slice(0, 10) // 'YYYY-MM-DD'
 
       // Look for Co-Authored-By lines
       const coAuthorLines = message.match(/Co-Authored-By:\s*.+/gi)

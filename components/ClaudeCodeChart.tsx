@@ -11,7 +11,7 @@ import {
 } from 'recharts'
 
 interface ChartData {
-  month: string
+  date: string
   claude_code: number
 }
 
@@ -19,10 +19,16 @@ interface ClaudeCodeChartProps {
   data: ChartData[]
 }
 
-function formatMonth(month: string): string {
-  const [year, m] = month.split('-')
+function formatDate(date: string): string {
+  const [year, m, d] = date.split('-')
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return `${months[parseInt(m, 10) - 1]} ${year?.slice(2)}`
+  return `${months[parseInt(m, 10) - 1]} ${parseInt(d, 10)}`
+}
+
+function formatDateFull(date: string): string {
+  const [year, m, d] = date.split('-')
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${months[parseInt(m, 10) - 1]} ${parseInt(d, 10)}, ${year}`
 }
 
 export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
@@ -30,8 +36,12 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
 
   const formatted = data.map((d) => ({
     ...d,
-    label: formatMonth(d.month),
+    label: formatDate(d.date),
+    fullLabel: formatDateFull(d.date),
   }))
+
+  // Show ~10 tick labels max to avoid overlap
+  const tickInterval = Math.max(1, Math.floor(formatted.length / 10))
 
   return (
     <div className="h-64 w-full">
@@ -47,6 +57,7 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
             tick={{ fontSize: 11, fill: 'var(--foreground-subtle)' }}
             axisLine={{ stroke: 'var(--border)' }}
             tickLine={false}
+            interval={tickInterval}
           />
           <YAxis
             tick={{ fontSize: 11, fill: 'var(--foreground-subtle)' }}
@@ -62,7 +73,10 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
               fontSize: '12px',
               color: 'var(--foreground)',
             }}
-            labelFormatter={(label) => String(label)}
+            labelFormatter={(_label, payload) => {
+              const item = payload?.[0]?.payload as { fullLabel?: string } | undefined
+              return item?.fullLabel ?? String(_label)
+            }}
             formatter={(value: number | undefined) => [value ?? 0, 'Commits with Claude Code']}
           />
           <Line
@@ -70,8 +84,8 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
             dataKey="claude_code"
             stroke="var(--accent)"
             strokeWidth={2}
-            dot={{ r: 3, fill: 'var(--accent)' }}
-            activeDot={{ r: 5, fill: 'var(--accent)' }}
+            dot={false}
+            activeDot={{ r: 4, fill: 'var(--accent)' }}
           />
         </LineChart>
       </ResponsiveContainer>

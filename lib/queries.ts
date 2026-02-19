@@ -137,33 +137,46 @@ export async function getAllReposForSitemap(): Promise<
   return (data ?? []) as unknown as Array<{ owner: string; name: string; updated_at: string }>
 }
 
-// Aggregate tool contributions by month for the chart
-export async function getToolContributionsByMonth(): Promise<
-  Array<{ month: string; claude_code: number }>
+// Fetch daily Claude Code commit data for the chart
+// Uses BigQuery aggregate data (from _gitfind/_bigquery_aggregate placeholder repo)
+export async function getToolContributionsByDay(): Promise<
+  Array<{ date: string; claude_code: number }>
 > {
-  const { data, error } = await supabase
+  // Find the BigQuery placeholder repo
+  const { data: placeholder } = await supabase
+    .from('repos')
+    .select('id')
+    .eq('owner', '_gitfind')
+    .eq('name', '_bigquery_aggregate')
+    .maybeSingle()
+
+  const placeholderId = placeholder ? (placeholder as unknown as { id: string }).id : null
+
+  // If we have BigQuery data, use it (comprehensive); otherwise fall back to per-repo API data
+  const query = supabase
     .from('tool_contributions')
-    .select('tool_name, month, commit_count')
+    .select('month, commit_count')
     .eq('tool_name', 'Claude Code')
+    .like('month', '____-__-__') // Only daily entries (YYYY-MM-DD)
     .order('month', { ascending: true })
+
+  if (placeholderId) {
+    query.eq('repo_id', placeholderId)
+  }
+
+  const { data, error } = await query
 
   if (error || !data) return []
 
   const typedData = data as unknown as Array<{
-    tool_name: string
     month: string
     commit_count: number
   }>
 
-  // Aggregate commit counts by month across all repos
-  const monthMap = new Map<string, number>()
-  for (const row of typedData) {
-    monthMap.set(row.month, (monthMap.get(row.month) ?? 0) + row.commit_count)
-  }
-
-  return Array.from(monthMap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, claude_code]) => ({ month, claude_code }))
+  return typedData.map((row) => ({
+    date: row.month,
+    claude_code: row.commit_count,
+  }))
 }
 
 // Join repos with enrichments, preserving enrichment score ordering

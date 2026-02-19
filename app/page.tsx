@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getTopRepos, getToolContributionsByMonth } from '@/lib/queries'
+import { getTopRepos, getToolContributionsByDay } from '@/lib/queries'
 import HeroAnimation from '@/components/HeroAnimation'
 import ProjectCard from '@/components/ProjectCard'
 import SearchBar from '@/components/SearchBar'
@@ -29,7 +29,7 @@ const CATEGORIES = [
 export default async function HomePage() {
   const [topProjects, toolData] = await Promise.all([
     getTopRepos(6),
-    getToolContributionsByMonth(),
+    getToolContributionsByDay(),
   ])
 
   return (
