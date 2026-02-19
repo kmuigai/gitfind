@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   LineChart,
   Line,
@@ -60,14 +60,25 @@ function getMidMonthTicks(data: Array<{ date: string }>, everyOther: boolean): n
 }
 
 export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
-  const [isMobile, setIsMobile] = useState(false)
+  const [hasAnimated, setHasAnimated] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
+  // Trigger animation once when chart scrolls into view
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 640)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
+    const el = containerRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasAnimated) {
+          setHasAnimated(true)
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.3 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasAnimated])
 
   if (data.length < 2) return null
 
@@ -82,7 +93,7 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
   const ticks = getMidMonthTicks(data, true)
 
   return (
-    <div className="h-72 w-full sm:h-80">
+    <div ref={containerRef} className="h-72 w-full sm:h-80">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={formatted} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
           <CartesianGrid
@@ -133,6 +144,10 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 4, fill: 'var(--accent)' }}
+            isAnimationActive={hasAnimated}
+            animationBegin={0}
+            animationDuration={2000}
+            animationEasing="ease-out"
           />
         </LineChart>
       </ResponsiveContainer>
