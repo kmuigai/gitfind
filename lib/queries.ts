@@ -137,6 +137,35 @@ export async function getAllReposForSitemap(): Promise<
   return (data ?? []) as unknown as Array<{ owner: string; name: string; updated_at: string }>
 }
 
+// Aggregate tool contributions by month for the chart
+export async function getToolContributionsByMonth(): Promise<
+  Array<{ month: string; claude_code: number }>
+> {
+  const { data, error } = await supabase
+    .from('tool_contributions')
+    .select('tool_name, month, commit_count')
+    .eq('tool_name', 'Claude Code')
+    .order('month', { ascending: true })
+
+  if (error || !data) return []
+
+  const typedData = data as unknown as Array<{
+    tool_name: string
+    month: string
+    commit_count: number
+  }>
+
+  // Aggregate commit counts by month across all repos
+  const monthMap = new Map<string, number>()
+  for (const row of typedData) {
+    monthMap.set(row.month, (monthMap.get(row.month) ?? 0) + row.commit_count)
+  }
+
+  return Array.from(monthMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, claude_code]) => ({ month, claude_code }))
+}
+
 // Join repos with enrichments, preserving enrichment score ordering
 function joinReposAndEnrichments(
   repos: RawRepo[],

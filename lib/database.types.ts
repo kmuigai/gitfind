@@ -62,6 +62,7 @@ export type Database = {
           why_it_matters: string
           category: string
           early_signal_score: number
+          score_breakdown: Json | null
           scored_at: string
         }
         Insert: {
@@ -71,6 +72,7 @@ export type Database = {
           why_it_matters: string
           category: string
           early_signal_score: number
+          score_breakdown?: Json | null
           scored_at?: string
         }
         Update: {
@@ -80,6 +82,7 @@ export type Database = {
           why_it_matters?: string
           category?: string
           early_signal_score?: number
+          score_breakdown?: Json | null
           scored_at?: string
         }
         Relationships: [
@@ -158,6 +161,38 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_contributions: {
+        Row: {
+          id: string
+          repo_id: string
+          tool_name: string
+          commit_count: number
+          month: string
+        }
+        Insert: {
+          id?: string
+          repo_id: string
+          tool_name: string
+          commit_count?: number
+          month: string
+        }
+        Update: {
+          id?: string
+          repo_id?: string
+          tool_name?: string
+          commit_count?: number
+          month?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'tool_contributions_repo_id_fkey'
+            columns: ['repo_id']
+            isOneToOne: false
+            referencedRelation: 'repos'
+            referencedColumns: ['id']
+          }
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -180,6 +215,7 @@ export type Enrichment = Tables<'enrichments'>
 export type Category = Tables<'categories'>
 export type Subscriber = Tables<'subscribers'>
 export type Submission = Tables<'submissions'>
+export type ToolContribution = Tables<'tool_contributions'>
 
 export type RepoWithEnrichment = Repo & {
   enrichment: Enrichment | null

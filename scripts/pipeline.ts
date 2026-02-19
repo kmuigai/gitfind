@@ -52,7 +52,7 @@ function logError(msg: string, err: unknown): void {
 async function main(): Promise<void> {
   // Dynamic imports — evaluated after dotenv.config() has run
   const [
-    { searchReposByCategory, getStarVelocity, getContributorCount, getCommitFrequency, getReadme, cleanReadme },
+    { searchReposByCategory, getStarVelocity, getContributorCount, getCommitFrequency, getReadme, cleanReadme, getCoAuthoredByTools },
     { calculateScore },
     { getHNMentions },
     { enrichRepo },
@@ -86,7 +86,7 @@ async function main(): Promise<void> {
 
       const readmeExcerpt = rawReadme ? cleanReadme(rawReadme) : undefined
 
-      const { score } = calculateScore({
+      const { score, breakdown } = calculateScore({
         stars: repoData.stars,
         stars_7d: starVelocity.stars_7d,
         stars_30d: starVelocity.stars_30d,
@@ -148,14 +148,38 @@ async function main(): Promise<void> {
           language: repoData.language,
           topics: repoData.topics,
           readme_excerpt: readmeExcerpt || undefined,
-        }, score)
+        }, score, breakdown)
         log(`  ${label} enriched ✓`)
       } else {
         await db
           .from('enrichments')
-          .update({ early_signal_score: score, scored_at: new Date().toISOString() })
+          .update({
+            early_signal_score: score,
+            score_breakdown: JSON.parse(JSON.stringify(breakdown)),
+            scored_at: new Date().toISOString(),
+          })
           .eq('repo_id', repoId)
         log(`  ${label} score updated (no re-enrichment needed)`)
+      }
+
+      // Extract AI tool contributions from Co-Authored-By headers
+      const toolContributions = await getCoAuthoredByTools(owner, repoName)
+      const months = Object.keys(toolContributions)
+      if (months.length > 0) {
+        for (const month of months) {
+          for (const [toolName, commitCount] of Object.entries(toolContributions[month])) {
+            await db.from('tool_contributions').upsert(
+              {
+                repo_id: repoId,
+                tool_name: toolName,
+                commit_count: commitCount,
+                month,
+              },
+              { onConflict: 'repo_id,tool_name,month' }
+            )
+          }
+        }
+        log(`  ${label} tool contributions recorded (${months.length} months)`)
       }
     } catch (err) {
       logError(`Failed to process ${label}`, err)

@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS enrichments (
   why_it_matters TEXT NOT NULL,
   category TEXT NOT NULL,
   early_signal_score INTEGER NOT NULL DEFAULT 0,
+  score_breakdown JSONB,
   scored_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (repo_id)
 );
@@ -54,6 +55,15 @@ CREATE TABLE IF NOT EXISTS submissions (
   submitted_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS tool_contributions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  repo_id UUID NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  tool_name TEXT NOT NULL,
+  commit_count INTEGER NOT NULL DEFAULT 0,
+  month TEXT NOT NULL, -- format: '2025-06'
+  UNIQUE (repo_id, tool_name, month)
+);
+
 -- ============================================================
 -- INDEXES
 -- ============================================================
@@ -66,6 +76,9 @@ CREATE INDEX IF NOT EXISTS repos_fts_idx
 CREATE INDEX IF NOT EXISTS enrichments_score_idx ON enrichments(early_signal_score DESC);
 CREATE INDEX IF NOT EXISTS enrichments_repo_id_idx ON enrichments(repo_id);
 CREATE INDEX IF NOT EXISTS enrichments_category_idx ON enrichments(category);
+
+-- Tool contribution aggregation
+CREATE INDEX IF NOT EXISTS tool_contributions_tool_month_idx ON tool_contributions(tool_name, month);
 
 -- ============================================================
 -- AUTO-UPDATE updated_at TRIGGER
@@ -109,11 +122,13 @@ ALTER TABLE enrichments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tool_contributions ENABLE ROW LEVEL SECURITY;
 
 -- Public read access for directory data
 CREATE POLICY "Public can read repos" ON repos FOR SELECT USING (true);
 CREATE POLICY "Public can read enrichments" ON enrichments FOR SELECT USING (true);
 CREATE POLICY "Public can read categories" ON categories FOR SELECT USING (true);
+CREATE POLICY "Public can read tool_contributions" ON tool_contributions FOR SELECT USING (true);
 
 -- No public write access — pipeline uses service role key (bypasses RLS)
 -- Newsletter signup writes via API route using service role key

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getRepo } from '@/lib/queries'
 import NewsletterSignup from '@/components/NewsletterSignup'
+import ScoreBreakdown from '@/components/ScoreBreakdown'
 
 export const revalidate = 3600
 
@@ -41,33 +42,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-function ScoreBar({ score }: { score: number }) {
-  const color =
-    score >= 70 ? 'bg-[var(--score-high)]' : score >= 40 ? 'bg-[var(--score-mid)]' : 'bg-[var(--score-low)]'
-  const textColor =
-    score >= 70 ? 'text-[var(--score-high)]' : score >= 40 ? 'text-[var(--score-mid)]' : 'text-[var(--score-low)]'
+interface ScoreBreakdownData {
+  star_velocity_score: number
+  contributor_ratio_score: number
+  fork_velocity_score: number
+  mention_velocity_score: number
+  commit_frequency_score: number
+  manipulation_penalty: number
+  raw_score: number
+  final_score: number
+}
 
-  return (
-    <div className="space-y-2">
-      <div className="flex items-baseline justify-between">
-        <span className="text-xs text-[var(--foreground-muted)]">Early Signal Score</span>
-        <span className={`font-mono text-3xl font-bold ${textColor}`}>{score}</span>
-      </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--background-elevated)]">
-        <div
-          className={`h-full rounded-full transition-all ${color}`}
-          style={{ width: `${score}%` }}
-        />
-      </div>
-      <p className="text-xs text-[var(--foreground-subtle)]">
-        {score >= 70
-          ? 'Strong early signal — high likelihood of breaking out'
-          : score >= 40
-            ? 'Moderate signal — worth watching'
-            : 'Early stage — limited signal data'}
-      </p>
-    </div>
-  )
+function parseBreakdown(raw: unknown): ScoreBreakdownData | null {
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as Record<string, unknown>
+  if (typeof obj.star_velocity_score !== 'number') return null
+  return obj as unknown as ScoreBreakdownData
 }
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
@@ -179,7 +169,7 @@ export default async function ProjectPage({ params }: Props) {
             <div className="space-y-4">
               {/* Score */}
               <div className="rounded-xl border border-[var(--border)] bg-[var(--background-card)] p-5">
-                <ScoreBar score={score} />
+                <ScoreBreakdown score={score} breakdown={parseBreakdown(enrichment?.score_breakdown)} />
               </div>
 
               {/* Stats */}

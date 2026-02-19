@@ -6,6 +6,7 @@ interface ProjectCardProps {
 }
 
 function ScoreBadge({ score }: { score: number }) {
+  const tier = score >= 70 ? 'Trending' : score >= 40 ? 'Rising' : 'Watch'
   const color =
     score >= 70
       ? 'text-[var(--score-high)] border-[var(--score-high)]/30 bg-[var(--score-high)]/5'
@@ -15,11 +16,11 @@ function ScoreBadge({ score }: { score: number }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-mono font-medium ${color}`}
-      title="Early Signal Score — GitFind's proprietary score predicting which projects are about to blow up"
+      className={`inline-flex flex-col items-center rounded-full border px-2.5 py-1 ${color}`}
+      title="Ranked by star growth, contributor activity, and community buzz"
     >
-      <span className="opacity-70">ESS</span>
-      <span>{score}</span>
+      <span className="font-mono text-sm font-bold leading-tight">{score}</span>
+      <span className="text-[10px] font-medium leading-tight opacity-80">{tier}</span>
     </span>
   )
 }

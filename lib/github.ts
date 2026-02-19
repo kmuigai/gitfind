@@ -55,7 +55,7 @@ function githubHeaders(): Record<string, string> {
   return headers
 }
 
-async function githubFetch<T>(path: string, accept?: string): Promise<T> {
+export async function githubFetch<T>(path: string, accept?: string): Promise<T> {
   const headers = githubHeaders()
   if (accept) headers['Accept'] = accept
 
@@ -379,4 +379,62 @@ export function cleanReadme(raw: string): string {
   const result = cleaned.join('\n').trim()
   const excerpt = extractIntro(result)
   return excerpt.length >= 100 ? excerpt : ''
+}
+
+// Known AI coding tool patterns in Co-Authored-By headers
+const TOOL_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
+  { pattern: /claude/i, name: 'Claude Code' },
+  { pattern: /copilot/i, name: 'GitHub Copilot' },
+  { pattern: /cursor/i, name: 'Cursor' },
+  { pattern: /codeium/i, name: 'Codeium' },
+]
+
+interface CommitEntry {
+  commit: {
+    message: string
+    author: { date: string }
+  }
+}
+
+export interface ToolContributionsByMonth {
+  [month: string]: Record<string, number>
+}
+
+// Parse Co-Authored-By headers from recent commits to identify AI tool usage
+// Returns contributions grouped by month → tool_name → commit_count
+export async function getCoAuthoredByTools(
+  owner: string,
+  repo: string
+): Promise<ToolContributionsByMonth> {
+  try {
+    const commits = await githubFetch<CommitEntry[]>(
+      `/repos/${owner}/${repo}/commits?per_page=100`
+    )
+
+    const result: ToolContributionsByMonth = {}
+
+    for (const entry of commits) {
+      const message = entry.commit.message
+      const date = entry.commit.author.date
+      const month = date.slice(0, 7) // 'YYYY-MM'
+
+      // Look for Co-Authored-By lines
+      const coAuthorLines = message.match(/Co-Authored-By:\s*.+/gi)
+      if (!coAuthorLines) continue
+
+      for (const line of coAuthorLines) {
+        for (const { pattern, name } of TOOL_PATTERNS) {
+          if (pattern.test(line)) {
+            if (!result[month]) result[month] = {}
+            result[month][name] = (result[month][name] ?? 0) + 1
+            break // One match per Co-Authored-By line
+          }
+        }
+      }
+    }
+
+    return result
+  } catch {
+    return {}
+  }
 }

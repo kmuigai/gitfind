@@ -7,6 +7,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { createServiceClient } from './supabase'
+import type { ScoreBreakdown } from './score'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -106,7 +107,8 @@ export async function enrichRepo(
   repoId: string,
   repo: RepoData,
   score: number,
-  forceRefresh = false
+  breakdown?: ScoreBreakdown,
+  forceRefresh = false,
 ): Promise<EnrichmentResult> {
   const db = createServiceClient()
 
@@ -149,6 +151,7 @@ export async function enrichRepo(
       why_it_matters: result.why_it_matters,
       category: result.category,
       early_signal_score: score,
+      score_breakdown: breakdown ? JSON.parse(JSON.stringify(breakdown)) : null,
       scored_at: new Date().toISOString(),
     },
     { onConflict: 'repo_id' }

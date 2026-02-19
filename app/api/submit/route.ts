@@ -167,7 +167,8 @@ export async function POST(request: NextRequest) {
               language: repoData.language,
             },
             score,
-            true // force refresh — brand new submission
+            undefined, // breakdown — not available in submit flow
+            true, // force refresh — brand new submission
           )
         }
       }
