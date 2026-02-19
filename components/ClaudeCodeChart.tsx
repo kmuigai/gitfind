@@ -44,9 +44,9 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
   const tickInterval = Math.max(1, Math.floor(formatted.length / 10))
 
   return (
-    <div className="h-64 w-full">
+    <div className="h-72 w-full sm:h-80">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={formatted} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <LineChart data={formatted} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
           <CartesianGrid
             strokeDasharray="3 3"
             stroke="var(--border)"
@@ -58,26 +58,31 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
             axisLine={{ stroke: 'var(--border)' }}
             tickLine={false}
             interval={tickInterval}
+            angle={-45}
+            textAnchor="end"
+            height={50}
           />
           <YAxis
             tick={{ fontSize: 11, fill: 'var(--foreground-subtle)' }}
             axisLine={false}
             tickLine={false}
-            width={40}
+            width={44}
+            tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)}
           />
           <Tooltip
             contentStyle={{
               backgroundColor: 'var(--background-card)',
               border: '1px solid var(--border)',
               borderRadius: '8px',
-              fontSize: '12px',
+              fontSize: '13px',
               color: 'var(--foreground)',
+              padding: '8px 12px',
             }}
             labelFormatter={(_label, payload) => {
               const item = payload?.[0]?.payload as { fullLabel?: string } | undefined
               return item?.fullLabel ?? String(_label)
             }}
-            formatter={(value: number | undefined) => [value ?? 0, 'Commits with Claude Code']}
+            formatter={(value: number | undefined) => [(value ?? 0).toLocaleString(), 'Commits with Claude Code']}
           />
           <Line
             type="monotone"
