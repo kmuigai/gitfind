@@ -60,6 +60,7 @@ Goal: GitHub data flowing into PostgreSQL automatically, scored and enriched.
 - Commit after every completed task with a descriptive message
 - No schema migrations without showing me the plan first
 - If something is unclear, ask — don't guess
+- **Never add `Co-Authored-By` or any Claude attribution lines to git commits**
 
 ## Commands
 - `npm run dev` — local dev server
