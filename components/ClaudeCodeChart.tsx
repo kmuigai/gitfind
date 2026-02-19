@@ -32,9 +32,31 @@ function formatDateFull(date: string): string {
   return `${MONTHS[parseInt(m, 10) - 1]} ${parseInt(d, 10)}, ${year}`
 }
 
-function formatMonth(date: string): string {
-  const [, m] = date.split('-')
-  return MONTHS[parseInt(m, 10) - 1]
+// Get "Jan '25" style label for a date string
+function formatMonthYear(date: string): string {
+  const [year, m] = date.split('-')
+  return `${MONTHS[parseInt(m, 10) - 1]} '${year.slice(2)}`
+}
+
+// Find the index at the middle of each month's data, optionally skipping every other month
+function getMidMonthTicks(data: Array<{ date: string }>, everyOther: boolean): number[] {
+  const monthGroups = new Map<string, number[]>()
+  data.forEach((d, i) => {
+    const key = d.date.slice(0, 7) // "2025-01"
+    const group = monthGroups.get(key)
+    if (group) group.push(i)
+    else monthGroups.set(key, [i])
+  })
+
+  const ticks: number[] = []
+  let count = 0
+  for (const [, indices] of monthGroups) {
+    if (!everyOther || count >= 2 && count % 2 === 0) {
+      ticks.push(indices[Math.floor(indices.length / 2)])
+    }
+    count++
+  }
+  return ticks
 }
 
 export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
@@ -49,28 +71,15 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
 
   if (data.length < 2) return null
 
-  const formatted = data.map((d) => ({
+  const formatted = data.map((d, i) => ({
     ...d,
-    label: isMobile ? formatMonth(d.date) : formatDate(d.date),
+    idx: i,
+    label: formatDate(d.date),
     fullLabel: formatDateFull(d.date),
   }))
 
-  // On mobile: show every other month to avoid crowding
-  // On desktop: show ~10 evenly spaced ticks
-  const tickIndices: number[] = []
-  if (isMobile) {
-    let lastMonth = ''
-    let monthCount = 0
-    formatted.forEach((d, i) => {
-      const month = d.date.slice(0, 7)
-      if (month !== lastMonth) {
-        if (monthCount % 2 === 0) tickIndices.push(i)
-        monthCount++
-        lastMonth = month
-      }
-    })
-  }
-  const tickInterval = isMobile ? undefined : Math.max(1, Math.floor(formatted.length / 10))
+  // Both mobile and desktop: every other month, centered on ~15th
+  const ticks = getMidMonthTicks(data, true)
 
   return (
     <div className="h-72 w-full sm:h-80">
@@ -82,14 +91,18 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
             vertical={false}
           />
           <XAxis
-            dataKey="label"
+            dataKey="idx"
+            type="number"
+            domain={[0, formatted.length - 1]}
+            ticks={ticks}
+            tickFormatter={(idx: number) => {
+              const d = formatted[idx]
+              return d ? formatMonthYear(d.date) : ''
+            }}
             tick={{ fontSize: 11, fill: 'var(--foreground-subtle)' }}
             axisLine={{ stroke: 'var(--border)' }}
             tickLine={false}
-            {...(isMobile
-              ? { ticks: tickIndices.map((i) => formatted[i].label), interval: 0, height: 30 }
-              : { interval: tickInterval, height: 30 }
-            )}
+            height={30}
           />
           <YAxis
             tick={{ fontSize: 11, fill: 'var(--foreground-subtle)' }}
