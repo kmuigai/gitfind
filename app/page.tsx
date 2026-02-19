@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getTopRepos } from '@/lib/queries'
+import { getTopRepos, getToolContributionsByMonth } from '@/lib/queries'
 import HeroAnimation from '@/components/HeroAnimation'
 import ProjectCard from '@/components/ProjectCard'
 import SearchBar from '@/components/SearchBar'
 import NewsletterSignup from '@/components/NewsletterSignup'
+import ClaudeCodeChart from '@/components/ClaudeCodeChart'
 export const metadata: Metadata = {
   title: 'GitFind — Rising GitHub Projects for Product People',
   description:
@@ -26,13 +27,16 @@ const CATEGORIES = [
 ]
 
 export default async function HomePage() {
-  const topProjects = await getTopRepos(6)
+  const [topProjects, toolData] = await Promise.all([
+    getTopRepos(6),
+    getToolContributionsByMonth(),
+  ])
 
   return (
     <div>
       {/* Hero */}
       <section className="relative border-b border-[var(--border)] px-4 pb-12 pt-12 sm:px-6 sm:pt-16">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-7xl">
           {/* Animated headline */}
           <HeroAnimation />
 
@@ -76,6 +80,23 @@ export default async function HomePage() {
         </div>
       </section>
 
+
+      {/* Claude Code Growth Chart */}
+      {toolData.length >= 2 && (
+        <section className="border-t border-[var(--border)] px-4 py-12 sm:px-6">
+          <div className="mx-auto max-w-4xl">
+            <h2 className="text-lg font-semibold text-[var(--foreground)]">
+              AI is writing more code every month
+            </h2>
+            <p className="mt-1 text-sm text-[var(--foreground-muted)]">
+              Claude Code contributions across tracked repositories
+            </p>
+            <div className="mt-6">
+              <ClaudeCodeChart data={toolData} />
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Newsletter */}
       <NewsletterSignup />

@@ -79,7 +79,7 @@ export default function RootLayout({
             {/* Logo */}
             <Link
               href="/"
-              className="flex items-center gap-2 font-mono text-sm font-semibold tracking-tighter text-[var(--foreground)] transition-opacity hover:opacity-80"
+              className="flex items-center gap-2 font-mono text-sm font-semibold tracking-[-0.06em] text-[var(--foreground)] transition-opacity hover:opacity-80"
             >
               <span className="text-[var(--accent)]">❯</span>
               <span>gitfind</span>
