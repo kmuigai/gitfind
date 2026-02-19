@@ -34,7 +34,7 @@ export interface CommitActivity {
 
 // Category → GitHub search topics mapping
 const CATEGORY_TOPICS: Record<string, string[]> = {
-  'ai-ml': ['machine-learning', 'llm', 'artificial-intelligence', 'deep-learning', 'generative-ai'],
+  'ai-ml': ['ai', 'machine-learning', 'llm', 'artificial-intelligence', 'deep-learning', 'generative-ai', 'assistant'],
   'developer-tools': ['developer-tools', 'cli', 'devtools', 'productivity', 'code-editor'],
   'security': ['security', 'cybersecurity', 'cryptography', 'penetration-testing', 'privacy'],
   'data-analytics': ['data-science', 'analytics', 'database', 'data-visualization', 'etl'],
@@ -113,8 +113,8 @@ export async function searchReposByCategory(categorySlug: string): Promise<GitHu
   const seen = new Set<number>()
   const repos: GitHubRepo[] = []
 
-  // Pick first 2 topics to avoid burning rate limit
-  for (const topic of topics.slice(0, 2)) {
+  // Pick first 3 topics per category (24 calls total, within budget)
+  for (const topic of topics.slice(0, 3)) {
     const query = encodeURIComponent(`topic:${topic} stars:>50 pushed:>${dateStr}`)
     const data = await githubFetch<GitHubSearchResult>(
       `/search/repositories?q=${query}&sort=stars&order=desc&per_page=30`
@@ -123,19 +123,7 @@ export async function searchReposByCategory(categorySlug: string): Promise<GitHu
     for (const item of data.items) {
       if (!seen.has(item.id)) {
         seen.add(item.id)
-        repos.push({
-          github_id: item.id,
-          name: item.name,
-          owner: item.owner.login,
-          description: item.description,
-          stars: item.stargazers_count,
-          forks: item.forks_count,
-          language: item.language,
-          url: item.html_url,
-          pushed_at: item.pushed_at,
-          created_at: item.created_at,
-          topics: item.topics ?? [],
-        })
+        repos.push(mapSearchItem(item))
       }
     }
 
@@ -145,6 +133,103 @@ export async function searchReposByCategory(categorySlug: string): Promise<GitHu
 
   // Return top 30 by star count
   return repos.sort((a, b) => b.stars - a.stars).slice(0, 30)
+}
+
+function mapSearchItem(item: GitHubSearchItem): GitHubRepo {
+  return {
+    github_id: item.id,
+    name: item.name,
+    owner: item.owner.login,
+    description: item.description,
+    stars: item.stargazers_count,
+    forks: item.forks_count,
+    language: item.language,
+    url: item.html_url,
+    pushed_at: item.pushed_at,
+    created_at: item.created_at,
+    topics: item.topics ?? [],
+  }
+}
+
+// Layer 2: Mid-tier repos (100–10k stars) pushed recently, segmented by language
+export async function searchTrendingMidTier(): Promise<GitHubRepo[]> {
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  const dateStr = sevenDaysAgo.toISOString().split('T')[0]
+
+  const TRACKED_LANGUAGES = ['Python', 'TypeScript', 'Rust', 'Go']
+  const excludeLangs = TRACKED_LANGUAGES.map((l) => `-language:${l}`).join(' ')
+
+  const queries = [
+    ...TRACKED_LANGUAGES.map(
+      (lang) => `stars:100..2000 pushed:>${dateStr} language:${lang}`
+    ),
+    `stars:100..2000 pushed:>${dateStr} ${excludeLangs}`,
+    `stars:2000..10000 pushed:>${dateStr}`,
+  ]
+
+  const seen = new Set<number>()
+  const repos: GitHubRepo[] = []
+
+  for (const q of queries) {
+    const query = encodeURIComponent(q)
+    const data = await githubFetch<GitHubSearchResult>(
+      `/search/repositories?q=${query}&sort=updated&order=desc&per_page=50`
+    )
+
+    for (const item of data.items) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id)
+        repos.push(mapSearchItem(item))
+      }
+    }
+
+    await new Promise((r) => setTimeout(r, 250))
+  }
+
+  return repos
+}
+
+// Layer 3: Brand-new repos with early traction
+export async function searchNewbornRockets(): Promise<GitHubRepo[]> {
+  const now = new Date()
+  const ninetyDaysAgo = new Date(now)
+  ninetyDaysAgo.setDate(now.getDate() - 90)
+  const thirtyDaysAgo = new Date(now)
+  thirtyDaysAgo.setDate(now.getDate() - 30)
+  const sevenDaysAgo = new Date(now)
+  sevenDaysAgo.setDate(now.getDate() - 7)
+
+  const date90 = ninetyDaysAgo.toISOString().split('T')[0]
+  const date30 = thirtyDaysAgo.toISOString().split('T')[0]
+  const date7 = sevenDaysAgo.toISOString().split('T')[0]
+
+  const queries = [
+    `created:>${date90} stars:50..500`,
+    `created:>${date90} stars:500..5000`,
+    `created:>${date30} stars:>20 pushed:>${date7}`,
+  ]
+
+  const seen = new Set<number>()
+  const repos: GitHubRepo[] = []
+
+  for (const q of queries) {
+    const query = encodeURIComponent(q)
+    const data = await githubFetch<GitHubSearchResult>(
+      `/search/repositories?q=${query}&sort=stars&order=desc&per_page=50`
+    )
+
+    for (const item of data.items) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id)
+        repos.push(mapSearchItem(item))
+      }
+    }
+
+    await new Promise((r) => setTimeout(r, 250))
+  }
+
+  return repos
 }
 
 interface StargazerEntry {

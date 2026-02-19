@@ -52,7 +52,7 @@ function logError(msg: string, err: unknown): void {
 async function main(): Promise<void> {
   // Dynamic imports — evaluated after dotenv.config() has run
   const [
-    { searchReposByCategory, getStarVelocity, getContributorCount, getCommitFrequency, getReadme, cleanReadme, getCoAuthoredByTools },
+    { searchReposByCategory, searchTrendingMidTier, searchNewbornRockets, getStarVelocity, getContributorCount, getCommitFrequency, getReadme, cleanReadme, getCoAuthoredByTools },
     { calculateScore },
     { getHNMentions },
     { enrichRepo },
@@ -232,32 +232,80 @@ async function main(): Promise<void> {
   log('=== GitFind Pipeline Starting ===')
 
   const db = createServiceClient()
-  let totalProcessed = 0
   let totalErrors = 0
 
+  // ── Phase 1: Discovery ──────────────────────────────────────────────
+  const discovered = new Map<number, Repo>()
+
+  // Layer 1: Category search (existing)
+  log('\n── Layer 1: Category Search ──')
   for (const categorySlug of CATEGORY_SLUGS) {
     const categoryName = CATEGORY_NAMES[categorySlug]
-    log(`\nFetching repos for category: ${categoryName}`)
-
     try {
       const repos = await searchReposByCategory(categorySlug)
-      log(`Found ${repos.length} repos in ${categoryName}`)
-
       for (const repo of repos) {
-        await processRepo(db, repo)
-        totalProcessed++
-        await new Promise((r) => setTimeout(r, 500))
+        if (!discovered.has(repo.github_id)) discovered.set(repo.github_id, repo)
       }
+      log(`  ${categoryName}: ${repos.length} repos`)
     } catch (err) {
       logError(`Failed to fetch repos for ${categoryName}`, err)
       totalErrors++
     }
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  log(`Layer 1 total: ${discovered.size} unique repos`)
 
-    log(`Completed ${categoryName}. Waiting before next category...`)
-    await new Promise((r) => setTimeout(r, 2000))
+  // Layer 2: Mid-tier velocity hunters
+  log('\n── Layer 2: Mid-Tier Velocity Hunters ──')
+  try {
+    const midTier = await searchTrendingMidTier()
+    let added = 0
+    for (const repo of midTier) {
+      if (!discovered.has(repo.github_id)) {
+        discovered.set(repo.github_id, repo)
+        added++
+      }
+    }
+    log(`Layer 2: ${midTier.length} found, ${added} new (${discovered.size} total unique)`)
+  } catch (err) {
+    logError('Layer 2 failed', err)
+    totalErrors++
+  }
+
+  // Layer 3: Newborn rockets
+  // Wait for search rate limit window to reset (30 req/min)
+  log('Waiting 60s for search rate limit window...')
+  await new Promise((r) => setTimeout(r, 60_000))
+  log('\n── Layer 3: Newborn Rockets ──')
+  try {
+    const newborn = await searchNewbornRockets()
+    let added = 0
+    for (const repo of newborn) {
+      if (!discovered.has(repo.github_id)) {
+        discovered.set(repo.github_id, repo)
+        added++
+      }
+    }
+    log(`Layer 3: ${newborn.length} found, ${added} new (${discovered.size} total unique)`)
+  } catch (err) {
+    logError('Layer 3 failed', err)
+    totalErrors++
+  }
+
+  log(`\n── Discovery complete: ${discovered.size} unique repos ──`)
+
+  // ── Phase 2: Processing ─────────────────────────────────────────────
+  log('\n── Phase 2: Processing ──')
+  let totalProcessed = 0
+
+  for (const repo of discovered.values()) {
+    await processRepo(db, repo)
+    totalProcessed++
+    await new Promise((r) => setTimeout(r, 500))
   }
 
   log(`\n=== Pipeline Complete ===`)
+  log(`Discovered: ${discovered.size} unique repos`)
   log(`Processed: ${totalProcessed} repos`)
   log(`Errors: ${totalErrors}`)
 }
