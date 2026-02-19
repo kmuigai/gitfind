@@ -152,12 +152,16 @@ export async function getToolContributionsByDay(): Promise<
 
   const placeholderId = placeholder ? (placeholder as unknown as { id: string }).id : null
 
+  // Exclude today (partial data would show a misleading drop)
+  const today = new Date().toISOString().slice(0, 10)
+
   // If we have BigQuery data, use it (comprehensive); otherwise fall back to per-repo API data
   const query = supabase
     .from('tool_contributions')
     .select('month, commit_count')
     .eq('tool_name', 'Claude Code')
     .like('month', '____-__-__') // Only daily entries (YYYY-MM-DD)
+    .lt('month', today)
     .order('month', { ascending: true })
 
   if (placeholderId) {
