@@ -86,19 +86,6 @@ async function main(): Promise<void> {
 
       const readmeExcerpt = rawReadme ? cleanReadme(rawReadme) : undefined
 
-      const { score, breakdown } = calculateScore({
-        stars: repoData.stars,
-        stars_7d: starVelocity.stars_7d,
-        stars_30d: starVelocity.stars_30d,
-        contributors: contributorCount,
-        forks: repoData.forks,
-        hn_mentions_7d: hnMentions.mentions_7d,
-        hn_mentions_30d: hnMentions.mentions_30d,
-        commits_30d: commitFrequency,
-      })
-
-      log(`  ${label} → score: ${score}`)
-
       const { data: upsertedRepo, error: repoError } = await db
         .from('repos')
         .upsert(
@@ -125,6 +112,47 @@ async function main(): Promise<void> {
       }
 
       const repoId = upsertedRepo.id
+
+      // Fetch snapshots from 7 and 14 days ago for acceleration signals
+      const today = new Date()
+      const date7dAgo = new Date(today)
+      date7dAgo.setDate(today.getDate() - 7)
+      const date14dAgo = new Date(today)
+      date14dAgo.setDate(today.getDate() - 14)
+
+      const [{ data: snap7d }, { data: snap14d }] = await Promise.all([
+        db.from('repo_snapshots')
+          .select('stars_7d, forks')
+          .eq('repo_id', repoId)
+          .eq('snapshot_date', date7dAgo.toISOString().split('T')[0])
+          .maybeSingle(),
+        db.from('repo_snapshots')
+          .select('stars_7d, forks')
+          .eq('repo_id', repoId)
+          .eq('snapshot_date', date14dAgo.toISOString().split('T')[0])
+          .maybeSingle(),
+      ])
+
+      // Derive fork deltas from snapshots
+      const forks_7d = snap7d ? repoData.forks - snap7d.forks : undefined
+      const forks_7d_prev = (snap7d && snap14d) ? snap7d.forks - snap14d.forks : undefined
+      const stars_7d_prev = snap7d ? snap7d.stars_7d : undefined
+
+      const { score, breakdown } = calculateScore({
+        stars: repoData.stars,
+        stars_7d: starVelocity.stars_7d,
+        stars_30d: starVelocity.stars_30d,
+        contributors: contributorCount,
+        forks: repoData.forks,
+        hn_mentions_7d: hnMentions.mentions_7d,
+        hn_mentions_30d: hnMentions.mentions_30d,
+        commits_30d: commitFrequency,
+        stars_7d_prev: stars_7d_prev ?? undefined,
+        forks_7d: forks_7d != null && forks_7d >= 0 ? forks_7d : undefined,
+        forks_7d_prev: forks_7d_prev != null && forks_7d_prev >= 0 ? forks_7d_prev : undefined,
+      })
+
+      log(`  ${label} → score: ${score}`)
 
       const { data: existing } = await db
         .from('enrichments')
@@ -180,6 +208,21 @@ async function main(): Promise<void> {
           }
         }
         log(`  ${label} tool contributions recorded (${months.length} months)`)
+      }
+
+      // Insert today's snapshot (ON CONFLICT DO NOTHING for re-run safety)
+      const { error: snapError } = await db.from('repo_snapshots').upsert(
+        {
+          repo_id: repoId,
+          snapshot_date: today.toISOString().split('T')[0],
+          stars: repoData.stars,
+          forks: repoData.forks,
+          stars_7d: starVelocity.stars_7d,
+        },
+        { onConflict: 'repo_id,snapshot_date', ignoreDuplicates: true }
+      )
+      if (snapError) {
+        logError(`Failed to insert snapshot for ${label}`, snapError)
       }
     } catch (err) {
       logError(`Failed to process ${label}`, err)

@@ -64,6 +64,16 @@ CREATE TABLE IF NOT EXISTS tool_contributions (
   UNIQUE (repo_id, tool_name, month)
 );
 
+CREATE TABLE IF NOT EXISTS repo_snapshots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  repo_id UUID NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  snapshot_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  stars INTEGER NOT NULL DEFAULT 0,
+  forks INTEGER NOT NULL DEFAULT 0,
+  stars_7d INTEGER NOT NULL DEFAULT 0,
+  UNIQUE (repo_id, snapshot_date)
+);
+
 -- ============================================================
 -- INDEXES
 -- ============================================================
@@ -79,6 +89,9 @@ CREATE INDEX IF NOT EXISTS enrichments_category_idx ON enrichments(category);
 
 -- Tool contribution aggregation
 CREATE INDEX IF NOT EXISTS tool_contributions_tool_month_idx ON tool_contributions(tool_name, month);
+
+-- Snapshot lookups by repo + date (descending for recent-first queries)
+CREATE INDEX IF NOT EXISTS repo_snapshots_repo_date_idx ON repo_snapshots(repo_id, snapshot_date DESC);
 
 -- ============================================================
 -- AUTO-UPDATE updated_at TRIGGER
@@ -123,12 +136,14 @@ ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tool_contributions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE repo_snapshots ENABLE ROW LEVEL SECURITY;
 
 -- Public read access for directory data
 CREATE POLICY "Public can read repos" ON repos FOR SELECT USING (true);
 CREATE POLICY "Public can read enrichments" ON enrichments FOR SELECT USING (true);
 CREATE POLICY "Public can read categories" ON categories FOR SELECT USING (true);
 CREATE POLICY "Public can read tool_contributions" ON tool_contributions FOR SELECT USING (true);
+CREATE POLICY "Public can read repo_snapshots" ON repo_snapshots FOR SELECT USING (true);
 
 -- No public write access — pipeline uses service role key (bypasses RLS)
 -- Newsletter signup writes via API route using service role key

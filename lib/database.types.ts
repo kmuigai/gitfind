@@ -161,6 +161,41 @@ export type Database = {
         }
         Relationships: []
       }
+      repo_snapshots: {
+        Row: {
+          id: string
+          repo_id: string
+          snapshot_date: string
+          stars: number
+          forks: number
+          stars_7d: number
+        }
+        Insert: {
+          id?: string
+          repo_id: string
+          snapshot_date?: string
+          stars?: number
+          forks?: number
+          stars_7d?: number
+        }
+        Update: {
+          id?: string
+          repo_id?: string
+          snapshot_date?: string
+          stars?: number
+          forks?: number
+          stars_7d?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'repo_snapshots_repo_id_fkey'
+            columns: ['repo_id']
+            isOneToOne: false
+            referencedRelation: 'repos'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       tool_contributions: {
         Row: {
           id: string
@@ -216,6 +251,7 @@ export type Category = Tables<'categories'>
 export type Subscriber = Tables<'subscribers'>
 export type Submission = Tables<'submissions'>
 export type ToolContribution = Tables<'tool_contributions'>
+export type RepoSnapshot = Tables<'repo_snapshots'>
 
 export type RepoWithEnrichment = Repo & {
   enrichment: Enrichment | null

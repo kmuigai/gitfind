@@ -2,11 +2,13 @@
 // DO NOT change these weights without asking the product owner first.
 //
 // Weights (must sum to 100%):
-// Star velocity (7-day):              30%
-// Contributor-to-star ratio:          25%
-// Fork velocity relative to stars:    15%
+// Star velocity (7-day):              25%
+// Contributor-to-star ratio:          20%
+// Fork velocity relative to stars:    10%
 // Cross-platform mention velocity:    15%
 // Commit frequency (30-day):          10%
+// Star acceleration:                  10%
+// Fork acceleration:                  10%
 // Manipulation filter:                Penalty
 
 export interface ScoreInputs {
@@ -27,6 +29,11 @@ export interface ScoreInputs {
 
   // Commit frequency
   commits_30d: number
+
+  // Acceleration signals (optional — 0 during cold start)
+  stars_7d_prev?: number    // Stars gained 8–14 days ago (previous week)
+  forks_7d?: number         // Forks gained in last 7 days (from snapshots)
+  forks_7d_prev?: number    // Forks gained 8–14 days ago (from snapshots)
 }
 
 export interface ScoreBreakdown {
@@ -35,6 +42,8 @@ export interface ScoreBreakdown {
   fork_velocity_score: number       // 0–100, weighted 15%
   mention_velocity_score: number    // 0–100, weighted 15%
   commit_frequency_score: number    // 0–100, weighted 10%
+  star_acceleration_score: number   // 0–100, weighted 10%
+  fork_acceleration_score: number   // 0–100, weighted 10%
   manipulation_penalty: number      // 0–30, subtracted from total
   raw_score: number                 // Before penalty (0–100)
   final_score: number               // After penalty, clamped 0–100
@@ -101,6 +110,16 @@ function calcCommitFrequency(commits_30d: number): number {
   return logNormalise(commits_30d, 50)
 }
 
+// Acceleration: ratio of this week vs last week, log-normalised
+// Only fires when growth is accelerating (ratio > 1). Flat or decelerating = 0.
+// A ratio of 5× (e.g. 500→2500 stars/week) scores 100.
+function calcAcceleration(current_7d: number | undefined, prev_7d: number | undefined): number {
+  if (current_7d == null || prev_7d == null || prev_7d <= 0 || current_7d <= 0) return 0
+  const ratio = current_7d / prev_7d
+  if (ratio <= 1) return 0 // flat or decelerating — no bonus
+  return logNormalise(ratio - 1, 4) // ratio of 5 (i.e. ratio-1=4) → 100
+}
+
 // Manipulation filter: penalise star farming
 // Signs of manipulation:
 // 1. Many new stars but very few commits (stars not earned by activity)
@@ -135,14 +154,18 @@ export function calculateScore(inputs: ScoreInputs): ScoreResult {
   const fork_velocity_score = calcForkVelocity(inputs.forks, inputs.stars)
   const mention_velocity_score = calcMentionVelocity(inputs.hn_mentions_7d, inputs.hn_mentions_30d)
   const commit_frequency_score = calcCommitFrequency(inputs.commits_30d)
+  const star_acceleration_score = calcAcceleration(inputs.stars_7d, inputs.stars_7d_prev)
+  const fork_acceleration_score = calcAcceleration(inputs.forks_7d, inputs.forks_7d_prev)
 
   // Weighted sum — weights must total 100%
   const raw_score =
-    star_velocity_score * 0.30 +
-    contributor_ratio_score * 0.25 +
-    fork_velocity_score * 0.15 +
+    star_velocity_score * 0.25 +
+    contributor_ratio_score * 0.20 +
+    fork_velocity_score * 0.10 +
     mention_velocity_score * 0.15 +
-    commit_frequency_score * 0.10
+    commit_frequency_score * 0.10 +
+    star_acceleration_score * 0.10 +
+    fork_acceleration_score * 0.10
 
   const manipulation_penalty = calcManipulationPenalty(inputs)
   const final_score = Math.round(Math.min(100, Math.max(0, raw_score - manipulation_penalty)))
@@ -155,6 +178,8 @@ export function calculateScore(inputs: ScoreInputs): ScoreResult {
       fork_velocity_score: Math.round(fork_velocity_score),
       mention_velocity_score: Math.round(mention_velocity_score),
       commit_frequency_score: Math.round(commit_frequency_score),
+      star_acceleration_score: Math.round(star_acceleration_score),
+      fork_acceleration_score: Math.round(fork_acceleration_score),
       manipulation_penalty,
       raw_score: Math.round(raw_score),
       final_score,

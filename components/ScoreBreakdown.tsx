@@ -8,6 +8,8 @@ interface ScoreBreakdownData {
   fork_velocity_score: number
   mention_velocity_score: number
   commit_frequency_score: number
+  star_acceleration_score?: number
+  fork_acceleration_score?: number
   manipulation_penalty: number
   raw_score: number
   final_score: number
@@ -19,11 +21,13 @@ interface ScoreBreakdownProps {
 }
 
 const SIGNALS = [
-  { key: 'star_velocity_score', label: 'Star growth', weight: '30%' },
-  { key: 'contributor_ratio_score', label: 'Active builders', weight: '25%' },
-  { key: 'fork_velocity_score', label: 'Fork activity', weight: '15%' },
+  { key: 'star_velocity_score', label: 'Star growth', weight: '25%' },
+  { key: 'contributor_ratio_score', label: 'Active builders', weight: '20%' },
+  { key: 'fork_velocity_score', label: 'Fork activity', weight: '10%' },
   { key: 'mention_velocity_score', label: 'Community buzz', weight: '15%' },
   { key: 'commit_frequency_score', label: 'Commit pace', weight: '10%' },
+  { key: 'star_acceleration_score', label: 'Star momentum', weight: '10%' },
+  { key: 'fork_acceleration_score', label: 'Fork momentum', weight: '10%' },
 ] as const
 
 export default function ScoreBreakdown({ score, breakdown }: ScoreBreakdownProps) {
@@ -69,7 +73,7 @@ export default function ScoreBreakdown({ score, breakdown }: ScoreBreakdownProps
       {expanded && breakdown && (
         <div className="space-y-2.5 pt-1">
           {SIGNALS.map(({ key, label, weight }) => {
-            const value = breakdown[key]
+            const value = breakdown[key] ?? 0
             return (
               <div key={key}>
                 <div className="mb-1 flex items-baseline justify-between">
