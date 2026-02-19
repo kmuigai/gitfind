@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import {
   LineChart,
   Line,
@@ -19,29 +20,57 @@ interface ClaudeCodeChartProps {
   data: ChartData[]
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
 function formatDate(date: string): string {
-  const [year, m, d] = date.split('-')
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return `${months[parseInt(m, 10) - 1]} ${parseInt(d, 10)}`
+  const [, m, d] = date.split('-')
+  return `${MONTHS[parseInt(m, 10) - 1]} ${parseInt(d, 10)}`
 }
 
 function formatDateFull(date: string): string {
   const [year, m, d] = date.split('-')
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return `${months[parseInt(m, 10) - 1]} ${parseInt(d, 10)}, ${year}`
+  return `${MONTHS[parseInt(m, 10) - 1]} ${parseInt(d, 10)}, ${year}`
+}
+
+function formatMonth(date: string): string {
+  const [, m] = date.split('-')
+  return MONTHS[parseInt(m, 10) - 1]
 }
 
 export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
   if (data.length < 2) return null
 
   const formatted = data.map((d) => ({
     ...d,
-    label: formatDate(d.date),
+    label: isMobile ? formatMonth(d.date) : formatDate(d.date),
     fullLabel: formatDateFull(d.date),
   }))
 
-  // Show ~10 tick labels max to avoid overlap
-  const tickInterval = Math.max(1, Math.floor(formatted.length / 10))
+  // On mobile: show every other month to avoid crowding
+  // On desktop: show ~10 evenly spaced ticks
+  const tickIndices: number[] = []
+  if (isMobile) {
+    let lastMonth = ''
+    let monthCount = 0
+    formatted.forEach((d, i) => {
+      const month = d.date.slice(0, 7)
+      if (month !== lastMonth) {
+        if (monthCount % 2 === 0) tickIndices.push(i)
+        monthCount++
+        lastMonth = month
+      }
+    })
+  }
+  const tickInterval = isMobile ? undefined : Math.max(1, Math.floor(formatted.length / 10))
 
   return (
     <div className="h-72 w-full sm:h-80">
@@ -57,10 +86,10 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
             tick={{ fontSize: 11, fill: 'var(--foreground-subtle)' }}
             axisLine={{ stroke: 'var(--border)' }}
             tickLine={false}
-            interval={tickInterval}
-            angle={-45}
-            textAnchor="end"
-            height={50}
+            {...(isMobile
+              ? { ticks: tickIndices.map((i) => formatted[i].label), interval: 0, height: 30 }
+              : { interval: tickInterval, height: 30 }
+            )}
           />
           <YAxis
             tick={{ fontSize: 11, fill: 'var(--foreground-subtle)' }}
