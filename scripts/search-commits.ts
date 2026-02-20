@@ -56,15 +56,19 @@ async function main(): Promise<void> {
   const startDate = new Date(lastDate + 'T00:00:00Z')
   startDate.setUTCDate(startDate.getUTCDate() + 1)
 
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const today = new Date(todayStr + 'T00:00:00Z')
+  // Stop at yesterday (not today) — GitHub's search index can lag ~24h,
+  // so collecting "today" or even "yesterday at midnight" risks partial counts.
+  const cutoff = new Date()
+  cutoff.setUTCDate(cutoff.getUTCDate() - 1)
+  const cutoffStr = cutoff.toISOString().slice(0, 10)
+  const cutoffDate = new Date(cutoffStr + 'T00:00:00Z')
 
-  log(`Filling gap from ${startDate.toISOString().slice(0, 10)} to ${todayStr}`)
+  log(`Filling gap from ${startDate.toISOString().slice(0, 10)} to ${cutoffStr}`)
 
   let imported = 0
   const current = new Date(startDate)
 
-  while (current < today) {
+  while (current < cutoffDate) {
     const dateStr = current.toISOString().slice(0, 10)
 
     try {
