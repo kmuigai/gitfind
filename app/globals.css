@@ -16,6 +16,7 @@
   --score-high: #22c55e;
   --score-mid: #f59e0b;
   --score-low: #6b7280;
+  --chart-line: #6c6af6;
 }
 
 [data-theme="light"] {
@@ -33,6 +34,7 @@
   --score-high: #16a34a;
   --score-mid: #d97706;
   --score-low: #6b7280;
+  --chart-line: #5553d4;
 }
 
 @theme inline {
