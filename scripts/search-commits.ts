@@ -52,14 +52,14 @@ async function main(): Promise<void> {
     ? (latest[0] as unknown as { month: string }).month
     : '2025-10-08'
 
-  // Start from the day after the last date we have
-  const startDate = new Date(lastDate)
-  startDate.setDate(startDate.getDate() + 1)
+  // Start from the day after the last date we have (all dates in UTC)
+  const startDate = new Date(lastDate + 'T00:00:00Z')
+  startDate.setUTCDate(startDate.getUTCDate() + 1)
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const today = new Date(todayStr + 'T00:00:00Z')
 
-  log(`Filling gap from ${startDate.toISOString().slice(0, 10)} to ${today.toISOString().slice(0, 10)}`)
+  log(`Filling gap from ${startDate.toISOString().slice(0, 10)} to ${todayStr}`)
 
   let imported = 0
   const current = new Date(startDate)
@@ -90,7 +90,7 @@ async function main(): Promise<void> {
 
       if (!response.ok) {
         log(`Error for ${dateStr}: ${response.status}`)
-        current.setDate(current.getDate() + 1)
+        current.setUTCDate(current.getUTCDate() + 1)
         continue
       }
 
@@ -117,7 +117,7 @@ async function main(): Promise<void> {
       log(`Error for ${dateStr}: ${msg}`)
     }
 
-    current.setDate(current.getDate() + 1)
+    current.setUTCDate(current.getUTCDate() + 1)
   }
 
   log(`\nDone! Imported ${imported} days of data.`)
