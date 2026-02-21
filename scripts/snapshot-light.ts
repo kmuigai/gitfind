@@ -190,7 +190,7 @@ async function main(): Promise<void> {
           forks: currentForks,
           stars_7d,
         },
-        { onConflict: 'repo_id,snapshot_date' }
+        { onConflict: 'repo_id,snapshot_date', ignoreDuplicates: true }
       )
 
       if (snapError) {
