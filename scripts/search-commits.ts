@@ -24,16 +24,28 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  // Find the BigQuery placeholder repo
+  // Upsert the placeholder repo — creates it if missing, no-ops if it exists
   const { data: placeholder, error: pErr } = await db
     .from('repos')
+    .upsert(
+      {
+        github_id: 0,
+        name: '_bigquery_aggregate',
+        owner: '_gitfind',
+        description: 'Aggregate Claude Code commit data (all public GitHub repos)',
+        stars: 0,
+        forks: 0,
+        contributors: 0,
+        url: 'https://github.com',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'github_id' }
+    )
     .select('id')
-    .eq('owner', '_gitfind')
-    .eq('name', '_bigquery_aggregate')
     .single()
 
   if (pErr || !placeholder) {
-    console.error('Placeholder repo not found. Run import-bigquery.ts first.')
+    console.error('Failed to upsert placeholder repo:', pErr)
     process.exit(1)
   }
 
