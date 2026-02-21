@@ -1,0 +1,38 @@
+name: GitFind Light Snapshots
+
+on:
+  # Run daily at 06:00 UTC (6 hours after pipeline, fresh rate limit budget)
+  schedule:
+    - cron: '0 6 * * *'
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  snapshot:
+    name: Light Star/Fork Snapshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 180 # 3 hours — 10K repos at 5K/hour
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install tsx (TypeScript runner)
+        run: npm install -g tsx
+
+      - name: Run light snapshots
+        run: npx tsx scripts/snapshot-light.ts
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITFIND_GITHUB_TOKEN }}

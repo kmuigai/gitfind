@@ -95,6 +95,10 @@ CREATE TABLE IF NOT EXISTS package_downloads (
 CREATE INDEX IF NOT EXISTS repos_fts_idx
   ON repos USING gin(to_tsvector('english', name || ' ' || COALESCE(description, '')));
 
+-- Fast lookups for ingestion scripts (batch-check existing repos)
+CREATE INDEX IF NOT EXISTS repos_github_id_idx ON repos(github_id);
+CREATE INDEX IF NOT EXISTS repos_owner_name_idx ON repos(owner, name);
+
 -- Fast score lookups and category filtering
 CREATE INDEX IF NOT EXISTS enrichments_score_idx ON enrichments(early_signal_score DESC);
 CREATE INDEX IF NOT EXISTS enrichments_repo_id_idx ON enrichments(repo_id);
