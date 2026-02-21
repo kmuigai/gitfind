@@ -72,6 +72,11 @@ body {
   min-height: 100vh;
 }
 
+/* Tighten mono tracking globally (logo has its own tracking, unaffected) */
+.font-mono {
+  letter-spacing: -0.03em;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

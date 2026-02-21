@@ -92,7 +92,7 @@ export default function RootLayout({
                 <Link
                   key={cat.slug}
                   href={`/category/${cat.slug}`}
-                  className="rounded-md px-3 py-1.5 text-xs text-[var(--foreground-muted)] transition-colors hover:bg-[var(--background-elevated)] hover:text-[var(--foreground)]"
+                  className="rounded-md px-3 py-1.5 font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:bg-[var(--background-elevated)] hover:text-[var(--foreground)]"
                 >
                   {cat.name}
                 </Link>
@@ -104,7 +104,7 @@ export default function RootLayout({
               <ThemeToggle />
               <Link
                 href="/submit"
-                className="rounded-md border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                className="rounded-md border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
               >
                 Submit a project
               </Link>
