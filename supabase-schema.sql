@@ -74,6 +74,19 @@ CREATE TABLE IF NOT EXISTS repo_snapshots (
   UNIQUE (repo_id, snapshot_date)
 );
 
+-- Package download tracking (daily snapshots from npm/PyPI/crates.io)
+CREATE TABLE IF NOT EXISTS package_downloads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  repo_id UUID NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  registry TEXT NOT NULL,
+  package_name TEXT NOT NULL,
+  snapshot_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  downloads_1d BIGINT NOT NULL DEFAULT 0,
+  downloads_7d BIGINT NOT NULL DEFAULT 0,
+  downloads_30d BIGINT NOT NULL DEFAULT 0,
+  UNIQUE (repo_id, registry, snapshot_date)
+);
+
 -- ============================================================
 -- INDEXES
 -- ============================================================
@@ -92,6 +105,9 @@ CREATE INDEX IF NOT EXISTS tool_contributions_tool_month_idx ON tool_contributio
 
 -- Snapshot lookups by repo + date (descending for recent-first queries)
 CREATE INDEX IF NOT EXISTS repo_snapshots_repo_date_idx ON repo_snapshots(repo_id, snapshot_date DESC);
+
+-- Package download lookups by repo + date
+CREATE INDEX IF NOT EXISTS package_downloads_repo_date_idx ON package_downloads(repo_id, snapshot_date DESC);
 
 -- ============================================================
 -- AUTO-UPDATE updated_at TRIGGER
@@ -137,6 +153,7 @@ ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tool_contributions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE repo_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE package_downloads ENABLE ROW LEVEL SECURITY;
 
 -- Public read access for directory data
 CREATE POLICY "Public can read repos" ON repos FOR SELECT USING (true);
@@ -144,7 +161,15 @@ CREATE POLICY "Public can read enrichments" ON enrichments FOR SELECT USING (tru
 CREATE POLICY "Public can read categories" ON categories FOR SELECT USING (true);
 CREATE POLICY "Public can read tool_contributions" ON tool_contributions FOR SELECT USING (true);
 CREATE POLICY "Public can read repo_snapshots" ON repo_snapshots FOR SELECT USING (true);
+CREATE POLICY "Public can read package_downloads" ON package_downloads FOR SELECT USING (true);
 
 -- No public write access — pipeline uses service role key (bypasses RLS)
 -- Newsletter signup writes via API route using service role key
 -- Submissions write via API route using service role key
+
+-- ============================================================
+-- PACKAGE DETECTION COLUMNS ON REPOS
+-- ============================================================
+
+ALTER TABLE repos ADD COLUMN IF NOT EXISTS package_registry TEXT;
+ALTER TABLE repos ADD COLUMN IF NOT EXISTS package_name TEXT;

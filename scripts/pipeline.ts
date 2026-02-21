@@ -52,7 +52,7 @@ function logError(msg: string, err: unknown): void {
 async function main(): Promise<void> {
   // Dynamic imports — evaluated after dotenv.config() has run
   const [
-    { searchReposByCategory, searchTrendingMidTier, searchNewbornRockets, getStarVelocity, getContributorCount, getCommitFrequency, getReadme, cleanReadme, getCoAuthoredByTools },
+    { searchReposByCategory, searchTrendingMidTier, searchNewbornRockets, getStarVelocity, getContributorCount, getCommitFrequency, getReadme, cleanReadme, getCoAuthoredByTools, detectPackageName },
     { calculateScore },
     { getHNMentions },
     { enrichRepo },
@@ -262,6 +262,23 @@ async function main(): Promise<void> {
           }
         }
         log(`  ${label} tool contributions recorded (${months.length} months)`)
+      }
+
+      // Detect package name (one-time per repo)
+      const { data: repoRow } = await db
+        .from('repos')
+        .select('package_registry')
+        .eq('id', repoId)
+        .single()
+      if (repoRow && !(repoRow as unknown as { package_registry: string | null }).package_registry) {
+        const pkg = await detectPackageName(owner, repoName, repoData.language)
+        if (pkg) {
+          await db
+            .from('repos')
+            .update({ package_registry: pkg.registry, package_name: pkg.name })
+            .eq('id', repoId)
+          log(`  ${label} → package detected: ${pkg.registry}/${pkg.name}`)
+        }
       }
 
       // Insert today's snapshot (ON CONFLICT DO NOTHING for re-run safety)

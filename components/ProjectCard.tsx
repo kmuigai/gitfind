@@ -108,6 +108,11 @@ export default function ProjectCard({ project }: ProjectCardProps) {
             {project.contributors} contrib
           </span>
         )}
+        {project.downloads_7d != null && project.downloads_7d > 0 && (
+          <span className="font-mono text-xs text-[var(--foreground-muted)]">
+            {formatStars(project.downloads_7d)} dl/wk
+          </span>
+        )}
         {enrichment?.category && (
           <Link
             href={`/category/${enrichment.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}

@@ -466,6 +466,76 @@ export function cleanReadme(raw: string): string {
   return excerpt.length >= 100 ? excerpt : ''
 }
 
+// Detect the published package name for a repo based on its language
+// Returns the registry and package name, or null if not found
+export async function detectPackageName(
+  owner: string,
+  repo: string,
+  language: string | null
+): Promise<{ registry: 'npm' | 'pypi' | 'crates'; name: string } | null> {
+  if (!language) return null
+
+  try {
+    if (language === 'TypeScript' || language === 'JavaScript') {
+      const data = await githubFetch<{ content: string; encoding: string }>(
+        `/repos/${owner}/${repo}/contents/package.json`
+      )
+      if (data.encoding !== 'base64' || !data.content) return null
+      const json = JSON.parse(
+        Buffer.from(data.content.replace(/\n/g, ''), 'base64').toString('utf-8')
+      )
+      if (typeof json.name === 'string' && json.name && !json.private) {
+        return { registry: 'npm', name: json.name }
+      }
+    } else if (language === 'Python') {
+      // Try pyproject.toml first
+      try {
+        const data = await githubFetch<{ content: string; encoding: string }>(
+          `/repos/${owner}/${repo}/contents/pyproject.toml`
+        )
+        if (data.encoding === 'base64' && data.content) {
+          const text = Buffer.from(data.content.replace(/\n/g, ''), 'base64').toString('utf-8')
+          const nameMatch = text.match(/^\s*name\s*=\s*["']([^"']+)["']/m)
+          if (nameMatch) {
+            return { registry: 'pypi', name: nameMatch[1] }
+          }
+        }
+      } catch {
+        // pyproject.toml not found, try setup.cfg
+        try {
+          const data = await githubFetch<{ content: string; encoding: string }>(
+            `/repos/${owner}/${repo}/contents/setup.cfg`
+          )
+          if (data.encoding === 'base64' && data.content) {
+            const text = Buffer.from(data.content.replace(/\n/g, ''), 'base64').toString('utf-8')
+            const nameMatch = text.match(/^\s*name\s*=\s*(.+)/m)
+            if (nameMatch) {
+              return { registry: 'pypi', name: nameMatch[1].trim() }
+            }
+          }
+        } catch {
+          // setup.cfg not found either, skip
+        }
+      }
+    } else if (language === 'Rust') {
+      const data = await githubFetch<{ content: string; encoding: string }>(
+        `/repos/${owner}/${repo}/contents/Cargo.toml`
+      )
+      if (data.encoding === 'base64' && data.content) {
+        const text = Buffer.from(data.content.replace(/\n/g, ''), 'base64').toString('utf-8')
+        const nameMatch = text.match(/^\s*name\s*=\s*["']([^"']+)["']/m)
+        if (nameMatch) {
+          return { registry: 'crates', name: nameMatch[1] }
+        }
+      }
+    }
+  } catch {
+    // File not found or parse error — this repo doesn't have a detectable package
+  }
+
+  return null
+}
+
 // Known AI coding tool patterns in Co-Authored-By headers
 const TOOL_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
   { pattern: /claude/i, name: 'Claude Code' },

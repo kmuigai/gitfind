@@ -3,7 +3,7 @@
 // All casts are at the query boundary — the rest of the codebase is fully typed via RepoWithEnrichment.
 
 import { supabase } from './supabase'
-import type { Repo, Enrichment, RepoWithEnrichment } from './database.types'
+import type { Repo, Enrichment, RepoWithEnrichment, PackageDownload } from './database.types'
 
 type RawEnrichment = Enrichment
 type RawRepo = Repo
@@ -29,7 +29,7 @@ export async function getTopRepos(limit = 6): Promise<RepoWithEnrichment[]> {
   if (rErr || !repos) return []
   const typedRepos = repos as unknown as RawRepo[]
 
-  return joinReposAndEnrichments(typedRepos, typedEnrichments)
+  return hydrateDownloads(joinReposAndEnrichments(typedRepos, typedEnrichments))
 }
 
 // Fetch repos for a given category name
@@ -57,7 +57,7 @@ export async function getReposByCategory(
   if (rErr || !repos) return []
   const typedRepos = repos as unknown as RawRepo[]
 
-  return joinReposAndEnrichments(typedRepos, typedEnrichments)
+  return hydrateDownloads(joinReposAndEnrichments(typedRepos, typedEnrichments))
 }
 
 // Fetch a single repo by owner/name with its enrichment
@@ -107,7 +107,7 @@ export async function searchRepos(query: string, limit = 10): Promise<RepoWithEn
 
   const typedEnrichments = (enrichments ?? []) as unknown as RawEnrichment[]
 
-  return joinReposAndEnrichments(typedRepos, typedEnrichments)
+  return hydrateDownloads(joinReposAndEnrichments(typedRepos, typedEnrichments))
 }
 
 // Get project counts per category
@@ -188,13 +188,15 @@ export async function getTrendingRepos(limit = 6): Promise<RepoWithEnrichment[]>
   const repoMap = new Map<string, RawRepo>()
   for (const r of typedRepos) repoMap.set(r.id, r)
 
-  return typedSnapshots
+  const results = typedSnapshots
     .map((s) => {
       const repo = repoMap.get(s.repo_id)
       if (!repo) return null
       return { ...repo, enrichment: enrichmentMap.get(s.repo_id) ?? null }
     })
     .filter((r): r is RepoWithEnrichment => r !== null)
+
+  return hydrateDownloads(results)
 }
 
 // Fetch daily Claude Code commit data for the chart
@@ -240,6 +242,121 @@ export async function getToolContributionsByDay(): Promise<
   return typedData.map((row) => ({
     date: row.month,
     claude_code: row.commit_count,
+  }))
+}
+
+// Tool names tracked in the AI Code Index
+const AI_CODE_INDEX_TOOLS = [
+  'Claude Code',
+  'Cursor',
+  'GitHub Copilot',
+  'Aider',
+  'Gemini CLI',
+  'Devin',
+] as const
+
+export type AIToolName = (typeof AI_CODE_INDEX_TOOLS)[number]
+
+export interface AICodeIndexRow {
+  date: string
+  [tool: string]: number | string
+}
+
+// Fetch daily commit counts for all AI coding tools (AI Code Index)
+export async function getAICodeIndexData(): Promise<AICodeIndexRow[]> {
+  // Find the BigQuery placeholder repo
+  const { data: placeholder } = await supabase
+    .from('repos')
+    .select('id')
+    .eq('owner', '_gitfind')
+    .eq('name', '_bigquery_aggregate')
+    .maybeSingle()
+
+  if (!placeholder) return []
+  const placeholderId = (placeholder as unknown as { id: string }).id
+
+  // Exclude today (partial data)
+  const today = new Date().toISOString().slice(0, 10)
+
+  const { data, error } = await supabase
+    .from('tool_contributions')
+    .select('tool_name, month, commit_count')
+    .eq('repo_id', placeholderId)
+    .in('tool_name', [...AI_CODE_INDEX_TOOLS])
+    .like('month', '____-__-__')
+    .lt('month', today)
+    .order('month', { ascending: true })
+
+  if (error || !data) return []
+
+  const typedData = data as unknown as Array<{
+    tool_name: string
+    month: string
+    commit_count: number
+  }>
+
+  // Pivot: group by date, create one row per date with a column per tool
+  const dateMap = new Map<string, AICodeIndexRow>()
+
+  for (const row of typedData) {
+    let entry = dateMap.get(row.month)
+    if (!entry) {
+      entry = { date: row.month } as AICodeIndexRow
+      for (const tool of AI_CODE_INDEX_TOOLS) {
+        entry[tool] = 0
+      }
+      dateMap.set(row.month, entry)
+    }
+    entry[row.tool_name] = row.commit_count
+  }
+
+  return Array.from(dateMap.values())
+}
+
+// Fetch the latest package download snapshot for a repo
+export async function getPackageDownloads(repoId: string): Promise<PackageDownload | null> {
+  const { data, error } = await supabase
+    .from('package_downloads')
+    .select('*')
+    .eq('repo_id', repoId)
+    .order('snapshot_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return data as unknown as PackageDownload
+}
+
+// Hydrate downloads_7d onto an array of repos (single batch query)
+async function hydrateDownloads(
+  repos: RepoWithEnrichment[]
+): Promise<RepoWithEnrichment[]> {
+  if (repos.length === 0) return repos
+
+  const repoIds = repos.map((r) => r.id)
+
+  // Get the latest download snapshot for each repo
+  // We order by snapshot_date DESC and deduplicate in JS
+  const { data } = await supabase
+    .from('package_downloads')
+    .select('repo_id, downloads_7d')
+    .in('repo_id', repoIds)
+    .order('snapshot_date', { ascending: false })
+
+  if (!data || data.length === 0) return repos
+
+  const typedData = data as unknown as Array<{ repo_id: string; downloads_7d: number }>
+  const downloadMap = new Map<string, number>()
+  for (const row of typedData) {
+    // First occurrence per repo_id is the latest (ordered DESC)
+    if (!downloadMap.has(row.repo_id)) {
+      downloadMap.set(row.repo_id, row.downloads_7d)
+    }
+  }
+
+  return repos.map((repo) => ({
+    ...repo,
+    downloads_7d: downloadMap.get(repo.id) ?? null,
   }))
 }
 

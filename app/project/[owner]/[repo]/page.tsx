@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getRepo } from '@/lib/queries'
+import { getRepo, getPackageDownloads } from '@/lib/queries'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScoreBreakdown from '@/components/ScoreBreakdown'
 
@@ -84,6 +84,7 @@ export default async function ProjectPage({ params }: Props) {
 
   const enrichment = project.enrichment
   const score = enrichment?.early_signal_score ?? 0
+  const downloads = await getPackageDownloads(project.id)
 
   return (
     <div>
@@ -180,7 +181,18 @@ export default async function ProjectPage({ params }: Props) {
                 {project.language && (
                   <StatCard label="Language" value={project.language} />
                 )}
+                {downloads && downloads.downloads_7d > 0 && (
+                  <StatCard
+                    label={`Downloads (7d)`}
+                    value={formatStars(downloads.downloads_7d)}
+                  />
+                )}
               </div>
+              {downloads && downloads.downloads_7d > 0 && (
+                <p className="text-xs text-[var(--foreground-subtle)]">
+                  {downloads.registry}/{downloads.package_name}
+                </p>
+              )}
 
               {/* Category */}
               {enrichment?.category && (

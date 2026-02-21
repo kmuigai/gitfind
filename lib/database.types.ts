@@ -21,6 +21,8 @@ export type Database = {
           contributors: number
           language: string | null
           url: string
+          package_registry: string | null
+          package_name: string | null
           created_at: string
           updated_at: string
         }
@@ -35,6 +37,8 @@ export type Database = {
           contributors?: number
           language?: string | null
           url: string
+          package_registry?: string | null
+          package_name?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -49,6 +53,8 @@ export type Database = {
           contributors?: number
           language?: string | null
           url?: string
+          package_registry?: string | null
+          package_name?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -196,6 +202,47 @@ export type Database = {
           }
         ]
       }
+      package_downloads: {
+        Row: {
+          id: string
+          repo_id: string
+          registry: string
+          package_name: string
+          snapshot_date: string
+          downloads_1d: number
+          downloads_7d: number
+          downloads_30d: number
+        }
+        Insert: {
+          id?: string
+          repo_id: string
+          registry: string
+          package_name: string
+          snapshot_date?: string
+          downloads_1d?: number
+          downloads_7d?: number
+          downloads_30d?: number
+        }
+        Update: {
+          id?: string
+          repo_id?: string
+          registry?: string
+          package_name?: string
+          snapshot_date?: string
+          downloads_1d?: number
+          downloads_7d?: number
+          downloads_30d?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'package_downloads_repo_id_fkey'
+            columns: ['repo_id']
+            isOneToOne: false
+            referencedRelation: 'repos'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       tool_contributions: {
         Row: {
           id: string
@@ -252,7 +299,9 @@ export type Subscriber = Tables<'subscribers'>
 export type Submission = Tables<'submissions'>
 export type ToolContribution = Tables<'tool_contributions'>
 export type RepoSnapshot = Tables<'repo_snapshots'>
+export type PackageDownload = Tables<'package_downloads'>
 
 export type RepoWithEnrichment = Repo & {
   enrichment: Enrichment | null
+  downloads_7d?: number | null
 }
