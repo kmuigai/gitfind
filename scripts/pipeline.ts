@@ -68,11 +68,65 @@ async function main(): Promise<void> {
   type Repo = Awaited<ReturnType<typeof searchReposByCategory>>[number]
   type DB = ReturnType<typeof createServiceClient>
 
+  let skippedStale = 0
+
   async function processRepo(db: DB, repoData: Repo): Promise<void> {
     const { owner, name: repoName, github_id } = repoData
     const label = `${owner}/${repoName}`
 
     try {
+      // ── Stale skip: if repo exists, has enrichment, and stars haven't changed, skip ──
+      const { data: existingRepo } = await db
+        .from('repos')
+        .select('id, stars')
+        .eq('github_id', github_id)
+        .maybeSingle()
+
+      if (existingRepo) {
+        const { data: lastSnap } = await db
+          .from('repo_snapshots')
+          .select('stars, forks, stars_7d, snapshot_date')
+          .eq('repo_id', existingRepo.id)
+          .order('snapshot_date', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        const { data: hasEnrichment } = await db
+          .from('enrichments')
+          .select('id')
+          .eq('repo_id', existingRepo.id)
+          .maybeSingle()
+
+        if (lastSnap && hasEnrichment && lastSnap.stars === repoData.stars) {
+          // Stars unchanged — carry forward snapshot, skip expensive API calls
+          const todayStr = new Date().toISOString().split('T')[0]
+          if (lastSnap.snapshot_date !== todayStr) {
+            await db.from('repo_snapshots').upsert(
+              {
+                repo_id: existingRepo.id,
+                snapshot_date: todayStr,
+                stars: repoData.stars,
+                forks: repoData.forks,
+                stars_7d: lastSnap.stars_7d,
+              },
+              { onConflict: 'repo_id,snapshot_date', ignoreDuplicates: true }
+            )
+          }
+          // Update basic repo fields (description, forks may change even if stars don't)
+          await db.from('repos').update({
+            description: repoData.description,
+            forks: repoData.forks,
+            language: repoData.language,
+            updated_at: new Date().toISOString(),
+          }).eq('id', existingRepo.id)
+
+          log(`  ${label} → stale skip (stars unchanged at ${repoData.stars.toLocaleString()})`)
+          skippedStale++
+          return
+        }
+      }
+
+      // ── Full processing: repo is new or stars changed ──
       log(`  Processing ${label}...`)
 
       const [starVelocity, contributorCount, commitFrequency, hnMentions, rawReadme] =
@@ -306,7 +360,7 @@ async function main(): Promise<void> {
 
   log(`\n=== Pipeline Complete ===`)
   log(`Discovered: ${discovered.size} unique repos`)
-  log(`Processed: ${totalProcessed} repos`)
+  log(`Processed: ${totalProcessed} repos (${skippedStale} skipped as stale)`)
   log(`Errors: ${totalErrors}`)
 }
 
