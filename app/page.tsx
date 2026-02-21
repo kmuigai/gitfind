@@ -1,11 +1,13 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getTopRepos, getToolContributionsByDay } from '@/lib/queries'
+import { getTopRepos, getTrendingRepos, getToolContributionsByDay } from '@/lib/queries'
 import HeroAnimation from '@/components/HeroAnimation'
 import ProjectCard from '@/components/ProjectCard'
 import SearchBar from '@/components/SearchBar'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ClaudeCodeChart from '@/components/ClaudeCodeChart'
+import TrendingTabs from '@/components/TrendingTabs'
+import { Suspense } from 'react'
 export const metadata: Metadata = {
   title: 'GitFind — Rising GitHub Projects for Product People',
   description:
@@ -26,9 +28,16 @@ const CATEGORIES = [
   { name: 'Open Source Utilities', slug: 'open-source-utilities', emoji: '🔧' },
 ]
 
-export default async function HomePage() {
+interface HomePageProps {
+  searchParams: Promise<{ view?: string }>
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const params = await searchParams
+  const view = params.view === 'top' ? 'top' : 'trending'
+
   const [topProjects, toolData] = await Promise.all([
-    getTopRepos(6),
+    view === 'trending' ? getTrendingRepos(6) : getTopRepos(6),
     getToolContributionsByDay(),
   ])
 
@@ -57,15 +66,22 @@ export default async function HomePage() {
       {/* Top Projects */}
       <section className="px-4 py-12 sm:px-6">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-8 flex items-baseline justify-between">
+          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-[var(--foreground)]">
-                Highest Early Signal Score
+                {view === 'trending'
+                  ? 'Fastest Growing This Week'
+                  : 'Highest Early Signal Score'}
               </h2>
               <p className="mt-1 text-sm text-[var(--foreground-muted)]">
-                Projects most likely to blow up — ranked by GitFind&apos;s algorithm
+                {view === 'trending'
+                  ? 'Repos gaining the most stars in the last 7 days'
+                  : 'Projects most likely to blow up — ranked by GitFind\u0027s algorithm'}
               </p>
             </div>
+            <Suspense>
+              <TrendingTabs />
+            </Suspense>
           </div>
 
           {topProjects.length > 0 ? (

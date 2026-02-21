@@ -118,23 +118,15 @@ export default function ProjectCard({ project }: ProjectCardProps) {
         )}
       </div>
 
-      {/* GitHub link overlay */}
-      <a
-        href={project.url}
-        target="_blank"
-        rel="noopener noreferrer"
+      {/* Full-card click → detail page */}
+      <Link
+        href={`/project/${project.owner}/${project.name}`}
         className="absolute inset-0 rounded-xl"
-        aria-label={`View ${project.owner}/${project.name} on GitHub`}
+        aria-label={`View ${project.owner}/${project.name} details`}
         tabIndex={-1}
       />
-      {/* Override the overlay for internal links */}
-      <div className="relative z-10 flex items-center justify-between">
-        <Link
-          href={`/project/${project.owner}/${project.name}`}
-          className="text-xs text-[var(--foreground-subtle)] transition-colors hover:text-[var(--accent)]"
-        >
-          View details →
-        </Link>
+      {/* Footer links */}
+      <div className="relative z-10 flex items-center justify-end">
         <a
           href={project.url}
           target="_blank"

@@ -137,6 +137,66 @@ export async function getAllReposForSitemap(): Promise<
   return (data ?? []) as unknown as Array<{ owner: string; name: string; updated_at: string }>
 }
 
+// Fetch top repos by 7-day star velocity (trending this week)
+export async function getTrendingRepos(limit = 6): Promise<RepoWithEnrichment[]> {
+  // Get the latest snapshot date
+  const { data: latestRow } = await supabase
+    .from('repo_snapshots')
+    .select('snapshot_date')
+    .order('snapshot_date', { ascending: false })
+    .limit(1)
+
+  if (!latestRow || latestRow.length === 0) return getTopRepos(limit) // fallback
+
+  const latestDate = (latestRow[0] as unknown as { snapshot_date: string }).snapshot_date
+
+  // Get top repos by stars_7d on the latest snapshot date
+  const { data: snapshots, error: sErr } = await supabase
+    .from('repo_snapshots')
+    .select('repo_id, stars_7d')
+    .eq('snapshot_date', latestDate)
+    .gt('stars_7d', 0)
+    .order('stars_7d', { ascending: false })
+    .limit(limit)
+
+  if (sErr || !snapshots || snapshots.length === 0) return getTopRepos(limit)
+  const typedSnapshots = snapshots as unknown as Array<{ repo_id: string; stars_7d: number }>
+
+  const repoIds = typedSnapshots.map((s) => s.repo_id)
+
+  // Fetch repos
+  const { data: repos, error: rErr } = await supabase
+    .from('repos')
+    .select('*')
+    .in('id', repoIds)
+
+  if (rErr || !repos) return []
+  const typedRepos = repos as unknown as RawRepo[]
+
+  // Fetch enrichments
+  const { data: enrichments } = await supabase
+    .from('enrichments')
+    .select('*')
+    .in('repo_id', repoIds)
+
+  const typedEnrichments = (enrichments ?? []) as unknown as RawEnrichment[]
+
+  // Join and preserve stars_7d ordering
+  const enrichmentMap = new Map<string, RawEnrichment>()
+  for (const e of typedEnrichments) enrichmentMap.set(e.repo_id, e)
+
+  const repoMap = new Map<string, RawRepo>()
+  for (const r of typedRepos) repoMap.set(r.id, r)
+
+  return typedSnapshots
+    .map((s) => {
+      const repo = repoMap.get(s.repo_id)
+      if (!repo) return null
+      return { ...repo, enrichment: enrichmentMap.get(s.repo_id) ?? null }
+    })
+    .filter((r): r is RepoWithEnrichment => r !== null)
+}
+
 // Fetch daily Claude Code commit data for the chart
 // Uses BigQuery aggregate data (from _gitfind/_bigquery_aggregate placeholder repo)
 export async function getToolContributionsByDay(): Promise<
