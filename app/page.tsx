@@ -9,9 +9,9 @@ import ClaudeCodeChart from '@/components/ClaudeCodeChart'
 import TrendingTabs from '@/components/TrendingTabs'
 import { Suspense } from 'react'
 export const metadata: Metadata = {
-  title: 'GitFind — Rising GitHub Projects for Product People',
+  title: 'GitFind — GitHub, translated.',
   description:
-    'Find the next OpenClaw before it hits 150K stars. GitFind surfaces rising GitHub projects with plain-English context for PMs, founders, and investors.',
+    'The rising projects that matter — before everyone else sees them. Trending repos ranked, scored, and explained in plain English.',
 }
 
 // Revalidate every hour — pipeline runs nightly but this keeps data fresh during the day
@@ -51,9 +51,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
           {/* Subheadline */}
           <p className="mt-6 max-w-2xl text-lg text-[var(--foreground-muted)] leading-relaxed">
-            Open source intelligence for product people.{' '}
-            <span className="text-[var(--foreground)]">GitHub, translated.</span> Rising projects
-            ranked by Early Signal Score — before they go mainstream.
+            <span className="text-[var(--foreground)]">GitHub, translated.</span> The rising
+            projects that matter — before everyone else sees them.
           </p>
 
           {/* Search */}
@@ -70,13 +69,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <div>
               <h2 className="text-lg font-semibold text-[var(--foreground)]">
                 {view === 'trending'
-                  ? 'Fastest Growing This Week'
-                  : 'Highest Early Signal Score'}
+                  ? 'This week\u0027s movers'
+                  : 'Top ranked'}
               </h2>
               <p className="mt-1 text-sm text-[var(--foreground-muted)]">
                 {view === 'trending'
-                  ? 'Repos gaining the most stars in the last 7 days'
-                  : 'Projects most likely to blow up — ranked by GitFind\u0027s algorithm'}
+                  ? 'The projects gaining the most traction right now'
+                  : 'Scored by velocity, community growth, and cross-platform buzz'}
               </p>
             </div>
             <Suspense>
@@ -102,10 +101,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <section className="border-t border-[var(--border)] px-4 py-12 sm:px-6">
           <div className="mx-auto max-w-4xl">
             <h2 className="text-lg font-semibold text-[var(--foreground)]">
-              AI is writing more code every month
+              The rise of AI-written code
             </h2>
             <p className="mt-1 text-sm text-[var(--foreground-muted)]">
-              Claude Code contributions across tracked repositories
+              Claude Code commits across public GitHub repositories, tracked daily since 2025.
             </p>
             <div className="mt-6">
               <ClaudeCodeChart data={toolData} />

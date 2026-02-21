@@ -78,7 +78,7 @@ export default function SearchBar() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setIsOpen(true)}
-          placeholder="Search repos, languages, topics..."
+          placeholder="What's trending in AI, Rust, DevOps..."
           className="w-full rounded-lg border border-[var(--border)] bg-[var(--background-elevated)] py-2.5 pl-9 pr-4 text-sm text-[var(--foreground)] placeholder:text-[var(--foreground-subtle)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30 transition-colors"
           aria-label="Search repositories"
           aria-autocomplete="list"

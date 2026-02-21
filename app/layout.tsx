@@ -16,11 +16,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'GitFind — Rising GitHub Projects for Product People',
+    default: 'GitFind — GitHub, translated.',
     template: '%s — GitFind',
   },
   description:
-    'GitFind surfaces rising GitHub projects with plain-English context for product managers, founders, and investors. Find the next big thing before it goes mainstream.',
+    'The rising projects that matter — before everyone else sees them. Trending repos ranked, scored, and explained in plain English.',
   keywords: ['GitHub trending', 'open source discovery', 'product manager tools', 'GitHub intelligence', 'early signal'],
   authors: [{ name: 'GitFind' }],
   metadataBase: new URL('https://gitfind.ai'),
@@ -29,14 +29,14 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: 'https://gitfind.ai',
     siteName: 'GitFind',
-    title: 'GitFind — Rising GitHub Projects for Product People',
+    title: 'GitFind — GitHub, translated.',
     description:
-      'Find the next big open source project before it goes mainstream. Plain-English context for PMs, founders, and investors.',
+      'The rising projects that matter — before everyone else sees them. Trending repos ranked, scored, and explained in plain English.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'GitFind — Rising GitHub Projects for Product People',
-    description: 'Find the next big open source project before it goes mainstream.',
+    title: 'GitFind — GitHub, translated.',
+    description: 'The rising projects that matter — before everyone else sees them.',
   },
   robots: {
     index: true,
@@ -126,7 +126,7 @@ export default function RootLayout({
                   <span>gitfind.ai</span>
                 </div>
                 <p className="mt-2 text-xs text-[var(--foreground-muted)] leading-relaxed">
-                  Open source intelligence for product people. GitHub, translated.
+                  See what&apos;s moving. Know why it matters.
                 </p>
               </div>
 

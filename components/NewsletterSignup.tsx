@@ -43,10 +43,10 @@ export default function NewsletterSignup() {
     <section className="border-t border-[var(--border)] bg-[var(--background-elevated)] py-12">
       <div className="mx-auto max-w-2xl px-4 text-center sm:px-6">
         <h2 className="text-lg font-semibold text-[var(--foreground)]">
-          Get the weekly digest
+          The Tuesday briefing
         </h2>
         <p className="mt-2 text-sm text-[var(--foreground-muted)]">
-          What just moved on gitfind.ai — delivered every Tuesday. No noise, just signal.
+          The repos that moved this week, why they matter, and what to watch next. One email. No noise.
         </p>
 
         {status === 'success' ? (
