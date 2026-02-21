@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import {
   LineChart,
   Line,
@@ -95,6 +95,8 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
   const [hasAnimated, setHasAnimated] = useState(false)
   const [range, setRange] = useState<TimeRange>('ALL')
   const [hiddenTools, setHiddenTools] = useState<Set<string>>(new Set())
+  const [tooltipActive, setTooltipActive] = useState(true)
+  const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -129,6 +131,17 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
   const visibleTools = useMemo(() => {
     return activeTools.filter((t) => !hiddenTools.has(t))
   }, [activeTools, hiddenTools])
+
+  // On touch: show tooltip, then auto-hide after 2s
+  const handleTouchTooltip = useCallback(() => {
+    setTooltipActive(true)
+    if (fadeTimer.current) clearTimeout(fadeTimer.current)
+    fadeTimer.current = setTimeout(() => setTooltipActive(false), 2000)
+  }, [])
+
+  useEffect(() => {
+    return () => { if (fadeTimer.current) clearTimeout(fadeTimer.current) }
+  }, [])
 
   const toggleTool = (tool: string) => {
     setHiddenTools((prev) => {
@@ -175,7 +188,7 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
       </div>
 
       {/* Chart */}
-      <div className="h-72 w-full sm:h-96">
+      <div className="h-72 w-full sm:h-96" onTouchStart={handleTouchTooltip}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={formatted} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
             <CartesianGrid
@@ -206,6 +219,7 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
               tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)}
             />
             <Tooltip
+              active={tooltipActive ? undefined : false}
               contentStyle={{
                 backgroundColor: 'var(--background-card)',
                 border: '1px solid var(--border)',
