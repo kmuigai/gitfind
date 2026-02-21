@@ -50,7 +50,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <HeroAnimation />
 
           {/* Subheadline */}
-          <p className="mt-6 max-w-2xl text-lg text-[var(--foreground-muted)] leading-relaxed">
+          <p className="mt-6 max-w-3xl text-lg text-[var(--foreground-muted)] leading-relaxed">
             <span className="text-[var(--foreground)]">GitHub, translated.</span> The rising
             projects that matter — before everyone else sees them.
           </p>
