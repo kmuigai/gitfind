@@ -44,7 +44,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   return (
     <div>
       {/* Hero */}
-      <section className="relative border-b border-[var(--border)] px-4 pb-12 pt-12 sm:px-6 sm:pt-16">
+      <section className="relative border-b border-[var(--border)] px-4 pb-8 pt-8 sm:px-6 sm:pb-12 sm:pt-16">
         <div className="mx-auto max-w-7xl">
           {/* Animated headline */}
           <HeroAnimation />
@@ -63,7 +63,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       </section>
 
       {/* Top Projects */}
-      <section className="px-4 py-12 sm:px-6">
+      <section className="px-4 py-8 sm:px-6 sm:py-12">
         <div className="mx-auto max-w-7xl">
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -72,7 +72,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   ? 'This week\u0027s movers'
                   : 'Top ranked'}
               </h2>
-              <p className="mt-1 text-sm text-[var(--foreground-muted)]">
+              <p className="mt-1 font-mono text-sm text-[var(--foreground-muted)]">
                 {view === 'trending'
                   ? 'The projects gaining the most traction right now'
                   : 'Scored by velocity, community growth, and cross-platform buzz'}
@@ -98,12 +98,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
       {/* Claude Code Growth Chart */}
       {toolData.length >= 2 && (
-        <section className="border-t border-[var(--border)] px-4 py-12 sm:px-6">
+        <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
           <div className="mx-auto max-w-4xl">
             <h2 className="text-lg font-semibold text-[var(--foreground)]">
               The rise of AI-written code
             </h2>
-            <p className="mt-1 text-sm text-[var(--foreground-muted)]">
+            <p className="mt-1 font-mono text-sm text-[var(--foreground-muted)]">
               Claude Code commits across public GitHub repositories, tracked daily since 2025.
             </p>
             <div className="mt-6">
@@ -121,7 +121,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
 function EmptyState() {
   return (
-    <div className="rounded-xl border border-dashed border-[var(--border)] py-16 text-center">
+    <div className="rounded-lg border border-dashed border-[var(--border)] py-16 text-center">
       <p className="text-sm text-[var(--foreground-muted)]">
         No projects yet — the pipeline runs nightly.
       </p>

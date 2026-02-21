@@ -63,7 +63,7 @@ function parseBreakdown(raw: unknown): ScoreBreakdownData | null {
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
-      <div className="text-xs text-[var(--foreground-muted)]">{label}</div>
+      <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--foreground-muted)]">{label}</div>
       <div className="mt-1 font-mono text-lg font-semibold text-[var(--foreground)]">{value}</div>
     </div>
   )
@@ -88,10 +88,10 @@ export default async function ProjectPage({ params }: Props) {
   return (
     <div>
       {/* Header */}
-      <section className="border-b border-[var(--border)] px-4 py-10 sm:px-6">
+      <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-4xl">
           {/* Breadcrumb */}
-          <nav className="mb-6 flex items-center gap-2 text-xs text-[var(--foreground-subtle)]">
+          <nav className="mb-6 flex items-center gap-2 font-mono text-xs text-[var(--foreground-subtle)]">
             <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
               GitFind
             </Link>
@@ -137,7 +137,7 @@ export default async function ProjectPage({ params }: Props) {
       </section>
 
       {/* Main content */}
-      <section className="px-4 py-10 sm:px-6">
+      <section className="px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-4xl">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Left column — summaries */}
@@ -154,7 +154,7 @@ export default async function ProjectPage({ params }: Props) {
               )}
 
               {enrichment?.why_it_matters && (
-                <div className="rounded-xl border border-[var(--accent)]/20 bg-[var(--accent-subtle)] p-5">
+                <div className="rounded-lg border border-[var(--accent)]/20 bg-[var(--accent-subtle)] p-5">
                   <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--accent)]">
                     Why it matters for PMs
                   </h2>
@@ -168,7 +168,7 @@ export default async function ProjectPage({ params }: Props) {
             {/* Right column — score and stats */}
             <div className="space-y-4">
               {/* Score */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--background-card)] p-5">
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] p-5">
                 <ScoreBreakdown score={score} breakdown={parseBreakdown(enrichment?.score_breakdown)} />
               </div>
 

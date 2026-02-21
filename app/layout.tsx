@@ -118,21 +118,41 @@ export default function RootLayout({
         {/* Footer */}
         <footer className="border-t border-[var(--border)] py-12 mt-16">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
-              {/* Brand */}
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+              {/* Brand + links */}
               <div>
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <span className="font-mono text-[var(--accent)]">❯</span>
                   <span>gitfind.ai</span>
                 </div>
-                <p className="mt-2 text-xs text-[var(--foreground-muted)] leading-relaxed">
+                <p className="mt-2 font-mono text-xs text-[var(--foreground-muted)] leading-relaxed">
                   See what&apos;s moving. Know why it matters.
                 </p>
+                <ul className="mt-4 flex gap-4">
+                  <li>
+                    <Link
+                      href="/submit"
+                      className="font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:text-[var(--foreground)]"
+                    >
+                      Submit a project
+                    </Link>
+                  </li>
+                  <li>
+                    <a
+                      href="https://github.com/kmuigai/gitfind"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:text-[var(--foreground)]"
+                    >
+                      GitHub
+                    </a>
+                  </li>
+                </ul>
               </div>
 
               {/* Categories */}
               <div>
-                <h3 className="text-xs font-medium text-[var(--foreground-muted)] uppercase tracking-wider mb-3">
+                <h3 className="font-mono text-[10px] font-medium text-[var(--foreground-muted)] uppercase tracking-wider mb-3">
                   Categories
                 </h3>
                 <ul className="space-y-2">
@@ -157,27 +177,10 @@ export default function RootLayout({
                   ))}
                 </ul>
               </div>
-
-              {/* Links */}
-              <div>
-                <h3 className="text-xs font-medium text-[var(--foreground-muted)] uppercase tracking-wider mb-3">
-                  More
-                </h3>
-                <ul className="space-y-2">
-                  <li>
-                    <Link
-                      href="/submit"
-                      className="text-xs text-[var(--foreground-muted)] transition-colors hover:text-[var(--foreground)]"
-                    >
-                      Submit a project
-                    </Link>
-                  </li>
-                </ul>
-              </div>
             </div>
 
             <div className="mt-8 border-t border-[var(--border)] pt-6 text-center">
-              <p className="text-xs text-[var(--foreground-subtle)]">
+              <p className="font-mono text-xs text-[var(--foreground-subtle)]">
                 Git Signal · Git Context · Git Clarity · <strong className="text-[var(--foreground-muted)]">Git Smarter</strong>
               </p>
             </div>

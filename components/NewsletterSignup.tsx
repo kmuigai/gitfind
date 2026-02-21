@@ -45,7 +45,7 @@ export default function NewsletterSignup() {
         <h2 className="text-lg font-semibold text-[var(--foreground)]">
           The Tuesday briefing
         </h2>
-        <p className="mt-2 text-sm text-[var(--foreground-muted)]">
+        <p className="mt-2 font-mono text-sm text-[var(--foreground-muted)]">
           The repos that moved this week, why they matter, and what to watch next. One email. No noise.
         </p>
 

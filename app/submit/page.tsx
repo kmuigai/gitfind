@@ -54,7 +54,7 @@ export default function SubmitPage() {
     <div className="min-h-screen px-4 py-12 sm:px-6">
       <div className="mx-auto max-w-2xl">
         {/* Breadcrumb */}
-        <nav className="mb-8 flex items-center gap-2 text-xs text-[var(--foreground-subtle)]">
+        <nav className="mb-8 flex items-center gap-2 font-mono text-xs text-[var(--foreground-subtle)]">
           <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
             GitFind
           </Link>
@@ -71,7 +71,7 @@ export default function SubmitPage() {
         </div>
 
         {/* Criteria box */}
-        <div className="mb-8 rounded-xl border border-[var(--border)] bg-[var(--background-card)] p-5">
+        <div className="mb-8 rounded-lg border border-[var(--border)] bg-[var(--background-card)] p-5">
           <h2 className="mb-3 text-sm font-semibold text-[var(--foreground)]">How submissions work</h2>
           <ul className="space-y-2 text-sm text-[var(--foreground-muted)]">
             <li className="flex items-start gap-2">
@@ -97,7 +97,7 @@ export default function SubmitPage() {
 
         {/* Form */}
         {status === 'success' && response ? (
-          <div className="rounded-xl border border-[var(--score-high)]/30 bg-[var(--score-high)]/5 p-6">
+          <div className="rounded-lg border border-[var(--score-high)]/30 bg-[var(--score-high)]/5 p-6">
             <h2 className="text-base font-semibold text-[var(--score-high)]">
               {response.auto_approved ? '🎉 Auto-approved!' : '✓ Submission received'}
             </h2>

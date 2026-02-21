@@ -101,10 +101,10 @@ export default async function CategoryPage({ params }: Props) {
   return (
     <div>
       {/* Header */}
-      <section className="border-b border-[var(--border)] px-4 py-12 sm:px-6">
+      <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
         <div className="mx-auto max-w-7xl">
           {/* Breadcrumb */}
-          <nav className="mb-6 flex items-center gap-2 text-xs text-[var(--foreground-subtle)]">
+          <nav className="mb-6 flex items-center gap-2 font-mono text-xs text-[var(--foreground-subtle)]">
             <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
               GitFind
             </Link>
@@ -121,7 +121,7 @@ export default async function CategoryPage({ params }: Props) {
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--foreground-muted)]">
                 {category.description}
               </p>
-              <p className="mt-3 text-xs text-[var(--foreground-subtle)]">
+              <p className="mt-3 font-mono text-xs text-[var(--foreground-subtle)]">
                 Ranked by Early Signal Score — projects most likely to break out before mainstream coverage.
               </p>
             </div>
@@ -130,7 +130,7 @@ export default async function CategoryPage({ params }: Props) {
       </section>
 
       {/* Projects grid */}
-      <section className="px-4 py-10 sm:px-6">
+      <section className="px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-7xl">
           {projects.length > 0 ? (
             <>
@@ -144,7 +144,7 @@ export default async function CategoryPage({ params }: Props) {
               </div>
             </>
           ) : (
-            <div className="rounded-xl border border-dashed border-[var(--border)] py-16 text-center">
+            <div className="rounded-lg border border-dashed border-[var(--border)] py-16 text-center">
               <span className="text-4xl">{category.emoji}</span>
               <p className="mt-4 text-sm text-[var(--foreground-muted)]">
                 No {category.name} projects yet.
@@ -158,7 +158,7 @@ export default async function CategoryPage({ params }: Props) {
       </section>
 
       {/* Other categories */}
-      <section className="border-t border-[var(--border)] px-4 py-10 sm:px-6">
+      <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-7xl">
           <h2 className="mb-4 text-sm font-medium text-[var(--foreground-muted)]">
             Other categories

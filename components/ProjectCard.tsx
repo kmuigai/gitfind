@@ -62,13 +62,13 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   const score = enrichment?.early_signal_score ?? 0
 
   return (
-    <article className="group relative flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--background-card)] p-5 transition-all duration-200 hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)]">
+    <article className="group relative flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--background-card)] p-5 transition-all duration-200 hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)]">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Link
             href={`/project/${project.owner}/${project.name}`}
-            className="block text-sm font-semibold text-[var(--foreground)] transition-colors hover:text-[var(--accent)]"
+            className="block font-mono text-sm font-semibold text-[var(--foreground)] transition-colors hover:text-[var(--accent)]"
           >
             <span className="text-[var(--foreground-muted)]">{project.owner}/</span>
             <span>{project.name}</span>
@@ -86,9 +86,9 @@ export default function ProjectCard({ project }: ProjectCardProps) {
 
       {/* Why it matters */}
       {enrichment?.why_it_matters && (
-        <div className="rounded-lg bg-[var(--accent-subtle)] px-3 py-2">
+        <div className="rounded-md bg-[var(--accent-subtle)] px-3 py-2">
           <p className="text-xs leading-relaxed text-[var(--foreground-muted)]">
-            <span className="font-medium text-[var(--accent)]">Why it matters: </span>
+            <span className="font-mono font-medium text-[var(--accent)]">// why it matters </span>
             {enrichment.why_it_matters}
           </p>
         </div>
@@ -97,15 +97,15 @@ export default function ProjectCard({ project }: ProjectCardProps) {
       {/* Stats footer */}
       <div className="flex flex-wrap items-center gap-3 pt-1">
         <LanguageDot language={project.language} />
-        <span className="text-xs text-[var(--foreground-muted)]">
-          ★ {formatStars(project.stars)}
+        <span className="font-mono text-xs text-[var(--foreground-muted)]">
+          {formatStars(project.stars)} stars
         </span>
-        <span className="text-xs text-[var(--foreground-muted)]">
-          ⑂ {formatStars(project.forks)}
+        <span className="font-mono text-xs text-[var(--foreground-muted)]">
+          {formatStars(project.forks)} forks
         </span>
         {project.contributors > 0 && (
-          <span className="text-xs text-[var(--foreground-muted)]">
-            👥 {project.contributors}
+          <span className="font-mono text-xs text-[var(--foreground-muted)]">
+            {project.contributors} contrib
           </span>
         )}
         {enrichment?.category && (
@@ -121,7 +121,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
       {/* Full-card click → detail page */}
       <Link
         href={`/project/${project.owner}/${project.name}`}
-        className="absolute inset-0 rounded-xl"
+        className="absolute inset-0 rounded-lg"
         aria-label={`View ${project.owner}/${project.name} details`}
         tabIndex={-1}
       />
