@@ -145,6 +145,14 @@ export default function RootLayout({
                 <ul className="mt-4 flex gap-4">
                   <li>
                     <Link
+                      href="/ai-code-index"
+                      className="font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:text-[var(--foreground)]"
+                    >
+                      AI Code Index
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
                       href="/submit"
                       className="font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:text-[var(--foreground)]"
                     >

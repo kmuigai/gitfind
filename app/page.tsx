@@ -111,7 +111,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               </div>
               <Link
                 href="/ai-code-index"
-                className="hidden font-mono text-xs text-[var(--accent)] transition-opacity hover:opacity-80 sm:block"
+                className="font-mono text-xs text-[var(--accent)] transition-opacity hover:opacity-80"
               >
                 See all tools →
               </Link>
