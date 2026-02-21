@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# editor
+.obsidian/
+
+# data exports
+bq-results-*.csv
+
+# unused local fonts (loaded from Google Fonts CDN)
+public/fonts/
