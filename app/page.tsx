@@ -100,12 +100,22 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       {toolData.length >= 2 && (
         <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
           <div className="mx-auto max-w-4xl">
-            <h2 className="text-lg font-semibold text-[var(--foreground)]">
-              The rise of AI-written code
-            </h2>
-            <p className="mt-1 font-mono text-sm text-[var(--foreground-muted)]">
-              Claude Code commits across public GitHub repositories, tracked daily since 2025.
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--foreground)]">
+                  The rise of AI-written code
+                </h2>
+                <p className="mt-1 font-mono text-sm text-[var(--foreground-muted)]">
+                  Claude Code commits across public GitHub repositories, tracked daily since 2025.
+                </p>
+              </div>
+              <Link
+                href="/ai-code-index"
+                className="hidden font-mono text-xs text-[var(--accent)] transition-opacity hover:opacity-80 sm:block"
+              >
+                See all tools →
+              </Link>
+            </div>
             <div className="mt-6">
               <ClaudeCodeChart data={toolData} />
             </div>

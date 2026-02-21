@@ -58,6 +58,10 @@ const NAV_CATEGORIES = [
   { name: 'Infrastructure', slug: 'infrastructure-devops' },
 ]
 
+const NAV_FEATURES = [
+  { name: 'AI Code Index', href: '/ai-code-index' },
+]
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -86,7 +90,7 @@ export default function RootLayout({
               <span className="text-[var(--foreground-muted)]">.ai</span>
             </Link>
 
-            {/* Category quick links — hidden on mobile */}
+            {/* Quick links — hidden on mobile */}
             <div className="hidden items-center gap-1 sm:flex">
               {NAV_CATEGORIES.map((cat) => (
                 <Link
@@ -95,6 +99,16 @@ export default function RootLayout({
                   className="rounded-md px-3 py-1.5 font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:bg-[var(--background-elevated)] hover:text-[var(--foreground)]"
                 >
                   {cat.name}
+                </Link>
+              ))}
+              <span className="mx-1 h-4 w-px bg-[var(--border)]" />
+              {NAV_FEATURES.map((feat) => (
+                <Link
+                  key={feat.href}
+                  href={feat.href}
+                  className="rounded-md px-3 py-1.5 font-mono text-xs text-[var(--accent)] transition-colors hover:bg-[var(--background-elevated)] hover:text-[var(--accent-hover)]"
+                >
+                  {feat.name}
                 </Link>
               ))}
             </div>

@@ -1,13 +1,46 @@
-// Fetch daily Claude Code commit counts using GitHub Search API
-// Fills the gap from where BigQuery data ends (Oct 8, 2025) to today
+// Fetch daily AI coding tool commit counts using GitHub Search API
+// Tracks 6 tools: Claude Code, Cursor, GitHub Copilot, Aider, Gemini CLI, Devin
 //
 // Run: npx tsx scripts/search-commits.ts
 //
 // Note: GitHub Search API has a 30 requests/min rate limit.
-// Each day = 1 request, so ~130 days takes ~5 minutes.
+// Each tool × day = 1 request. 6 tools × 1 day = 6 requests for nightly runs.
 
 import { config } from 'dotenv'
 config({ path: '.env.local' })
+
+const TOOLS = [
+  {
+    name: 'Claude Code',
+    query: (date: string) => `"Co-Authored-By: Claude" committer-date:${date}`,
+    startDate: '2025-10-08',
+  },
+  {
+    name: 'Cursor',
+    query: (date: string) => `"Co-authored-by: Cursor" committer-date:${date}`,
+    startDate: '2025-10-08',
+  },
+  {
+    name: 'GitHub Copilot',
+    query: (date: string) => `author:copilot-swe-agent committer-date:${date}`,
+    startDate: '2025-10-08',
+  },
+  {
+    name: 'Aider',
+    query: (date: string) => `"Co-authored-by: aider" committer-date:${date}`,
+    startDate: '2025-10-08',
+  },
+  {
+    name: 'Gemini CLI',
+    query: (date: string) => `"gemini-code-assist" committer-date:${date}`,
+    startDate: '2025-10-08',
+  },
+  {
+    name: 'Devin',
+    query: (date: string) => `author-email:bot@devin.ai committer-date:${date}`,
+    startDate: '2025-10-08',
+  },
+] as const
 
 function log(msg: string): void {
   const timestamp = new Date().toISOString().replace('T', ' ').split('.')[0]
@@ -32,7 +65,7 @@ async function main(): Promise<void> {
         github_id: 0,
         name: '_bigquery_aggregate',
         owner: '_gitfind',
-        description: 'Aggregate Claude Code commit data (all public GitHub repos)',
+        description: 'Aggregate AI coding tool commit data (all public GitHub repos)',
         stars: 0,
         forks: 0,
         contributors: 0,
@@ -51,92 +84,102 @@ async function main(): Promise<void> {
 
   const repoId = placeholder.id
 
-  // Find the last date we have data for
-  const { data: latest } = await db
-    .from('tool_contributions')
-    .select('month')
-    .eq('repo_id', repoId)
-    .eq('tool_name', 'Claude Code')
-    .order('month', { ascending: false })
-    .limit(1)
-
-  const lastDate = latest && latest.length > 0
-    ? (latest[0] as unknown as { month: string }).month
-    : '2025-10-08'
-
-  // Start from the day after the last date we have (all dates in UTC)
-  const startDate = new Date(lastDate + 'T00:00:00Z')
-  startDate.setUTCDate(startDate.getUTCDate() + 1)
-
-  // Stop at yesterday (not today) — GitHub's search index can lag ~24h,
-  // so collecting "today" or even "yesterday at midnight" risks partial counts.
+  // Stop at yesterday — GitHub's search index can lag ~24h
   const cutoff = new Date()
   cutoff.setUTCDate(cutoff.getUTCDate() - 1)
   const cutoffStr = cutoff.toISOString().slice(0, 10)
   const cutoffDate = new Date(cutoffStr + 'T00:00:00Z')
 
-  log(`Filling gap from ${startDate.toISOString().slice(0, 10)} to ${cutoffStr}`)
+  let totalImported = 0
 
-  let imported = 0
-  const current = new Date(startDate)
+  for (const tool of TOOLS) {
+    // Find the last date we have data for this tool
+    const { data: latest } = await db
+      .from('tool_contributions')
+      .select('month')
+      .eq('repo_id', repoId)
+      .eq('tool_name', tool.name)
+      .order('month', { ascending: false })
+      .limit(1)
 
-  while (current < cutoffDate) {
-    const dateStr = current.toISOString().slice(0, 10)
+    const lastDate = latest && latest.length > 0
+      ? (latest[0] as unknown as { month: string }).month
+      : tool.startDate
 
-    try {
-      const url = `https://api.github.com/search/commits?q=${encodeURIComponent(`"Co-Authored-By: Claude" committer-date:${dateStr}`)}&per_page=1`
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/vnd.github.cloak-preview+json',
-          'User-Agent': 'GitFind/1.0',
-        },
-      })
+    // Start from the day after the last date
+    const startDate = new Date(lastDate + 'T00:00:00Z')
+    startDate.setUTCDate(startDate.getUTCDate() + 1)
 
-      if (response.status === 403) {
-        const remaining = response.headers.get('X-RateLimit-Remaining')
-        if (remaining === '0') {
-          const reset = response.headers.get('X-RateLimit-Reset')
-          const waitMs = reset ? (parseInt(reset) * 1000 - Date.now()) : 60000
-          log(`Rate limited. Waiting ${Math.ceil(waitMs / 1000)}s...`)
-          await new Promise((r) => setTimeout(r, Math.max(waitMs, 1000)))
-          continue // Retry this date
-        }
-      }
-
-      if (!response.ok) {
-        log(`Error for ${dateStr}: ${response.status}`)
-        current.setUTCDate(current.getUTCDate() + 1)
-        continue
-      }
-
-      const data = await response.json() as { total_count: number }
-      const count = data.total_count
-
-      await db.from('tool_contributions').upsert(
-        {
-          repo_id: repoId,
-          tool_name: 'Claude Code',
-          commit_count: count,
-          month: dateStr,
-        },
-        { onConflict: 'repo_id,tool_name,month' }
-      )
-
-      log(`${dateStr}: ${count.toLocaleString()} commits`)
-      imported++
-
-      // Respect rate limit: 30 requests/min = 2s between requests
-      await new Promise((r) => setTimeout(r, 2200))
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      log(`Error for ${dateStr}: ${msg}`)
+    if (startDate >= cutoffDate) {
+      log(`${tool.name}: already up to date`)
+      continue
     }
 
-    current.setUTCDate(current.getUTCDate() + 1)
+    log(`${tool.name}: filling from ${startDate.toISOString().slice(0, 10)} to ${cutoffStr}`)
+    let imported = 0
+    const current = new Date(startDate)
+
+    while (current < cutoffDate) {
+      const dateStr = current.toISOString().slice(0, 10)
+
+      try {
+        const url = `https://api.github.com/search/commits?q=${encodeURIComponent(tool.query(dateStr))}&per_page=1`
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github.cloak-preview+json',
+            'User-Agent': 'GitFind/1.0',
+          },
+        })
+
+        if (response.status === 403) {
+          const remaining = response.headers.get('X-RateLimit-Remaining')
+          if (remaining === '0') {
+            const reset = response.headers.get('X-RateLimit-Reset')
+            const waitMs = reset ? (parseInt(reset) * 1000 - Date.now()) : 60000
+            log(`Rate limited. Waiting ${Math.ceil(waitMs / 1000)}s...`)
+            await new Promise((r) => setTimeout(r, Math.max(waitMs, 1000)))
+            continue // Retry this date
+          }
+        }
+
+        if (!response.ok) {
+          log(`Error for ${tool.name} ${dateStr}: ${response.status}`)
+          current.setUTCDate(current.getUTCDate() + 1)
+          continue
+        }
+
+        const data = await response.json() as { total_count: number }
+        const count = data.total_count
+
+        await db.from('tool_contributions').upsert(
+          {
+            repo_id: repoId,
+            tool_name: tool.name,
+            commit_count: count,
+            month: dateStr,
+          },
+          { onConflict: 'repo_id,tool_name,month' }
+        )
+
+        log(`  ${tool.name} ${dateStr}: ${count.toLocaleString()} commits`)
+        imported++
+
+        // Respect rate limit: 30 requests/min = 2s between requests
+        await new Promise((r) => setTimeout(r, 2200))
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        log(`Error for ${tool.name} ${dateStr}: ${msg}`)
+      }
+
+      current.setUTCDate(current.getUTCDate() + 1)
+    }
+
+    log(`${tool.name}: imported ${imported} days`)
+    totalImported += imported
   }
 
-  log(`\nDone! Imported ${imported} days of data.`)
+  log(`\nDone! Imported ${totalImported} total data points across ${TOOLS.length} tools.`)
 }
 
 main().catch((err) => {
