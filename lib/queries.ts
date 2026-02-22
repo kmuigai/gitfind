@@ -225,6 +225,7 @@ export async function getToolContributionsByDay(): Promise<
     .like('month', '____-__-__') // Only daily entries (YYYY-MM-DD)
     .lt('month', today)
     .order('month', { ascending: true })
+    .limit(5000) // Supabase defaults to 1000 rows
 
   if (placeholderId) {
     query.eq('repo_id', placeholderId)
@@ -286,6 +287,7 @@ export async function getAICodeIndexData(): Promise<AICodeIndexRow[]> {
     .like('month', '____-__-__')
     .lt('month', today)
     .order('month', { ascending: true })
+    .limit(5000) // Supabase defaults to 1000 rows
 
   if (error || !data) return []
 
