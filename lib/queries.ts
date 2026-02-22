@@ -225,7 +225,6 @@ export async function getToolContributionsByDay(): Promise<
     .like('month', '____-__-__') // Only daily entries (YYYY-MM-DD)
     .lt('month', today)
     .order('month', { ascending: true })
-    .limit(5000) // Supabase defaults to 1000 rows
 
   if (placeholderId) {
     query.eq('repo_id', placeholderId)
@@ -279,23 +278,36 @@ export async function getAICodeIndexData(): Promise<AICodeIndexRow[]> {
   // Exclude today (partial data)
   const today = new Date().toISOString().slice(0, 10)
 
-  const { data, error } = await supabase
-    .from('tool_contributions')
-    .select('tool_name, month, commit_count')
-    .eq('repo_id', placeholderId)
-    .in('tool_name', [...AI_CODE_INDEX_TOOLS])
-    .like('month', '____-__-__')
-    .lt('month', today)
-    .order('month', { ascending: true })
-    .limit(5000) // Supabase defaults to 1000 rows
+  // Supabase/PostgREST caps responses at 1000 rows — paginate to get all data
+  const allRows: Array<{ tool_name: string; month: string; commit_count: number }> = []
+  const PAGE_SIZE = 1000
+  let offset = 0
 
-  if (error || !data) return []
+  while (true) {
+    const { data, error } = await supabase
+      .from('tool_contributions')
+      .select('tool_name, month, commit_count')
+      .eq('repo_id', placeholderId)
+      .in('tool_name', [...AI_CODE_INDEX_TOOLS])
+      .like('month', '____-__-__')
+      .lt('month', today)
+      .order('month', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1)
 
-  const typedData = data as unknown as Array<{
-    tool_name: string
-    month: string
-    commit_count: number
-  }>
+    if (error || !data || data.length === 0) break
+
+    const typedPage = data as unknown as Array<{
+      tool_name: string
+      month: string
+      commit_count: number
+    }>
+    allRows.push(...typedPage)
+
+    if (data.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
+  }
+
+  const typedData = allRows
 
   // Pivot: group by date, create one row per date with a column per tool
   const dateMap = new Map<string, AICodeIndexRow>()
