@@ -84,9 +84,10 @@ async function main(): Promise<void> {
 
   const repoId = placeholder.id
 
-  // Stop at yesterday — GitHub's search index can lag ~24h
+  // Stop at 2 days ago — GitHub's search index can lag ~24h,
+  // so T-2 ensures we get fully settled, accurate counts
   const cutoff = new Date()
-  cutoff.setUTCDate(cutoff.getUTCDate() - 1)
+  cutoff.setUTCDate(cutoff.getUTCDate() - 2)
   const cutoffStr = cutoff.toISOString().slice(0, 10)
   const cutoffDate = new Date(cutoffStr + 'T00:00:00Z')
 

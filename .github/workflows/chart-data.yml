@@ -1,0 +1,38 @@
+name: GitFind Chart Data
+
+on:
+  # Run daily at 05:00 UTC (midnight EST) — gives GitHub's search index
+  # time to settle before querying (fills through T-2 days)
+  schedule:
+    - cron: '0 5 * * *'
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  update-charts:
+    name: Fetch AI Code Index Data
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install tsx (TypeScript runner)
+        run: npm install -g tsx
+
+      - name: Update AI Code Index chart data
+        run: npx tsx scripts/search-commits.ts
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITFIND_GITHUB_TOKEN }}
