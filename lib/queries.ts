@@ -112,14 +112,25 @@ export async function searchRepos(query: string, limit = 10): Promise<RepoWithEn
 
 // Get project counts per category
 export async function getCategoryCounts(): Promise<Record<string, number>> {
-  const { data } = await supabase
-    .from('enrichments')
-    .select('category')
+  // Paginate to handle 1000-row Supabase/PostgREST cap
+  const allRows: Array<{ category: string }> = []
+  let offset = 0
+  const PAGE_SIZE = 1000
 
-  if (!data) return {}
+  while (true) {
+    const { data } = await supabase
+      .from('enrichments')
+      .select('category')
+      .range(offset, offset + PAGE_SIZE - 1)
+
+    if (!data || data.length === 0) break
+    allRows.push(...(data as unknown as Array<{ category: string }>))
+    if (data.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
+  }
 
   const counts: Record<string, number> = {}
-  for (const row of data as unknown as Array<{ category: string }>) {
+  for (const row of allRows) {
     counts[row.category] = (counts[row.category] ?? 0) + 1
   }
   return counts
@@ -129,12 +140,25 @@ export async function getCategoryCounts(): Promise<Record<string, number>> {
 export async function getAllReposForSitemap(): Promise<
   Array<{ owner: string; name: string; updated_at: string }>
 > {
-  const { data } = await supabase
-    .from('repos')
-    .select('owner, name, updated_at')
-    .order('updated_at', { ascending: false })
+  // Paginate to handle 1000-row Supabase/PostgREST cap (DB has 2,700+ repos)
+  const allRows: Array<{ owner: string; name: string; updated_at: string }> = []
+  let offset = 0
+  const PAGE_SIZE = 1000
 
-  return (data ?? []) as unknown as Array<{ owner: string; name: string; updated_at: string }>
+  while (true) {
+    const { data } = await supabase
+      .from('repos')
+      .select('owner, name, updated_at')
+      .order('updated_at', { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1)
+
+    if (!data || data.length === 0) break
+    allRows.push(...(data as unknown as Array<{ owner: string; name: string; updated_at: string }>))
+    if (data.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
+  }
+
+  return allRows
 }
 
 // Fetch top repos by 7-day star velocity (trending this week)
