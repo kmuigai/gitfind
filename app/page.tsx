@@ -44,7 +44,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   return (
     <div>
       {/* Hero */}
-      <section className="relative border-b border-[var(--border)] px-4 pb-8 pt-8 sm:px-6 sm:pb-12 sm:pt-16">
+      <section
+        className="relative border-b border-[var(--border)] px-4 pb-8 pt-8 sm:px-6 sm:pb-12 sm:pt-16"
+        style={{
+          backgroundImage: 'radial-gradient(circle, var(--border) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }}
+      >
         <div className="mx-auto max-w-7xl">
           {/* Animated headline */}
           <HeroAnimation />
