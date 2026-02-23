@@ -43,15 +43,30 @@ GitFind's proprietary algorithm. Do NOT change these weights without asking firs
 ## Directory categories (launch)
 AI/ML, Developer Tools, Security, Data & Analytics, Web Frameworks, Infrastructure & DevOps, Mobile, Open Source Utilities
 
-## Current build phase
-**Week 1–2 — Data Pipeline**
-Goal: GitHub data flowing into PostgreSQL automatically, scored and enriched.
-- GitHub API client (star history, contributor counts, fork velocity)
-- Early Signal Score algorithm in TypeScript (unit-testable)
-- Claude API enrichment: plain-English summary, "why it matters for PMs", category tag
-- Supabase table setup (SQL editor) + generate types with `supabase gen types typescript`
-- HN Algolia API for mention signal (free, no auth) — Reddit + X deferred post-launch
-- GitHub Actions cron job — nightly, no manual trigger
+## Data pipeline
+
+Four GitHub Actions workflows run on staggered schedules:
+
+| Workflow | Schedule | Script(s) | What it does |
+|----------|----------|-----------|-------------|
+| `pipeline.yml` | Midnight UTC daily | `ingest-gharchive.ts`, `ingest-hn.ts`, `pipeline.ts`, `fetch-downloads.ts` | Discover new repos, enrich with Claude, score, fetch downloads |
+| `chart-data.yml` | 5AM UTC daily | `search-commits.ts` | AI Code Index — daily commit counts for 6 tools |
+| `snapshot-light.yml` | 6AM UTC daily | `snapshot-light.ts` | Daily star/fork/open_issues snapshots for all repos |
+| `weekly-stats.yml` | 8AM UTC Sundays | `snapshot-weekly.ts` | Weekly contributors, commit frequency, release cadence |
+
+### Database tables
+- `repos` — all tracked repos (~5K and growing)
+- `enrichments` — Claude-generated summaries, scores, categories (~1K enriched)
+- `repo_snapshots` — daily time-series: stars, forks, stars_7d, open_issues (the core moat)
+- `weekly_stats` — weekly time-series: contributors, commit_count_4w, last_release_date/tag
+- `tool_contributions` — AI Code Index data (Claude Code, Cursor, Copilot, Aider, Gemini CLI, Devin)
+- `package_downloads` — npm/PyPI/crates.io download counts
+
+### Key constraints
+- Supabase PostgREST caps responses at 1000 rows — any query that could exceed this must paginate with `.range()`
+- `search-commits.ts` fills through T-2 days (not yesterday) to avoid GitHub search index lag
+- `snapshot-light.ts` uses `ignoreDuplicates: true` to avoid overwriting pipeline snapshots
+- GitHub Actions uses `GITFIND_GITHUB_TOKEN` secret (not `GITHUB_TOKEN` which is reserved)
 
 ## Rules — follow these always
 - Never change more than one feature at a time
