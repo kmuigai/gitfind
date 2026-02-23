@@ -163,10 +163,12 @@ async function main(): Promise<void> {
       const data = (await response.json()) as {
         stargazers_count: number
         forks_count: number
+        open_issues_count: number
       }
 
       const currentStars = data.stargazers_count
       const currentForks = data.forks_count
+      const currentOpenIssues = data.open_issues_count
 
       // Calculate stars_7d from snapshot diff
       const stars7dAgo = snapshots7d.get(repo.id)
@@ -189,6 +191,7 @@ async function main(): Promise<void> {
           stars: currentStars,
           forks: currentForks,
           stars_7d,
+          open_issues: currentOpenIssues,
         },
         { onConflict: 'repo_id,snapshot_date', ignoreDuplicates: true }
       )

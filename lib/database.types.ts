@@ -175,6 +175,7 @@ export type Database = {
           stars: number
           forks: number
           stars_7d: number
+          open_issues: number
         }
         Insert: {
           id?: string
@@ -183,6 +184,7 @@ export type Database = {
           stars?: number
           forks?: number
           stars_7d?: number
+          open_issues?: number
         }
         Update: {
           id?: string
@@ -191,6 +193,7 @@ export type Database = {
           stars?: number
           forks?: number
           stars_7d?: number
+          open_issues?: number
         }
         Relationships: [
           {
@@ -236,6 +239,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: 'package_downloads_repo_id_fkey'
+            columns: ['repo_id']
+            isOneToOne: false
+            referencedRelation: 'repos'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      weekly_stats: {
+        Row: {
+          id: string
+          repo_id: string
+          snapshot_date: string
+          contributors: number
+          commit_count_4w: number
+          last_release_date: string | null
+          last_release_tag: string | null
+        }
+        Insert: {
+          id?: string
+          repo_id: string
+          snapshot_date?: string
+          contributors?: number
+          commit_count_4w?: number
+          last_release_date?: string | null
+          last_release_tag?: string | null
+        }
+        Update: {
+          id?: string
+          repo_id?: string
+          snapshot_date?: string
+          contributors?: number
+          commit_count_4w?: number
+          last_release_date?: string | null
+          last_release_tag?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'weekly_stats_repo_id_fkey'
             columns: ['repo_id']
             isOneToOne: false
             referencedRelation: 'repos'
@@ -300,6 +341,7 @@ export type Submission = Tables<'submissions'>
 export type ToolContribution = Tables<'tool_contributions'>
 export type RepoSnapshot = Tables<'repo_snapshots'>
 export type PackageDownload = Tables<'package_downloads'>
+export type WeeklyStat = Tables<'weekly_stats'>
 
 export type RepoWithEnrichment = Repo & {
   enrichment: Enrichment | null

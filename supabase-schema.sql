@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS repo_snapshots (
   stars INTEGER NOT NULL DEFAULT 0,
   forks INTEGER NOT NULL DEFAULT 0,
   stars_7d INTEGER NOT NULL DEFAULT 0,
+  open_issues INTEGER NOT NULL DEFAULT 0,
   UNIQUE (repo_id, snapshot_date)
 );
 
@@ -85,6 +86,18 @@ CREATE TABLE IF NOT EXISTS package_downloads (
   downloads_7d BIGINT NOT NULL DEFAULT 0,
   downloads_30d BIGINT NOT NULL DEFAULT 0,
   UNIQUE (repo_id, registry, snapshot_date)
+);
+
+-- Weekly health metrics (contributors, commit frequency, releases)
+CREATE TABLE IF NOT EXISTS weekly_stats (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  repo_id UUID NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  snapshot_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  contributors INTEGER NOT NULL DEFAULT 0,
+  commit_count_4w INTEGER NOT NULL DEFAULT 0,
+  last_release_date DATE,
+  last_release_tag TEXT,
+  UNIQUE (repo_id, snapshot_date)
 );
 
 -- ============================================================
@@ -112,6 +125,9 @@ CREATE INDEX IF NOT EXISTS repo_snapshots_repo_date_idx ON repo_snapshots(repo_i
 
 -- Package download lookups by repo + date
 CREATE INDEX IF NOT EXISTS package_downloads_repo_date_idx ON package_downloads(repo_id, snapshot_date DESC);
+
+-- Weekly stats lookups by repo + date
+CREATE INDEX IF NOT EXISTS weekly_stats_repo_date_idx ON weekly_stats(repo_id, snapshot_date DESC);
 
 -- ============================================================
 -- AUTO-UPDATE updated_at TRIGGER
@@ -158,6 +174,7 @@ ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tool_contributions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE repo_snapshots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE package_downloads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE weekly_stats ENABLE ROW LEVEL SECURITY;
 
 -- Public read access for directory data
 CREATE POLICY "Public can read repos" ON repos FOR SELECT USING (true);
@@ -166,6 +183,7 @@ CREATE POLICY "Public can read categories" ON categories FOR SELECT USING (true)
 CREATE POLICY "Public can read tool_contributions" ON tool_contributions FOR SELECT USING (true);
 CREATE POLICY "Public can read repo_snapshots" ON repo_snapshots FOR SELECT USING (true);
 CREATE POLICY "Public can read package_downloads" ON package_downloads FOR SELECT USING (true);
+CREATE POLICY "Public can read weekly_stats" ON weekly_stats FOR SELECT USING (true);
 
 -- No public write access — pipeline uses service role key (bypasses RLS)
 -- Newsletter signup writes via API route using service role key
