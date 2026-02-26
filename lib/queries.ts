@@ -138,22 +138,36 @@ export async function getCategoryCounts(): Promise<Record<string, number>> {
 
 // Get all repos for sitemap generation
 export async function getAllReposForSitemap(): Promise<
-  Array<{ owner: string; name: string; updated_at: string }>
+  Array<{ owner: string; name: string; updated_at: string; has_enrichment: boolean }>
 > {
-  // Paginate to handle 1000-row Supabase/PostgREST cap (DB has 2,700+ repos)
-  const allRows: Array<{ owner: string; name: string; updated_at: string }> = []
+  // Paginate to handle 1000-row Supabase/PostgREST cap (DB has 5K+ repos)
+  const allRows: Array<{ owner: string; name: string; updated_at: string; has_enrichment: boolean }> = []
   let offset = 0
   const PAGE_SIZE = 1000
 
   while (true) {
     const { data } = await supabase
       .from('repos')
-      .select('owner, name, updated_at')
+      .select('owner, name, updated_at, enrichments(id)')
       .order('updated_at', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1)
 
     if (!data || data.length === 0) break
-    allRows.push(...(data as unknown as Array<{ owner: string; name: string; updated_at: string }>))
+
+    const typed = data as unknown as Array<{
+      owner: string
+      name: string
+      updated_at: string
+      enrichments: { id: string }[] | null
+    }>
+    allRows.push(
+      ...typed.map((r) => ({
+        owner: r.owner,
+        name: r.name,
+        updated_at: r.updated_at,
+        has_enrichment: Array.isArray(r.enrichments) && r.enrichments.length > 0,
+      }))
+    )
     if (data.length < PAGE_SIZE) break
     offset += PAGE_SIZE
   }

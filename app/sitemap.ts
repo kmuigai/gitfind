@@ -48,7 +48,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `${BASE_URL}/project/${repo.owner}/${repo.name}`,
     lastModified: new Date(repo.updated_at),
     changeFrequency: 'weekly' as const,
-    priority: 0.7,
+    priority: repo.has_enrichment ? 0.7 : 0.3,
   }))
 
   return [...staticRoutes, ...projectRoutes]
