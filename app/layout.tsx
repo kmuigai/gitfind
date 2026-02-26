@@ -17,12 +17,12 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'GitFind — GitHub, translated.',
+    default: 'GitFind — GitHub, Translated | Trending Projects Ranked & Explained',
     template: '%s — GitFind',
   },
   description:
-    'The rising projects that matter — before everyone else sees them. Trending repos ranked, scored, and explained in plain English.',
-  keywords: ['GitHub trending', 'open source discovery', 'product manager tools', 'GitHub intelligence', 'early signal'],
+    'Discover the fastest-growing open source projects on GitHub, ranked and explained in plain English for product managers, founders, and investors.',
+  keywords: ['GitHub trending', 'open source discovery', 'product manager tools', 'GitHub intelligence', 'early signal', 'trending repositories', 'GitHub projects'],
   authors: [{ name: 'GitFind' }],
   metadataBase: new URL('https://gitfind.ai'),
   openGraph: {
@@ -30,14 +30,14 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: 'https://gitfind.ai',
     siteName: 'GitFind',
-    title: 'GitFind — GitHub, translated.',
+    title: 'GitFind — GitHub, Translated | Trending Projects Ranked & Explained',
     description:
-      'The rising projects that matter — before everyone else sees them. Trending repos ranked, scored, and explained in plain English.',
+      'Discover the fastest-growing open source projects on GitHub, ranked and explained in plain English.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'GitFind — GitHub, translated.',
-    description: 'The rising projects that matter — before everyone else sees them.',
+    title: 'GitFind — GitHub, Translated | Trending Projects Ranked & Explained',
+    description: 'Discover the fastest-growing open source projects on GitHub, ranked and explained in plain English for product managers, founders, and investors.',
   },
   robots: {
     index: true,

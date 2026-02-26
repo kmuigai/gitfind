@@ -19,27 +19,27 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: 'Project Not Found' }
   }
 
-  const title = `${owner}/${repo}`
+  const repoName = `${owner}/${repo}`
   const description =
     project.enrichment?.summary ??
     project.description ??
-    `${owner}/${repo} on GitFind — Early Signal Score: ${project.enrichment?.early_signal_score ?? 0}`
+    `${repoName} — Early Signal Score, stats, and plain-English analysis on GitFind.`
 
   const url = `https://gitfind.ai/project/${owner}/${repo}`
 
   return {
-    title,
+    title: `${repoName} — GitHub Project Analysis`,
     description,
     alternates: { canonical: url },
     openGraph: {
-      title: `${title} — GitFind`,
+      title: `${repoName} — GitHub Project Analysis | GitFind`,
       description,
       url,
       type: 'article',
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${title} — GitFind`,
+      title: `${repoName} — GitHub Project Analysis | GitFind`,
       description,
     },
   }

@@ -79,14 +79,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!category) return {}
 
   const url = `https://gitfind.ai/category/${slug}`
+  const year = new Date().getFullYear()
 
   return {
-    title: `Top Rising ${category.name} Projects`,
-    description: `Discover the fastest-growing ${category.name} projects on GitHub, ranked by Early Signal Score. ${category.description}`,
+    title: `Top Rising ${category.name} Projects on GitHub (${year})`,
+    description: `Discover the fastest-growing ${category.name} open source projects on GitHub, ranked and explained in plain English. ${category.description}`,
     alternates: { canonical: url },
     openGraph: {
-      title: `Top Rising ${category.name} Projects — GitFind`,
-      description: `Find the next big ${category.name} project before it goes mainstream.`,
+      title: `Top Rising ${category.name} Projects on GitHub — GitFind`,
+      description: `Find the next big ${category.name} project before it goes mainstream. Ranked and explained in plain English.`,
       url,
     },
   }

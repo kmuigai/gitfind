@@ -3,10 +3,10 @@ import Link from 'next/link'
 import SubmitForm from '@/components/SubmitForm'
 
 export const metadata: Metadata = {
-  title: 'Submit a Project',
+  title: 'Submit a GitHub Project',
   description: 'Submit a GitHub project to GitFind. Projects with an Early Signal Score of 60+ are auto-approved to the directory.',
   openGraph: {
-    title: 'Submit a Project — GitFind',
+    title: 'Submit a GitHub Project — GitFind',
     description: 'Submit a GitHub project to GitFind. Projects with an Early Signal Score of 60+ are auto-approved.',
     url: 'https://gitfind.ai/submit',
   },
