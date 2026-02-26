@@ -25,17 +25,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     project.description ??
     `${owner}/${repo} on GitFind — Early Signal Score: ${project.enrichment?.early_signal_score ?? 0}`
 
+  const url = `https://gitfind.ai/project/${owner}/${repo}`
+
   return {
     title,
     description,
+    alternates: { canonical: url },
     openGraph: {
       title: `${title} — GitFind`,
       description,
-      url: `https://gitfind.ai/project/${owner}/${repo}`,
+      url,
       type: 'article',
     },
     twitter: {
-      card: 'summary',
+      card: 'summary_large_image',
       title: `${title} — GitFind`,
       description,
     },

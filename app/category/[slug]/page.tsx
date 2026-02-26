@@ -78,12 +78,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const category = CATEGORIES.find((c) => c.slug === slug)
   if (!category) return {}
 
+  const url = `https://gitfind.ai/category/${slug}`
+
   return {
     title: `Top Rising ${category.name} Projects`,
     description: `Discover the fastest-growing ${category.name} projects on GitHub, ranked by Early Signal Score. ${category.description}`,
+    alternates: { canonical: url },
     openGraph: {
       title: `Top Rising ${category.name} Projects — GitFind`,
       description: `Find the next big ${category.name} project before it goes mainstream.`,
+      url,
     },
   }
 }
