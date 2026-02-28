@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { RepoWithEnrichment } from '@/lib/database.types'
+import StatsRow from './StatsRow'
 
 interface ProjectCardProps {
   project: RepoWithEnrichment
@@ -17,7 +18,6 @@ function ScoreBadge({ score }: { score: number }) {
   return (
     <span
       className={`inline-flex flex-col items-center rounded-full border px-2.5 py-1 ${color}`}
-      title="Ranked by star growth, contributor activity, and community buzz"
     >
       <span className="font-mono text-sm font-bold leading-tight">{score}</span>
       <span className="text-[10px] font-medium leading-tight opacity-80">{tier}</span>
@@ -62,7 +62,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   const score = enrichment?.early_signal_score ?? 0
 
   return (
-    <article className="group relative flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--background-card)] p-5 transition-all duration-200 hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)]">
+    <article className="group relative flex h-full flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--background-card)] p-5 transition-all duration-200 hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)]">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -95,33 +95,33 @@ export default function ProjectCard({ project }: ProjectCardProps) {
       )}
 
       {/* Stats footer */}
-      <div className="flex flex-wrap items-center gap-3 pt-1">
+      <StatsRow
+        tooltipText={[
+          project.language,
+          `${formatStars(project.stars)} stars`,
+          `${formatStars(project.forks)} forks`,
+          project.contributors > 0 ? `${project.contributors} contributors` : '',
+          project.downloads_7d != null && project.downloads_7d > 0 ? `${formatStars(project.downloads_7d)} dl/wk` : '',
+        ].filter(Boolean).join(' · ')}
+      >
         <LanguageDot language={project.language} />
-        <span className="font-mono text-xs text-[var(--foreground-muted)]">
+        <span className="shrink-0 font-mono text-xs text-[var(--foreground-muted)]">
           {formatStars(project.stars)} stars
         </span>
-        <span className="font-mono text-xs text-[var(--foreground-muted)]">
+        <span className="shrink-0 font-mono text-xs text-[var(--foreground-muted)]">
           {formatStars(project.forks)} forks
         </span>
         {project.contributors > 0 && (
-          <span className="font-mono text-xs text-[var(--foreground-muted)]">
+          <span className="shrink-0 font-mono text-xs text-[var(--foreground-muted)]">
             {project.contributors} contrib
           </span>
         )}
         {project.downloads_7d != null && project.downloads_7d > 0 && (
-          <span className="font-mono text-xs text-[var(--foreground-muted)]">
+          <span className="shrink-0 font-mono text-xs text-[var(--foreground-muted)]">
             {formatStars(project.downloads_7d)} dl/wk
           </span>
         )}
-        {enrichment?.category && (
-          <Link
-            href={`/category/${enrichment.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}
-            className="ml-auto text-xs text-[var(--foreground-subtle)] transition-colors hover:text-[var(--accent)]"
-          >
-            {enrichment.category}
-          </Link>
-        )}
-      </div>
+      </StatsRow>
 
       {/* Full-card click → detail page */}
       <Link
@@ -131,7 +131,17 @@ export default function ProjectCard({ project }: ProjectCardProps) {
         tabIndex={-1}
       />
       {/* Footer links */}
-      <div className="relative z-10 flex items-center justify-end">
+      <div className="relative z-10 flex items-center justify-between">
+        {enrichment?.category ? (
+          <Link
+            href={`/category/${enrichment.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}
+            className="text-xs text-[var(--foreground-subtle)] transition-colors hover:text-[var(--accent)]"
+          >
+            {enrichment.category}
+          </Link>
+        ) : (
+          <span />
+        )}
         <a
           href={project.url}
           target="_blank"
