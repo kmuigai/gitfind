@@ -71,7 +71,7 @@ export default async function AICodeIndexPage() {
             <span className="text-[var(--foreground-muted)]">AI Code Index</span>
           </nav>
 
-          <h1 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
+          <h1 className="font-mono text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
             AI Code Index
           </h1>
           <p className="mt-2 max-w-2xl font-mono text-sm text-[var(--foreground-muted)] leading-relaxed">
@@ -101,7 +101,7 @@ export default async function AICodeIndexPage() {
       {/* Methodology */}
       <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
         <div className="mx-auto max-w-4xl">
-          <h2 className="text-lg font-semibold text-[var(--foreground)]">
+          <h2 className="font-mono text-lg font-semibold text-[var(--foreground)]">
             How we track this
           </h2>
           <p className="mt-2 font-mono text-sm text-[var(--foreground-muted)] leading-relaxed">
@@ -112,7 +112,7 @@ export default async function AICodeIndexPage() {
           </p>
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[
-              { tool: 'Claude Code', method: 'Co-Authored-By trailer', color: '#6c6af6' },
+              { tool: 'Claude Code', method: 'Co-Authored-By trailer', color: 'var(--accent)' },
               { tool: 'Cursor', method: 'Co-Authored-By trailer', color: '#f59e0b' },
               { tool: 'GitHub Copilot', method: 'Bot committer account', color: '#3b82f6' },
               { tool: 'Aider', method: 'Co-Authored-By trailer', color: '#22c55e' },

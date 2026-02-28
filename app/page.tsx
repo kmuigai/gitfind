@@ -17,16 +17,6 @@ export const metadata: Metadata = {
 // Revalidate every hour — pipeline runs nightly but this keeps data fresh during the day
 export const revalidate = 3600
 
-const CATEGORIES = [
-  { name: 'AI / Machine Learning', slug: 'ai-ml', emoji: '🤖' },
-  { name: 'Developer Tools', slug: 'developer-tools', emoji: '🛠️' },
-  { name: 'Security', slug: 'security', emoji: '🔐' },
-  { name: 'Data & Analytics', slug: 'data-analytics', emoji: '📊' },
-  { name: 'Web Frameworks', slug: 'web-frameworks', emoji: '🌐' },
-  { name: 'Infrastructure & DevOps', slug: 'infrastructure-devops', emoji: '⚙️' },
-  { name: 'Mobile', slug: 'mobile', emoji: '📱' },
-  { name: 'Open Source Utilities', slug: 'open-source-utilities', emoji: '🔧' },
-]
 
 interface HomePageProps {
   searchParams: Promise<{ view?: string }>
@@ -73,7 +63,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <div className="mx-auto max-w-7xl">
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-[var(--foreground)]">
+              <h2 className="font-mono text-lg font-semibold text-[var(--foreground)]">
                 {view === 'trending'
                   ? 'This week\u0027s movers'
                   : 'Top ranked'}
@@ -108,7 +98,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <div className="mx-auto max-w-4xl">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-[var(--foreground)]">
+                <h2 className="font-mono text-lg font-semibold text-[var(--foreground)]">
                   The rise of AI-written code
                 </h2>
                 <p className="mt-1 font-mono text-sm text-[var(--foreground-muted)]">

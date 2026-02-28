@@ -2,8 +2,6 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 
-const MONO = 'var(--font-geist-mono), ui-monospace, monospace'
-
 const TABS = [
   { key: 'trending', label: 'Trending' },
   { key: 'top', label: 'Top Score' },
@@ -17,7 +15,7 @@ export default function TrendingTabs() {
   const active = (searchParams.get('view') as ViewTab) || 'trending'
 
   return (
-    <div className="flex gap-1" style={{ fontFamily: MONO }}>
+    <div className="flex gap-1 font-mono">
       {TABS.map((tab) => (
         <button
           key={tab.key}
@@ -31,14 +29,11 @@ export default function TrendingTabs() {
             const qs = params.toString()
             router.push(qs ? `/?${qs}` : '/', { scroll: false })
           }}
-          className="px-3 py-1 text-xs transition-colors"
-          style={{
-            fontFamily: MONO,
-            borderRadius: '2px',
-            border: active === tab.key ? '1px solid var(--accent)' : '1px solid var(--border)',
-            background: active === tab.key ? 'var(--accent)' : 'transparent',
-            color: active === tab.key ? '#fff' : 'var(--foreground-subtle)',
-          }}
+          className={`rounded-md border px-3 py-1 text-xs transition-colors ${
+            active === tab.key
+              ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]'
+              : 'border-[var(--border)] text-[var(--foreground-subtle)]'
+          }`}
         >
           {tab.label}
         </button>

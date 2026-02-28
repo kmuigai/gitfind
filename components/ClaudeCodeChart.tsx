@@ -161,10 +161,10 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
               className="px-3 py-1 text-xs transition-colors"
               style={{
                 fontFamily: MONO,
-                borderRadius: '2px',
+                borderRadius: '6px',
                 border: range === r ? '1px solid var(--accent)' : '1px solid var(--border)',
                 background: range === r ? 'var(--accent)' : 'transparent',
-                color: range === r ? '#fff' : 'var(--foreground-subtle)',
+                color: range === r ? 'var(--on-accent)' : 'var(--foreground-subtle)',
               }}
             >
               {r}
@@ -178,7 +178,7 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
               fontFamily: MONO,
               color: metric.type === 'total'
                 ? 'var(--foreground-muted)'
-                : metric.positive ? 'var(--score-high)' : '#ef4444',
+                : metric.positive ? 'var(--score-high)' : 'var(--error)',
             }}
           >
             {metric.label}
@@ -221,7 +221,7 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
               contentStyle={{
                 backgroundColor: 'var(--background-card)',
                 border: '1px solid var(--border)',
-                borderRadius: '0px',
+                borderRadius: '6px',
                 fontSize: '12px',
                 fontFamily: MONO,
                 color: 'var(--foreground)',

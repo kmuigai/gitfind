@@ -11,7 +11,6 @@ interface Category {
   name: string
   slug: string
   description: string
-  emoji: string
 }
 
 const CATEGORIES: Category[] = [
@@ -19,49 +18,41 @@ const CATEGORIES: Category[] = [
     name: 'AI / Machine Learning',
     slug: 'ai-ml',
     description: 'Artificial intelligence, machine learning, LLMs, and neural networks — the projects shaping how software thinks.',
-    emoji: '🤖',
   },
   {
     name: 'Developer Tools',
     slug: 'developer-tools',
     description: 'Tools, utilities, and frameworks that make developers faster. The picks here often become the new industry standard.',
-    emoji: '🛠️',
   },
   {
     name: 'Security',
     slug: 'security',
     description: 'Cybersecurity, cryptography, and privacy tools. Rising projects here often signal new attack vectors or defensive capabilities.',
-    emoji: '🔐',
   },
   {
     name: 'Data & Analytics',
     slug: 'data-analytics',
     description: 'Data science, analytics, databases, and visualization. The infrastructure layer that every data-driven product is built on.',
-    emoji: '📊',
   },
   {
     name: 'Web Frameworks',
     slug: 'web-frameworks',
     description: 'Frontend and backend web development frameworks. Adoption patterns here predict what your engineering team will be using in 2 years.',
-    emoji: '🌐',
   },
   {
     name: 'Infrastructure & DevOps',
     slug: 'infrastructure-devops',
     description: 'Cloud infrastructure, containers, orchestration, and DevOps tools. The invisible foundation every product runs on.',
-    emoji: '⚙️',
   },
   {
     name: 'Mobile',
     slug: 'mobile',
     description: 'iOS, Android, and cross-platform mobile development. Where the next wave of consumer products is being built.',
-    emoji: '📱',
   },
   {
     name: 'Open Source Utilities',
     slug: 'open-source-utilities',
     description: 'General-purpose utilities, automation tools, and productivity projects. The quiet projects that end up powering everything else.',
-    emoji: '🔧',
   },
 ]
 
@@ -117,19 +108,16 @@ export default async function CategoryPage({ params }: Props) {
             <span className="text-[var(--foreground-muted)]">{category.name}</span>
           </nav>
 
-          <div className="flex items-start gap-4">
-            <span className="text-4xl">{category.emoji}</span>
-            <div>
-              <h1 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-                {category.name}
-              </h1>
+          <div>
+            <h1 className="font-mono text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
+              {category.name}
+            </h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--foreground-muted)]">
                 {category.description}
               </p>
               <p className="mt-3 font-mono text-xs text-[var(--foreground-subtle)]">
                 Ranked by Early Signal Score — projects most likely to break out before mainstream coverage.
               </p>
-            </div>
           </div>
         </div>
       </section>
@@ -150,8 +138,7 @@ export default async function CategoryPage({ params }: Props) {
             </>
           ) : (
             <div className="rounded-lg border border-dashed border-[var(--border)] py-16 text-center">
-              <span className="text-4xl">{category.emoji}</span>
-              <p className="mt-4 text-sm text-[var(--foreground-muted)]">
+              <p className="text-sm text-[var(--foreground-muted)]">
                 No {category.name} projects yet.
               </p>
               <p className="mt-1 text-xs text-[var(--foreground-subtle)]">
@@ -165,7 +152,7 @@ export default async function CategoryPage({ params }: Props) {
       {/* Other categories */}
       <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-7xl">
-          <h2 className="mb-4 text-sm font-medium text-[var(--foreground-muted)]">
+          <h2 className="mb-4 font-mono text-sm font-medium text-[var(--foreground-muted)]">
             Other categories
           </h2>
           <div className="flex flex-wrap gap-2">
@@ -175,7 +162,7 @@ export default async function CategoryPage({ params }: Props) {
                 href={`/category/${cat.slug}`}
                 className="rounded-md border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)] hover:text-[var(--foreground)]"
               >
-                {cat.emoji} {cat.name}
+                {cat.name}
               </Link>
             ))}
           </div>

@@ -35,7 +35,7 @@ export default function HeroAnimation() {
   }, [scheduleIndex, isComplete, delay])
 
   return (
-    <div className="relative inline-block">
+    <h1 className="relative inline-block">
       <span
         className={`
           font-mono text-5xl font-bold tracking-tight transition-colors duration-300 sm:text-6xl lg:text-7xl
@@ -53,6 +53,6 @@ export default function HeroAnimation() {
           aria-hidden="true"
         />
       )}
-    </div>
+    </h1>
   )
 }

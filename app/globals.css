@@ -17,6 +17,8 @@
   --score-mid: #f59e0b;
   --score-low: #6b7280;
   --chart-line: #6c6af6;
+  --error: #ef4444;
+  --on-accent: #ffffff;
 }
 
 [data-theme="light"] {
@@ -35,6 +37,8 @@
   --score-mid: #d97706;
   --score-low: #6b7280;
   --chart-line: #5553d4;
+  --error: #dc2626;
+  --on-accent: #ffffff;
 }
 
 @theme inline {
@@ -52,6 +56,8 @@
   --color-score-high: var(--score-high);
   --color-score-mid: var(--score-mid);
   --color-score-low: var(--score-low);
+  --color-error: var(--error);
+  --color-on-accent: var(--on-accent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

@@ -175,10 +175,10 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
               className="px-3 py-1 text-xs transition-colors"
               style={{
                 fontFamily: MONO,
-                borderRadius: '2px',
+                borderRadius: '6px',
                 border: range === r ? '1px solid var(--accent)' : '1px solid var(--border)',
                 background: range === r ? 'var(--accent)' : 'transparent',
-                color: range === r ? '#fff' : 'var(--foreground-subtle)',
+                color: range === r ? 'var(--on-accent)' : 'var(--foreground-subtle)',
               }}
             >
               {r}
@@ -223,7 +223,7 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
               contentStyle={{
                 backgroundColor: 'var(--background-card)',
                 border: '1px solid var(--border)',
-                borderRadius: '0px',
+                borderRadius: '6px',
                 fontSize: '12px',
                 fontFamily: MONO,
                 color: 'var(--foreground)',

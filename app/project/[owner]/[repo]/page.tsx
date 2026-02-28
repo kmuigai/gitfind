@@ -117,7 +117,7 @@ export default async function ProjectPage({ params }: Props) {
           {/* Title */}
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
+              <h1 className="font-mono text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
                 <span className="text-[var(--foreground-muted)]">{owner}/</span>
                 {repoName}
               </h1>
@@ -148,7 +148,7 @@ export default async function ProjectPage({ params }: Props) {
             <div className="space-y-6 lg:col-span-2">
               {enrichment?.summary && (
                 <div>
-                  <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--foreground-muted)]">
+                  <h2 className="mb-2 font-mono text-xs font-medium uppercase tracking-wider text-[var(--foreground-muted)]">
                     What it does
                   </h2>
                   <p className="text-sm leading-relaxed text-[var(--foreground)]">
@@ -159,7 +159,7 @@ export default async function ProjectPage({ params }: Props) {
 
               {enrichment?.why_it_matters && (
                 <div className="rounded-lg border border-[var(--accent)]/20 bg-[var(--accent-subtle)] p-5">
-                  <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--accent)]">
+                  <h2 className="mb-2 font-mono text-xs font-medium uppercase tracking-wider text-[var(--accent)]">
                     Why it matters for PMs
                   </h2>
                   <p className="text-sm leading-relaxed text-[var(--foreground-muted)]">

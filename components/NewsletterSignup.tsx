@@ -73,7 +73,7 @@ export default function NewsletterSignup() {
             <button
               type="submit"
               disabled={status === 'loading' || !email.trim()}
-              className="rounded-lg bg-[var(--accent)] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-[var(--accent)] px-5 py-2.5 text-sm font-medium text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === 'loading' ? 'Subscribing...' : 'Subscribe'}
             </button>
@@ -81,7 +81,7 @@ export default function NewsletterSignup() {
         )}
 
         {status === 'error' && (
-          <p className="mt-2 text-xs text-red-400">{errorMessage}</p>
+          <p className="mt-2 text-xs text-[var(--error)]">{errorMessage}</p>
         )}
       </div>
     </section>

@@ -55,7 +55,7 @@ export default function SubmitForm() {
       {status === 'success' && response ? (
         <div className="rounded-lg border border-[var(--score-high)]/30 bg-[var(--score-high)]/5 p-6">
           <h2 className="text-base font-semibold text-[var(--score-high)]">
-            {response.auto_approved ? '🎉 Auto-approved!' : '✓ Submission received'}
+            {response.auto_approved ? 'Auto-approved' : 'Submission received'}
           </h2>
           <p className="mt-2 text-sm text-[var(--foreground-muted)]">{response.message}</p>
           {typeof response.score === 'number' && (
@@ -74,7 +74,7 @@ export default function SubmitForm() {
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
           <div>
             <label htmlFor="repo_url" className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-              GitHub repository URL <span className="text-red-400">*</span>
+              GitHub repository URL <span className="text-[var(--error)]">*</span>
             </label>
             <input
               id="repo_url"
@@ -90,7 +90,7 @@ export default function SubmitForm() {
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-              Your email <span className="text-red-400">*</span>
+              Your email <span className="text-[var(--error)]">*</span>
             </label>
             <input
               id="email"
@@ -120,15 +120,15 @@ export default function SubmitForm() {
           </div>
 
           {status === 'error' && response?.error && (
-            <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3">
-              <p className="text-sm text-red-400">{response.error}</p>
+            <div className="rounded-lg border border-[var(--error)]/20 bg-[var(--error)]/5 px-4 py-3">
+              <p className="text-sm text-[var(--error)]">{response.error}</p>
             </div>
           )}
 
           <button
             type="submit"
             disabled={status === 'loading' || !repoUrl.trim() || !email.trim()}
-            className="w-full rounded-lg bg-[var(--accent)] py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-lg bg-[var(--accent)] py-2.5 text-sm font-medium text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {status === 'loading' ? 'Scoring repository...' : 'Submit project'}
           </button>
