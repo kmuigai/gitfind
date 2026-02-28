@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GitFind
 
-## Getting Started
+An open source intelligence directory that surfaces rising GitHub projects with plain-English context.
 
-First, run the development server:
+**Live at [gitfind.ai](https://gitfind.ai)**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+## What it does
+
+GitFind tracks thousands of GitHub repositories and scores them using an **Early Signal Score** — a proprietary algorithm that detects genuinely rising projects before they go mainstream. Every project gets an AI-generated summary written in plain English, so you don't need to be a developer to understand what it does or why it matters.
+
+## Key features
+
+- **Early Signal Score** — weighted algorithm combining star velocity, contributor ratios, fork activity, social mentions, and commit frequency
+- **Daily snapshots** — stars, forks, and open issues tracked over time for every repo
+- **AI enrichment** — Claude-generated plain-English summaries and categorization
+- **AI Code Index** — daily commit activity across major AI coding tools (Claude Code, Cursor, Copilot, Aider, Gemini CLI, Devin)
+
+## Tech stack
+
+- **Framework:** Next.js 16, TypeScript, Tailwind CSS v4
+- **Database:** PostgreSQL via Supabase (JS client)
+- **AI:** Claude API for enrichment
+- **Hosting:** Vercel
+- **Data:** GitHub Archive, Hacker News, npm/PyPI/crates.io
+
+## Getting started
+
+```bash
+git clone https://github.com/nicholaskayu/gitfind-v2.git
+cd gitfind-v2
+npm install
+```
+
+Copy the example env file and fill in your keys:
+
+```bash
+cp .env.example .env.local
+```
+
+Start the dev server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+See [`.env.example`](.env.example) for the full list. You need:
 
-## Learn More
+| Variable | Purpose |
+|----------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (public) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-side only) |
+| `GITHUB_TOKEN` | GitHub personal access token for API calls |
+| `ANTHROPIC_API_KEY` | Claude API key for AI enrichment |
 
-To learn more about Next.js, take a look at the following resources:
+## Data pipeline
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Four GitHub Actions workflows run on staggered schedules:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Workflow | Schedule | What it does |
+|----------|----------|-------------|
+| `pipeline.yml` | Midnight UTC daily | Discover new repos via GH Archive + HN, enrich with Claude, score, fetch package downloads |
+| `chart-data.yml` | 5 AM UTC daily | AI Code Index — daily commit counts for 6 AI coding tools |
+| `snapshot-light.yml` | 6 AM UTC daily | Daily star/fork/open_issues snapshots for all repos |
+| `weekly-stats.yml` | 8 AM UTC Sundays | Weekly contributors, commit frequency, release cadence |
 
-## Deploy on Vercel
+## Project structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+app/              → Next.js App Router pages and API routes
+  ai-code-index/  → AI Code Index page
+  category/       → Category browsing
+  project/        → Individual project pages
+  submit/         → Repo submission form
+  api/            → API routes
+lib/              → Shared utilities
+  queries.ts      → Supabase query helpers
+  score.ts        → Early Signal Score algorithm
+  supabase.ts     → Supabase client
+  enrichment.ts   → Claude enrichment logic
+scripts/          → Data pipeline scripts
+  pipeline.ts     → Main enrichment + scoring pipeline
+  ingest-gharchive.ts → GitHub Archive ingestion
+  ingest-hn.ts    → Hacker News ingestion
+  search-commits.ts   → AI Code Index data collection
+  snapshot-light.ts   → Daily snapshot collection
+  snapshot-weekly.ts  → Weekly stats collection
+  fetch-downloads.ts  → Package download counts
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+[MIT](LICENSE)
