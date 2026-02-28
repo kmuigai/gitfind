@@ -11,7 +11,7 @@ jobs:
   weekly-stats:
     name: Fetch Contributors, Commits & Releases
     runs-on: ubuntu-latest
-    timeout-minutes: 180 # 3 hours — 4K repos × 3 calls at 5K/hour
+    timeout-minutes: 540 # 9 hours — 8K repos × 5 calls at 5K/hour
 
     steps:
       - name: Checkout repository

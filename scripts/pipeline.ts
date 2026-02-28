@@ -1,5 +1,11 @@
 // GitFind Data Pipeline
-// Fetches repos from GitHub, scores them, enriches with Claude, saves to Supabase.
+// Discovers repos from GitHub Search, scores them using DB data, enriches with Claude.
+//
+// OPTIMIZED: Scoring uses data already captured by snapshot-light (daily) and
+// snapshot-weekly (Sundays). The only GitHub REST calls in Phase 2 are:
+//   - getReadme() — 1 call, only when Claude enrichment is triggered
+//   - detectPackageName() — 1-3 calls, one-time per repo
+//   - getHNMentions() — HN Algolia API (not GitHub, doesn't count)
 //
 // Run locally: npx tsx scripts/pipeline.ts
 // Run nightly: GitHub Actions cron (see .github/workflows/pipeline.yml)
@@ -9,11 +15,6 @@
 
 import { config } from 'dotenv'
 config({ path: '.env.local' })
-
-// NOTE: All imports that touch Supabase/Anthropic/GitHub clients are done via
-// dynamic import() inside main() — this ensures dotenv has populated env vars
-// before those modules initialise their clients. Static imports are hoisted
-// before any module body code runs, which breaks dotenv in CJS mode.
 
 const CATEGORY_SLUGS = [
   'ai-ml',
@@ -52,7 +53,7 @@ function logError(msg: string, err: unknown): void {
 async function main(): Promise<void> {
   // Dynamic imports — evaluated after dotenv.config() has run
   const [
-    { searchReposByCategory, searchTrendingMidTier, searchNewbornRockets, getStarVelocity, getContributorCount, getCommitFrequency, getReadme, cleanReadme, getCoAuthoredByTools, detectPackageName },
+    { searchReposByCategory, searchTrendingMidTier, searchNewbornRockets, getReadme, cleanReadme, detectPackageName },
     { calculateScore },
     { getHNMentions },
     { enrichRepo },
@@ -78,7 +79,7 @@ async function main(): Promise<void> {
       // ── Stale skip: if repo exists, has enrichment, and stars haven't changed, skip ──
       const { data: existingRepo } = await db
         .from('repos')
-        .select('id, stars')
+        .select('id, stars, contributors')
         .eq('github_id', github_id)
         .maybeSingle()
 
@@ -98,7 +99,7 @@ async function main(): Promise<void> {
           .maybeSingle()
 
         if (lastSnap && hasEnrichment && lastSnap.stars === repoData.stars) {
-          // Stars unchanged — carry forward snapshot, skip expensive API calls
+          // Stars unchanged — carry forward snapshot, skip expensive processing
           const todayStr = new Date().toISOString().split('T')[0]
           if (lastSnap.snapshot_date !== todayStr) {
             await db.from('repo_snapshots').upsert(
@@ -129,17 +130,7 @@ async function main(): Promise<void> {
       // ── Full processing: repo is new or stars changed ──
       log(`  Processing ${label}...`)
 
-      const [starVelocity, contributorCount, commitFrequency, hnMentions, rawReadme] =
-        await Promise.all([
-          getStarVelocity(owner, repoName, repoData.stars),
-          getContributorCount(owner, repoName),
-          getCommitFrequency(owner, repoName),
-          getHNMentions(owner, repoName),
-          getReadme(owner, repoName),
-        ])
-
-      const readmeExcerpt = rawReadme ? cleanReadme(rawReadme) : undefined
-
+      // Upsert repo first so we have the ID for DB lookups
       const { data: upsertedRepo, error: repoError } = await db
         .from('repos')
         .upsert(
@@ -150,14 +141,13 @@ async function main(): Promise<void> {
             description: repoData.description,
             stars: repoData.stars,
             forks: repoData.forks,
-            contributors: contributorCount,
             language: repoData.language,
             url: repoData.url,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'github_id' }
         )
-        .select('id')
+        .select('id, contributors')
         .single()
 
       if (repoError || !upsertedRepo) {
@@ -167,16 +157,27 @@ async function main(): Promise<void> {
 
       const repoId = upsertedRepo.id
 
-      // Fetch snapshots from 7 and 14 days ago for acceleration signals
+      // ── Read scoring data from DB (no GitHub API calls) ──
       const today = new Date()
+      const todayStr = today.toISOString().split('T')[0]
       const date7dAgo = new Date(today)
       date7dAgo.setDate(today.getDate() - 7)
       const date14dAgo = new Date(today)
       date14dAgo.setDate(today.getDate() - 14)
+      const date30dAgo = new Date(today)
+      date30dAgo.setDate(today.getDate() - 30)
 
-      const [{ data: snap7d }, { data: snap14d }] = await Promise.all([
+      // Parallel DB reads: snapshots + weekly stats + HN mentions (HN is external API, not GitHub)
+      const [
+        { data: snap7d },
+        { data: snap14d },
+        { data: snap30d },
+        { data: latestSnap },
+        { data: weeklyStats },
+        hnMentions,
+      ] = await Promise.all([
         db.from('repo_snapshots')
-          .select('stars_7d, forks')
+          .select('stars, stars_7d, forks')
           .eq('repo_id', repoId)
           .eq('snapshot_date', date7dAgo.toISOString().split('T')[0])
           .maybeSingle(),
@@ -185,22 +186,54 @@ async function main(): Promise<void> {
           .eq('repo_id', repoId)
           .eq('snapshot_date', date14dAgo.toISOString().split('T')[0])
           .maybeSingle(),
+        db.from('repo_snapshots')
+          .select('stars')
+          .eq('repo_id', repoId)
+          .eq('snapshot_date', date30dAgo.toISOString().split('T')[0])
+          .maybeSingle(),
+        db.from('repo_snapshots')
+          .select('stars_7d')
+          .eq('repo_id', repoId)
+          .order('snapshot_date', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        db.from('weekly_stats')
+          .select('commit_count_4w')
+          .eq('repo_id', repoId)
+          .order('snapshot_date', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        getHNMentions(owner, repoName),
       ])
 
-      // Derive fork deltas from snapshots
-      const forks_7d = snap7d ? repoData.forks - snap7d.forks : undefined
-      const forks_7d_prev = (snap7d && snap14d) ? snap7d.forks - snap14d.forks : undefined
-      const stars_7d_prev = snap7d ? snap7d.stars_7d : undefined
+      // Derive scoring inputs from DB data
+      // stars_7d: prefer latest snapshot value, fall back to calculating from 7d-ago snapshot
+      const stars_7d = latestSnap?.stars_7d
+        ?? (snap7d ? repoData.stars - (snap7d.stars as number) : 0)
+
+      // stars_30d: calculate from 30d-ago snapshot
+      const stars_30d = snap30d ? repoData.stars - (snap30d.stars as number) : 0
+
+      // contributors: from repos table (updated by snapshot-weekly)
+      const contributorCount = (upsertedRepo.contributors as number) ?? 0
+
+      // commits_30d: from weekly_stats (updated by snapshot-weekly)
+      const commits_30d = (weeklyStats?.commit_count_4w as number) ?? 0
+
+      // Derive fork/star deltas from snapshots
+      const forks_7d = snap7d ? repoData.forks - (snap7d.forks as number) : undefined
+      const forks_7d_prev = (snap7d && snap14d) ? (snap7d.forks as number) - (snap14d.forks as number) : undefined
+      const stars_7d_prev = snap7d ? (snap7d.stars_7d as number) : undefined
 
       const { score, breakdown } = calculateScore({
         stars: repoData.stars,
-        stars_7d: starVelocity.stars_7d,
-        stars_30d: starVelocity.stars_30d,
+        stars_7d,
+        stars_30d,
         contributors: contributorCount,
         forks: repoData.forks,
         hn_mentions_7d: hnMentions.mentions_7d,
         hn_mentions_30d: hnMentions.mentions_30d,
-        commits_30d: commitFrequency,
+        commits_30d,
         stars_7d_prev: stars_7d_prev ?? undefined,
         forks_7d: forks_7d != null && forks_7d >= 0 ? forks_7d : undefined,
         forks_7d_prev: forks_7d_prev != null && forks_7d_prev >= 0 ? forks_7d_prev : undefined,
@@ -218,6 +251,10 @@ async function main(): Promise<void> {
         !existing || Math.abs(existing.early_signal_score - score) > 10
 
       if (needsEnrichment) {
+        // Only fetch README when we actually need Claude enrichment (1 GitHub API call)
+        const rawReadme = await getReadme(owner, repoName)
+        const readmeExcerpt = rawReadme ? cleanReadme(rawReadme) : undefined
+
         log(`  Enriching ${label} with Claude...`)
         await enrichRepo(repoId, {
           github_id,
@@ -244,27 +281,7 @@ async function main(): Promise<void> {
         log(`  ${label} score updated (no re-enrichment needed)`)
       }
 
-      // Extract AI tool contributions from Co-Authored-By headers
-      const toolContributions = await getCoAuthoredByTools(owner, repoName)
-      const months = Object.keys(toolContributions)
-      if (months.length > 0) {
-        for (const month of months) {
-          for (const [toolName, commitCount] of Object.entries(toolContributions[month])) {
-            await db.from('tool_contributions').upsert(
-              {
-                repo_id: repoId,
-                tool_name: toolName,
-                commit_count: commitCount,
-                month,
-              },
-              { onConflict: 'repo_id,tool_name,month' }
-            )
-          }
-        }
-        log(`  ${label} tool contributions recorded (${months.length} months)`)
-      }
-
-      // Detect package name (one-time per repo)
+      // Detect package name (one-time per repo, 1-3 GitHub API calls)
       const { data: repoRow } = await db
         .from('repos')
         .select('package_registry')
@@ -285,10 +302,10 @@ async function main(): Promise<void> {
       const { error: snapError } = await db.from('repo_snapshots').upsert(
         {
           repo_id: repoId,
-          snapshot_date: today.toISOString().split('T')[0],
+          snapshot_date: todayStr,
           stars: repoData.stars,
           forks: repoData.forks,
-          stars_7d: starVelocity.stars_7d,
+          stars_7d,
         },
         { onConflict: 'repo_id,snapshot_date', ignoreDuplicates: true }
       )
@@ -308,7 +325,7 @@ async function main(): Promise<void> {
   // ── Phase 1: Discovery ──────────────────────────────────────────────
   const discovered = new Map<number, Repo>()
 
-  // Layer 1: Category search (existing)
+  // Layer 1: Category search
   log('\n── Layer 1: Category Search ──')
   for (const categorySlug of CATEGORY_SLUGS) {
     const categoryName = CATEGORY_NAMES[categorySlug]
@@ -366,13 +383,14 @@ async function main(): Promise<void> {
   log(`\n── Discovery complete: ${discovered.size} unique repos ──`)
 
   // ── Phase 2: Processing ─────────────────────────────────────────────
+  // No inter-repo delay — rate limiting is handled by GitHub's headers,
+  // and most processing is now DB reads (not API calls).
   log('\n── Phase 2: Processing ──')
   let totalProcessed = 0
 
   for (const repo of discovered.values()) {
     await processRepo(db, repo)
     totalProcessed++
-    await new Promise((r) => setTimeout(r, 500))
   }
 
   log(`\n=== Pipeline Complete ===`)

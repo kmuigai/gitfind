@@ -2,7 +2,7 @@
 // Fetches contributor count, 4-week commit activity, and latest release for ALL repos.
 // Upserts into weekly_stats table.
 //
-// GitHub API cost: 3 calls per repo. 4K repos ≈ 12K calls ≈ 2.5 hours at 5K/hour.
+// GitHub API cost: 5 calls per repo. 8K repos ≈ 40K calls ≈ 8 hours at 5K/hour.
 // Runs weekly on Sundays at 08:00 UTC via GitHub Actions.
 //
 // Run locally: npx tsx scripts/snapshot-weekly.ts
@@ -93,6 +93,61 @@ async function getCommitCount4w(owner: string, name: string): Promise<number> {
   return last4.reduce((sum, week) => sum + week.total, 0)
 }
 
+// Get owner vs community commits for last 4 weeks from participation stats
+async function getParticipation(
+  owner: string,
+  name: string
+): Promise<{ ownerCommits: number; communityCommits: number }> {
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${name}/stats/participation`,
+    { headers: githubHeaders() }
+  )
+
+  await checkRateLimit(response)
+
+  // GitHub returns 202 when stats are being computed
+  if (response.status === 202 || !response.ok) return { ownerCommits: 0, communityCommits: 0 }
+
+  const data = (await response.json()) as { owner: number[]; all: number[] }
+  if (!data.owner || !data.all) return { ownerCommits: 0, communityCommits: 0 }
+
+  // Last 4 weeks
+  const ownerLast4 = data.owner.slice(-4)
+  const allLast4 = data.all.slice(-4)
+
+  const ownerCommits = ownerLast4.reduce((sum, w) => sum + w, 0)
+  const totalCommits = allLast4.reduce((sum, w) => sum + w, 0)
+
+  return { ownerCommits, communityCommits: totalCommits - ownerCommits }
+}
+
+// Get code additions/deletions for last 4 weeks from code frequency stats
+async function getCodeFrequency(
+  owner: string,
+  name: string
+): Promise<{ additions: number; deletions: number }> {
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${name}/stats/code_frequency`,
+    { headers: githubHeaders() }
+  )
+
+  await checkRateLimit(response)
+
+  // GitHub returns 202 when stats are being computed
+  if (response.status === 202 || !response.ok) return { additions: 0, deletions: 0 }
+
+  // Returns array of [unix_timestamp, additions, deletions] per week
+  const data = (await response.json()) as Array<[number, number, number]>
+  if (!Array.isArray(data) || data.length === 0) return { additions: 0, deletions: 0 }
+
+  // Last 4 weeks
+  const last4 = data.slice(-4)
+  const additions = last4.reduce((sum, week) => sum + week[1], 0)
+  const deletions = last4.reduce((sum, week) => sum + Math.abs(week[2]), 0)
+
+  return { additions, deletions }
+}
+
 // Get latest release date and tag
 async function getLatestRelease(
   owner: string,
@@ -175,10 +230,12 @@ async function main(): Promise<void> {
     const label = `${repo.owner}/${repo.name}`
 
     try {
-      // 3 API calls per repo
+      // 5 API calls per repo
       const contributors = await getContributorCount(repo.owner, repo.name)
       const commitCount4w = await getCommitCount4w(repo.owner, repo.name)
       const release = await getLatestRelease(repo.owner, repo.name)
+      const participation = await getParticipation(repo.owner, repo.name)
+      const codeFreq = await getCodeFrequency(repo.owner, repo.name)
 
       const { error: upsertError } = await db.from('weekly_stats').upsert(
         {
@@ -188,6 +245,10 @@ async function main(): Promise<void> {
           commit_count_4w: commitCount4w,
           last_release_date: release.date,
           last_release_tag: release.tag,
+          owner_commits_4w: participation.ownerCommits,
+          community_commits_4w: participation.communityCommits,
+          additions_4w: codeFreq.additions,
+          deletions_4w: codeFreq.deletions,
         },
         { onConflict: 'repo_id,snapshot_date' }
       )

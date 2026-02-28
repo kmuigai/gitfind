@@ -23,6 +23,11 @@ export type Database = {
           url: string
           package_registry: string | null
           package_name: string | null
+          watchers: number
+          license: string | null
+          topics: string[]
+          archived: boolean
+          pushed_at: string | null
           created_at: string
           updated_at: string
         }
@@ -39,6 +44,11 @@ export type Database = {
           url: string
           package_registry?: string | null
           package_name?: string | null
+          watchers?: number
+          license?: string | null
+          topics?: string[]
+          archived?: boolean
+          pushed_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -55,6 +65,11 @@ export type Database = {
           url?: string
           package_registry?: string | null
           package_name?: string | null
+          watchers?: number
+          license?: string | null
+          topics?: string[]
+          archived?: boolean
+          pushed_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -255,6 +270,10 @@ export type Database = {
           commit_count_4w: number
           last_release_date: string | null
           last_release_tag: string | null
+          owner_commits_4w: number
+          community_commits_4w: number
+          additions_4w: number
+          deletions_4w: number
         }
         Insert: {
           id?: string
@@ -264,6 +283,10 @@ export type Database = {
           commit_count_4w?: number
           last_release_date?: string | null
           last_release_tag?: string | null
+          owner_commits_4w?: number
+          community_commits_4w?: number
+          additions_4w?: number
+          deletions_4w?: number
         }
         Update: {
           id?: string
@@ -273,6 +296,10 @@ export type Database = {
           commit_count_4w?: number
           last_release_date?: string | null
           last_release_tag?: string | null
+          owner_commits_4w?: number
+          community_commits_4w?: number
+          additions_4w?: number
+          deletions_4w?: number
         }
         Relationships: [
           {

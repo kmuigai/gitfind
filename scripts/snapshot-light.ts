@@ -1,9 +1,9 @@
 // Light Snapshot Script
-// Fetches current star/fork counts for ALL repos in the DB via GitHub REST API.
+// Fetches current star/fork counts for ALL repos in the DB via GitHub GraphQL API.
 // Upserts into repo_snapshots with today's date. Calculates stars_7d from snapshot diff.
 //
-// GitHub API cost: 1 call per repo. 10K repos ≈ 2 hours at 5K/hour.
-// Built-in rate limiter: reads X-RateLimit-Remaining, sleeps when low.
+// GitHub API cost: ~1 GraphQL point per 100 repos. 10K repos ≈ 100 queries ≈ 2 minutes.
+// (Previously used REST: 1 call per repo = 2 hours for 10K repos.)
 //
 // Run locally: npx tsx scripts/snapshot-light.ts
 // Run nightly: GitHub Actions at 06:00 UTC (separate workflow)
@@ -11,33 +11,14 @@
 import { config } from 'dotenv'
 config({ path: '.env.local' })
 
-const GITHUB_API_BASE = 'https://api.github.com'
+const GITHUB_GRAPHQL_URL = 'https://api.github.com/graphql'
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
-const RATE_LIMIT_FLOOR = 100 // Sleep when remaining drops below this
-const BATCH_SIZE = 100 // Process repos in batches for DB queries
+const GRAPHQL_BATCH_SIZE = 100 // Max repos per GraphQL query
+const DB_BATCH_SIZE = 100 // Batch size for DB upserts
 
 function log(msg: string): void {
   const timestamp = new Date().toISOString().replace('T', ' ').split('.')[0]
   console.log(`[${timestamp}] ${msg}`)
-}
-
-function githubHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {
-    Accept: 'application/vnd.github.v3+json',
-    'User-Agent': 'GitFind/1.0',
-  }
-  if (GITHUB_TOKEN) {
-    headers['Authorization'] = `Bearer ${GITHUB_TOKEN}`
-  }
-  return headers
-}
-
-// Sleep until the rate limit resets
-async function sleepUntilReset(resetTimestamp: number): Promise<void> {
-  const now = Math.floor(Date.now() / 1000)
-  const sleepSeconds = Math.max(resetTimestamp - now + 5, 10) // +5s buffer
-  log(`  Rate limit low — sleeping ${sleepSeconds}s until reset...`)
-  await new Promise((r) => setTimeout(r, sleepSeconds * 1000))
 }
 
 interface RepoRow {
@@ -49,6 +30,98 @@ interface RepoRow {
   forks: number
 }
 
+interface GraphQLRepoResult {
+  nameWithOwner: string
+  stargazerCount: number
+  forkCount: number
+  openIssues: { totalCount: number }
+  watchers: { totalCount: number }
+  licenseInfo: { spdxId: string } | null
+  repositoryTopics: { nodes: Array<{ topic: { name: string } }> }
+  isArchived: boolean
+  pushedAt: string | null
+}
+
+interface GraphQLResponse {
+  data?: {
+    search?: {
+      nodes: Array<GraphQLRepoResult | null>
+    }
+    rateLimit?: {
+      cost: number
+      remaining: number
+      resetAt: string
+    }
+  }
+  errors?: Array<{ message: string }>
+}
+
+// Build a GraphQL search query for a batch of repos
+function buildQuery(repos: RepoRow[]): string {
+  const repoQueries = repos.map((r) => `repo:${r.owner}/${r.name}`).join(' ')
+
+  return `query {
+    rateLimit { cost remaining resetAt }
+    search(type: REPOSITORY, query: "${repoQueries}", first: ${repos.length}) {
+      nodes {
+        ... on Repository {
+          nameWithOwner
+          stargazerCount
+          forkCount
+          openIssues: issues(states: OPEN) { totalCount }
+          watchers { totalCount }
+          licenseInfo { spdxId }
+          repositoryTopics(first: 20) {
+            nodes { topic { name } }
+          }
+          isArchived
+          pushedAt
+        }
+      }
+    }
+  }`
+}
+
+// Execute a GraphQL query with rate limit handling
+async function graphqlQuery(query: string): Promise<GraphQLResponse> {
+  const response = await fetch(GITHUB_GRAPHQL_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'GitFind/1.0',
+    },
+    body: JSON.stringify({ query }),
+  })
+
+  if (response.status === 403 || response.status === 502) {
+    // Rate limited or server error — wait and retry
+    log(`  GitHub returned ${response.status}, waiting 60s before retry...`)
+    await new Promise((r) => setTimeout(r, 60_000))
+    return graphqlQuery(query)
+  }
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(`GraphQL request failed: ${response.status} ${text}`)
+  }
+
+  const result = (await response.json()) as GraphQLResponse
+
+  // Check rate limit
+  const rateLimit = result.data?.rateLimit
+  if (rateLimit) {
+    if (rateLimit.remaining < 100) {
+      const resetTime = new Date(rateLimit.resetAt).getTime()
+      const sleepMs = Math.max(resetTime - Date.now() + 5000, 10000)
+      log(`  GraphQL rate limit low (${rateLimit.remaining} remaining) — sleeping ${Math.round(sleepMs / 1000)}s...`)
+      await new Promise((r) => setTimeout(r, sleepMs))
+    }
+  }
+
+  return result
+}
+
 async function main(): Promise<void> {
   const { createServiceClient } = await import('../lib/supabase.js')
   const db = createServiceClient()
@@ -58,7 +131,7 @@ async function main(): Promise<void> {
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
   const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0]
 
-  log('=== Light Snapshot Script ===')
+  log('=== Light Snapshot Script (GraphQL) ===')
   log(`Date: ${todayStr}`)
 
   // Fetch all repos from DB, paginated
@@ -95,8 +168,8 @@ async function main(): Promise<void> {
   // Fetch 7-day-ago snapshots in batch for stars_7d calculation
   const snapshots7d = new Map<string, number>() // repo_id → stars 7 days ago
 
-  for (let i = 0; i < allRepos.length; i += BATCH_SIZE) {
-    const batch = allRepos.slice(i, i + BATCH_SIZE)
+  for (let i = 0; i < allRepos.length; i += DB_BATCH_SIZE) {
+    const batch = allRepos.slice(i, i + DB_BATCH_SIZE)
     const repoIds = batch.map((r) => r.id)
 
     const { data } = await db
@@ -114,104 +187,91 @@ async function main(): Promise<void> {
 
   log(`Found ${snapshots7d.size} snapshots from 7 days ago for diff calculation`)
 
-  // Process each repo
+  // Build a lookup map: "owner/name" → RepoRow
+  const repoLookup = new Map<string, RepoRow>()
+  for (const repo of allRepos) {
+    repoLookup.set(`${repo.owner}/${repo.name}`.toLowerCase(), repo)
+  }
+
+  // Process repos in GraphQL batches of 100
   let updated = 0
-  const skipped = 0
-  let deleted = 0
+  let notFound = 0
   let errors = 0
+  let totalCost = 0
   const promotionCandidates: Array<{ owner: string; name: string; stars: number; stars_7d: number }> = []
 
-  for (let i = 0; i < allRepos.length; i++) {
-    const repo = allRepos[i]
-    const label = `${repo.owner}/${repo.name}`
+  for (let i = 0; i < allRepos.length; i += GRAPHQL_BATCH_SIZE) {
+    const batch = allRepos.slice(i, i + GRAPHQL_BATCH_SIZE)
+    const batchNum = Math.floor(i / GRAPHQL_BATCH_SIZE) + 1
+    const totalBatches = Math.ceil(allRepos.length / GRAPHQL_BATCH_SIZE)
 
     try {
-      const response = await fetch(`${GITHUB_API_BASE}/repos/${repo.owner}/${repo.name}`, {
-        headers: githubHeaders(),
-      })
+      const query = buildQuery(batch)
+      const result = await graphqlQuery(query)
 
-      // Check rate limit headers
-      const remaining = parseInt(response.headers.get('X-RateLimit-Remaining') || '5000', 10)
-      const resetAt = parseInt(response.headers.get('X-RateLimit-Reset') || '0', 10)
-
-      if (remaining < RATE_LIMIT_FLOOR && resetAt > 0) {
-        await sleepUntilReset(resetAt)
+      if (result.data?.rateLimit) {
+        totalCost += result.data.rateLimit.cost
       }
 
-      if (response.status === 404) {
-        // Repo deleted or made private
-        log(`  ${label} → 404 (deleted/private), skipping`)
-        deleted++
+      if (result.errors) {
+        log(`  Batch ${batchNum}/${totalBatches} — GraphQL errors: ${result.errors.map((e) => e.message).join(', ')}`)
+        errors += batch.length
         continue
       }
 
-      if (response.status === 403 && remaining === 0) {
-        // Rate limited — sleep and retry this repo
-        if (resetAt > 0) {
-          await sleepUntilReset(resetAt)
-          i-- // Retry this repo
-          continue
-        }
-      }
+      const nodes = result.data?.search?.nodes ?? []
 
-      if (!response.ok) {
-        log(`  ${label} → HTTP ${response.status}, skipping`)
-        errors++
-        continue
-      }
+      // Track which repos were returned by GraphQL
+      const foundRepos = new Set<string>()
 
-      const data = (await response.json()) as {
-        stargazers_count: number
-        forks_count: number
-        open_issues_count: number
-      }
+      // Process returned repos
+      const repoUpdates: Array<{ id: string; stars: number; forks: number; watchers: number; license: string | null; topics: string[]; archived: boolean; pushed_at: string | null }> = []
+      const snapshotUpserts: Array<{ repo_id: string; snapshot_date: string; stars: number; forks: number; stars_7d: number; open_issues: number }> = []
 
-      const currentStars = data.stargazers_count
-      const currentForks = data.forks_count
-      const currentOpenIssues = data.open_issues_count
+      for (const node of nodes) {
+        if (!node || !node.nameWithOwner) continue
 
-      // Calculate stars_7d from snapshot diff
-      const stars7dAgo = snapshots7d.get(repo.id)
-      const stars_7d = stars7dAgo !== undefined ? currentStars - stars7dAgo : 0
+        const key = node.nameWithOwner.toLowerCase()
+        const repo = repoLookup.get(key)
+        if (!repo) continue
 
-      // Update repo row with current stats
-      await db
-        .from('repos')
-        .update({
+        foundRepos.add(key)
+
+        const currentStars = node.stargazerCount
+        const currentForks = node.forkCount
+        const currentOpenIssues = node.openIssues.totalCount
+        const watchers = node.watchers.totalCount
+        const license = node.licenseInfo?.spdxId ?? null
+        const topics = node.repositoryTopics.nodes.map((t) => t.topic.name)
+        const archived = node.isArchived
+        const pushedAt = node.pushedAt
+
+        // Calculate stars_7d from snapshot diff
+        const stars7dAgo = snapshots7d.get(repo.id)
+        const stars_7d = stars7dAgo !== undefined ? currentStars - stars7dAgo : 0
+
+        repoUpdates.push({
+          id: repo.id,
           stars: currentStars,
           forks: currentForks,
+          watchers,
+          license,
+          topics,
+          archived,
+          pushed_at: pushedAt,
         })
-        .eq('id', repo.id)
 
-      // Upsert today's snapshot
-      const { error: snapError } = await db.from('repo_snapshots').upsert(
-        {
+        snapshotUpserts.push({
           repo_id: repo.id,
           snapshot_date: todayStr,
           stars: currentStars,
           forks: currentForks,
           stars_7d,
           open_issues: currentOpenIssues,
-        },
-        { onConflict: 'repo_id,snapshot_date', ignoreDuplicates: true }
-      )
+        })
 
-      if (snapError) {
-        log(`  ${label} → snapshot error: ${snapError.message}`)
-        errors++
-      } else {
-        updated++
-      }
-
-      // Check promotion candidates (high-growth repos without enrichment)
-      if (stars_7d >= 50 || currentStars >= 500) {
-        const { data: hasEnrichment } = await db
-          .from('enrichments')
-          .select('id')
-          .eq('repo_id', repo.id)
-          .maybeSingle()
-
-        if (!hasEnrichment) {
+        // Check promotion candidates (high-growth repos without enrichment)
+        if (stars_7d >= 50 || currentStars >= 500) {
           promotionCandidates.push({
             owner: repo.owner,
             name: repo.name,
@@ -221,29 +281,92 @@ async function main(): Promise<void> {
         }
       }
 
-      // Progress log every 500 repos
-      if ((i + 1) % 500 === 0) {
-        log(`  Progress: ${i + 1}/${allRepos.length} (${updated} updated, ${deleted} deleted, ${errors} errors)`)
+      // Count repos not returned (deleted/private)
+      for (const repo of batch) {
+        if (!foundRepos.has(`${repo.owner}/${repo.name}`.toLowerCase())) {
+          notFound++
+        }
       }
+
+      // Batch update repos
+      for (const update of repoUpdates) {
+        const { error: updateError } = await db
+          .from('repos')
+          .update({
+            stars: update.stars,
+            forks: update.forks,
+            watchers: update.watchers,
+            license: update.license,
+            topics: update.topics,
+            archived: update.archived,
+            pushed_at: update.pushed_at,
+          })
+          .eq('id', update.id)
+
+        if (updateError) errors++
+      }
+
+      // Batch upsert snapshots
+      if (snapshotUpserts.length > 0) {
+        const { error: snapError } = await db.from('repo_snapshots').upsert(
+          snapshotUpserts,
+          { onConflict: 'repo_id,snapshot_date', ignoreDuplicates: true }
+        )
+
+        if (snapError) {
+          log(`  Batch ${batchNum} snapshot upsert error: ${snapError.message}`)
+          errors += snapshotUpserts.length
+        } else {
+          updated += snapshotUpserts.length
+        }
+      }
+
+      // Progress log
+      log(`  Batch ${batchNum}/${totalBatches} — ${nodes.length} repos fetched, ${updated} updated total (cost: ${result.data?.rateLimit?.cost ?? '?'} pts, ${result.data?.rateLimit?.remaining ?? '?'} remaining)`)
     } catch (err) {
-      log(`  ${label} → error: ${err instanceof Error ? err.message : String(err)}`)
-      errors++
+      log(`  Batch ${batchNum}/${totalBatches} — error: ${err instanceof Error ? err.message : String(err)}`)
+      errors += batch.length
     }
   }
 
-  log(`\n=== Light Snapshot Complete ===`)
-  log(`Updated: ${updated}`)
-  log(`Deleted/private: ${deleted}`)
-  log(`Errors: ${errors}`)
-  log(`Skipped: ${skipped}`)
+  // Filter promotion candidates — check which ones lack enrichments
+  const filteredCandidates: typeof promotionCandidates = []
+  for (let i = 0; i < promotionCandidates.length; i += DB_BATCH_SIZE) {
+    const batch = promotionCandidates.slice(i, i + DB_BATCH_SIZE)
+    const repoIds = batch
+      .map((c) => repoLookup.get(`${c.owner}/${c.name}`.toLowerCase())?.id)
+      .filter((id): id is string => !!id)
 
-  if (promotionCandidates.length > 0) {
+    if (repoIds.length === 0) continue
+
+    const { data: enriched } = await db
+      .from('enrichments')
+      .select('repo_id')
+      .in('repo_id', repoIds)
+
+    const enrichedSet = new Set((enriched ?? []).map((e) => e.repo_id as string))
+
+    for (let j = 0; j < batch.length; j++) {
+      const repoId = repoLookup.get(`${batch[j].owner}/${batch[j].name}`.toLowerCase())?.id
+      if (repoId && !enrichedSet.has(repoId)) {
+        filteredCandidates.push(batch[j])
+      }
+    }
+  }
+
+  log(`\n=== Light Snapshot Complete (GraphQL) ===`)
+  log(`Updated: ${updated}`)
+  log(`Not found (deleted/private): ${notFound}`)
+  log(`Errors: ${errors}`)
+  log(`Total GraphQL cost: ${totalCost} points`)
+
+  if (filteredCandidates.length > 0) {
     log(`\n── Promotion Candidates (no enrichment, high growth) ──`)
-    for (const c of promotionCandidates.slice(0, 50)) {
+    for (const c of filteredCandidates.slice(0, 50)) {
       log(`  ${c.owner}/${c.name} — ${c.stars.toLocaleString()} stars, +${c.stars_7d} in 7d`)
     }
-    if (promotionCandidates.length > 50) {
-      log(`  ... and ${promotionCandidates.length - 50} more`)
+    if (filteredCandidates.length > 50) {
+      log(`  ... and ${filteredCandidates.length - 50} more`)
     }
   }
 }

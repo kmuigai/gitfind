@@ -11,6 +11,7 @@ jobs:
   run-pipeline:
     name: Fetch, Score & Enrich Repos
     runs-on: ubuntu-latest
+    timeout-minutes: 30 # Optimized: scoring uses DB data, minimal GitHub API calls
 
     steps:
       - name: Checkout repository
