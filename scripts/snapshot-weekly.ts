@@ -2,9 +2,14 @@
 // Fetches contributor count, 4-week commit count, and latest release for ALL repos.
 // Upserts into weekly_stats table.
 //
-// OPTIMIZED: Uses GraphQL batching for commits + releases (~2 min for all repos),
-// REST only for contributor count (1 call/repo, ~105 min at 5K/hour for 8.8K repos).
-// Previous version: 5 REST calls/repo = ~9 hours for 8.8K repos.
+// TIERED CONTRIBUTOR REFRESH:
+//   - Active repos (stars changed in last 7d): always refresh via REST
+//   - New repos (added to DB in last 14d): always refresh via REST
+//   - Full sweep: every 4th week (FULL_SWEEP_WEEK), refresh ALL repos via REST
+//   - Inactive repos on non-sweep weeks: carry forward last known contributor count
+//
+// GraphQL batching for commits + releases (~2 min for all repos).
+// REST only for contributor counts on repos that need it.
 //
 // Runs weekly on Sundays at 08:00 UTC via GitHub Actions.
 // Run locally: npx tsx scripts/snapshot-weekly.ts
@@ -16,8 +21,15 @@ const GITHUB_API_BASE = 'https://api.github.com'
 const GITHUB_GRAPHQL_URL = 'https://api.github.com/graphql'
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 const RATE_LIMIT_FLOOR = 100
-const GRAPHQL_BATCH_SIZE = 50 // Repos per GraphQL query
+const GRAPHQL_BATCH_SIZE = 50
 const DB_BATCH_SIZE = 100
+
+// Full sweep on the 1st Sunday of each month (week number in month === 1)
+function isFullSweepWeek(): boolean {
+  const today = new Date()
+  const dayOfMonth = today.getDate()
+  return dayOfMonth <= 7 // First Sunday falls within days 1-7
+}
 
 function log(msg: string): void {
   const timestamp = new Date().toISOString().replace('T', ' ').split('.')[0]
@@ -99,7 +111,6 @@ interface GraphQLResponse {
 // ── GraphQL: Build batched query for commits + releases ──
 function buildGraphQLQuery(repos: RepoRow[], since: string): string {
   const repoQueries = repos.map((r, i) => {
-    // Sanitize owner/name for GraphQL alias (replace hyphens/dots with underscores)
     const alias = `r${i}`
     return `${alias}: repository(owner: "${r.owner}", name: "${r.name}") {
       nameWithOwner
@@ -165,6 +176,9 @@ interface RepoRow {
   id: string
   owner: string
   name: string
+  stars: number
+  contributors: number
+  created_at: string
 }
 
 interface GraphQLData {
@@ -177,13 +191,17 @@ async function main(): Promise<void> {
   const { createServiceClient } = await import('../lib/supabase.js')
   const db = createServiceClient()
 
-  const todayStr = new Date().toISOString().split('T')[0]
-  const fourWeeksAgo = new Date()
-  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28)
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0]
+  const fourWeeksAgo = new Date(today)
+  fourWeeksAgo.setDate(today.getDate() - 28)
   const sinceDate = fourWeeksAgo.toISOString()
 
-  log('=== Weekly Stats Script (GraphQL + REST) ===')
+  const fullSweep = isFullSweepWeek()
+
+  log('=== Weekly Stats Script (GraphQL + Tiered REST) ===')
   log(`Date: ${todayStr}`)
+  log(`Mode: ${fullSweep ? 'FULL SWEEP (1st Sunday of month)' : 'SMART REFRESH (active + new repos only)'}`)
 
   // Fetch all repos from DB, paginated
   let allRepos: RepoRow[] = []
@@ -193,7 +211,7 @@ async function main(): Promise<void> {
   while (true) {
     const { data, error } = await db
       .from('repos')
-      .select('id, owner, name')
+      .select('id, owner, name, stars, contributors, created_at')
       .order('id')
       .range(offset, offset + pageSize - 1)
 
@@ -216,10 +234,10 @@ async function main(): Promise<void> {
     return
   }
 
-  // ── Phase 1: GraphQL batched queries for commits + releases ──
+  // ── Phase 1: GraphQL batched queries for commits + releases (ALL repos) ──
   log('\n── Phase 1: Fetching commits + releases (GraphQL) ──')
 
-  const graphqlData = new Map<string, GraphQLData>() // keyed by "owner/name" lowercase
+  const graphqlData = new Map<string, GraphQLData>()
   let graphqlErrors = 0
   let totalCost = 0
 
@@ -237,7 +255,6 @@ async function main(): Promise<void> {
         totalCost += rateLimit.cost
       }
 
-      // Handle partial errors (some repos may be deleted/private)
       if (result.errors) {
         for (const err of result.errors) {
           if (err.type !== 'NOT_FOUND') {
@@ -246,7 +263,6 @@ async function main(): Promise<void> {
         }
       }
 
-      // Extract data from aliased responses
       for (let j = 0; j < batch.length; j++) {
         const alias = `r${j}`
         const node = result.data?.[alias] as GraphQLRepoNode | null | undefined
@@ -275,10 +291,70 @@ async function main(): Promise<void> {
 
   log(`GraphQL phase complete: ${graphqlData.size} repos, ${totalCost} total points, ${graphqlErrors} errors`)
 
-  // ── Phase 2: REST calls for contributor counts + DB upserts ──
+  // ── Determine which repos need REST contributor refresh ──
+  let needsRestRefresh: Set<string>
+
+  if (fullSweep) {
+    // Full sweep: refresh ALL repos
+    needsRestRefresh = new Set(allRepos.map((r) => r.id))
+    log(`\nFull sweep: all ${needsRestRefresh.size} repos will get REST contributor refresh`)
+  } else {
+    // Smart refresh: only active + new repos
+    needsRestRefresh = new Set<string>()
+
+    // 1. Find repos where stars changed in last 7 days (compare current vs 7d-ago snapshot)
+    const sevenDaysAgoStr = new Date(today.getTime() - 7 * 86400000).toISOString().split('T')[0]
+
+    const starsChanged = new Set<string>()
+    for (let i = 0; i < allRepos.length; i += DB_BATCH_SIZE) {
+      const batch = allRepos.slice(i, i + DB_BATCH_SIZE)
+      const repoIds = batch.map((r) => r.id)
+
+      const { data: oldSnaps } = await db
+        .from('repo_snapshots')
+        .select('repo_id, stars')
+        .in('repo_id', repoIds)
+        .eq('snapshot_date', sevenDaysAgoStr)
+
+      if (oldSnaps) {
+        const oldStarsMap = new Map<string, number>()
+        for (const snap of oldSnaps) {
+          oldStarsMap.set(snap.repo_id as string, snap.stars as number)
+        }
+
+        for (const repo of batch) {
+          const oldStars = oldStarsMap.get(repo.id)
+          if (oldStars === undefined || oldStars !== repo.stars) {
+            starsChanged.add(repo.id)
+          }
+        }
+      } else {
+        // No snapshots = new repos, mark all as needing refresh
+        for (const repo of batch) {
+          starsChanged.add(repo.id)
+        }
+      }
+    }
+
+    for (const id of starsChanged) needsRestRefresh.add(id)
+
+    // 2. New repos (added to DB in last 14 days)
+    const fourteenDaysAgo = new Date(today.getTime() - 14 * 86400000).toISOString()
+    for (const repo of allRepos) {
+      if (repo.created_at >= fourteenDaysAgo) {
+        needsRestRefresh.add(repo.id)
+      }
+    }
+
+    log(`\nSmart refresh: ${needsRestRefresh.size} repos need REST contributor refresh`)
+    log(`  (${starsChanged.size} active + new repos in last 14d, deduplicated)`)
+  }
+
+  // ── Phase 2: REST contributor counts + DB upserts ──
   log('\n── Phase 2: Fetching contributors (REST) + upserting ──')
 
   let updated = 0
+  let carried = 0
   let errors = 0
 
   for (let i = 0; i < allRepos.length; i++) {
@@ -287,12 +363,19 @@ async function main(): Promise<void> {
     const key = label.toLowerCase()
 
     try {
-      const contributors = await getContributorCount(repo.owner, repo.name)
+      let contributors: number
 
-      // Update repos.contributors for scoring
-      await db.from('repos').update({ contributors }).eq('id', repo.id)
+      if (needsRestRefresh.has(repo.id)) {
+        // Fresh REST call
+        contributors = await getContributorCount(repo.owner, repo.name)
+        // Update repos.contributors for scoring
+        await db.from('repos').update({ contributors }).eq('id', repo.id)
+      } else {
+        // Carry forward last known value
+        contributors = repo.contributors ?? 0
+        carried++
+      }
 
-      // Get GraphQL data (may be missing if repo was deleted/private)
       const gql = graphqlData.get(key)
 
       const { error: upsertError } = await db.from('weekly_stats').upsert(
@@ -316,7 +399,7 @@ async function main(): Promise<void> {
 
       // Progress log every 500 repos
       if ((i + 1) % 500 === 0) {
-        log(`  Progress: ${i + 1}/${allRepos.length} (${updated} updated, ${errors} errors)`)
+        log(`  Progress: ${i + 1}/${allRepos.length} (${updated} updated, ${carried} carried forward, ${errors} errors)`)
       }
     } catch (err) {
       log(`  ${label} → error: ${err instanceof Error ? err.message : String(err)}`)
@@ -325,7 +408,7 @@ async function main(): Promise<void> {
   }
 
   log(`\n=== Weekly Stats Complete ===`)
-  log(`Updated: ${updated}`)
+  log(`Updated: ${updated} (${needsRestRefresh.size} REST refreshed, ${carried} carried forward)`)
   log(`Errors: ${errors}`)
   log(`GraphQL cost: ${totalCost} points`)
 }
