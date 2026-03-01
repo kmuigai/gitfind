@@ -188,14 +188,14 @@ export async function getTrendingRepos(limit = 6): Promise<RepoWithEnrichment[]>
 
   const latestDate = (latestRow[0] as unknown as { snapshot_date: string }).snapshot_date
 
-  // Get top repos by stars_7d on the latest snapshot date
+  // Over-fetch so we can drop unenriched repos and still return `limit` results
   const { data: snapshots, error: sErr } = await supabase
     .from('repo_snapshots')
     .select('repo_id, stars_7d')
     .eq('snapshot_date', latestDate)
     .gt('stars_7d', 0)
     .order('stars_7d', { ascending: false })
-    .limit(limit)
+    .limit(limit * 3)
 
   if (sErr || !snapshots || snapshots.length === 0) return getTopRepos(limit)
   const typedSnapshots = snapshots as unknown as Array<{ repo_id: string; stars_7d: number }>
@@ -226,13 +226,14 @@ export async function getTrendingRepos(limit = 6): Promise<RepoWithEnrichment[]>
   const repoMap = new Map<string, RawRepo>()
   for (const r of typedRepos) repoMap.set(r.id, r)
 
-  const results = typedSnapshots
-    .map((s) => {
-      const repo = repoMap.get(s.repo_id)
-      if (!repo) return null
-      return { ...repo, enrichment: enrichmentMap.get(s.repo_id) ?? null }
-    })
-    .filter((r): r is RepoWithEnrichment => r !== null)
+  const results: RepoWithEnrichment[] = []
+  for (const s of typedSnapshots) {
+    if (results.length >= limit) break
+    const repo = repoMap.get(s.repo_id)
+    const enrichment = enrichmentMap.get(s.repo_id)
+    if (!repo || !enrichment) continue
+    results.push({ ...repo, enrichment })
+  }
 
   return hydrateDownloads(results)
 }
