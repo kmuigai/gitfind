@@ -1,18 +1,23 @@
 // Weekly Stats Script
-// Fetches contributor count, 4-week commit activity, and latest release for ALL repos.
+// Fetches contributor count, 4-week commit count, and latest release for ALL repos.
 // Upserts into weekly_stats table.
 //
-// GitHub API cost: 5 calls per repo. 8K repos ≈ 40K calls ≈ 8 hours at 5K/hour.
-// Runs weekly on Sundays at 08:00 UTC via GitHub Actions.
+// OPTIMIZED: Uses GraphQL batching for commits + releases (~2 min for all repos),
+// REST only for contributor count (1 call/repo, ~105 min at 5K/hour for 8.8K repos).
+// Previous version: 5 REST calls/repo = ~9 hours for 8.8K repos.
 //
+// Runs weekly on Sundays at 08:00 UTC via GitHub Actions.
 // Run locally: npx tsx scripts/snapshot-weekly.ts
 
 import { config } from 'dotenv'
 config({ path: '.env.local' })
 
 const GITHUB_API_BASE = 'https://api.github.com'
+const GITHUB_GRAPHQL_URL = 'https://api.github.com/graphql'
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 const RATE_LIMIT_FLOOR = 100
+const GRAPHQL_BATCH_SIZE = 50 // Repos per GraphQL query
+const DB_BATCH_SIZE = 100
 
 function log(msg: string): void {
   const timestamp = new Date().toISOString().replace('T', ' ').split('.')[0]
@@ -30,23 +35,19 @@ function githubHeaders(): Record<string, string> {
   return headers
 }
 
-async function sleepUntilReset(resetTimestamp: number): Promise<void> {
-  const now = Math.floor(Date.now() / 1000)
-  const sleepSeconds = Math.max(resetTimestamp - now + 5, 10)
-  log(`  Rate limit low — sleeping ${sleepSeconds}s until reset...`)
-  await new Promise((r) => setTimeout(r, sleepSeconds * 1000))
-}
-
 async function checkRateLimit(response: Response): Promise<void> {
   const remaining = parseInt(response.headers.get('X-RateLimit-Remaining') || '5000', 10)
   const resetAt = parseInt(response.headers.get('X-RateLimit-Reset') || '0', 10)
 
   if (remaining < RATE_LIMIT_FLOOR && resetAt > 0) {
-    await sleepUntilReset(resetAt)
+    const now = Math.floor(Date.now() / 1000)
+    const sleepSeconds = Math.max(resetAt - now + 5, 10)
+    log(`  REST rate limit low (${remaining}) — sleeping ${sleepSeconds}s...`)
+    await new Promise((r) => setTimeout(r, sleepSeconds * 1000))
   }
 }
 
-// Get contributor count from Link header (avoids paginating all contributors)
+// ── REST: Get contributor count from Link header ──
 async function getContributorCount(owner: string, name: string): Promise<number> {
   const response = await fetch(
     `${GITHUB_API_BASE}/repos/${owner}/${name}/contributors?per_page=1&anon=true`,
@@ -57,10 +58,8 @@ async function getContributorCount(owner: string, name: string): Promise<number>
 
   if (!response.ok) return 0
 
-  // Parse last page number from Link header to get total count
   const linkHeader = response.headers.get('Link')
   if (!linkHeader) {
-    // No Link header = 1 page = check how many items
     const data = await response.json()
     return Array.isArray(data) ? data.length : 0
   }
@@ -73,107 +72,93 @@ async function getContributorCount(owner: string, name: string): Promise<number>
   return 1
 }
 
-// Get commit count for last 4 weeks from commit_activity stats
-async function getCommitCount4w(owner: string, name: string): Promise<number> {
-  const response = await fetch(
-    `${GITHUB_API_BASE}/repos/${owner}/${name}/stats/commit_activity`,
-    { headers: githubHeaders() }
-  )
-
-  await checkRateLimit(response)
-
-  // GitHub returns 202 when stats are being computed — treat as 0
-  if (response.status === 202 || !response.ok) return 0
-
-  const data = (await response.json()) as Array<{ total: number; week: number }>
-  if (!Array.isArray(data) || data.length === 0) return 0
-
-  // Sum last 4 weeks
-  const last4 = data.slice(-4)
-  return last4.reduce((sum, week) => sum + week.total, 0)
-}
-
-// Get owner vs community commits for last 4 weeks from participation stats
-async function getParticipation(
-  owner: string,
-  name: string
-): Promise<{ ownerCommits: number; communityCommits: number }> {
-  const response = await fetch(
-    `${GITHUB_API_BASE}/repos/${owner}/${name}/stats/participation`,
-    { headers: githubHeaders() }
-  )
-
-  await checkRateLimit(response)
-
-  // GitHub returns 202 when stats are being computed
-  if (response.status === 202 || !response.ok) return { ownerCommits: 0, communityCommits: 0 }
-
-  const data = (await response.json()) as { owner: number[]; all: number[] }
-  if (!data.owner || !data.all) return { ownerCommits: 0, communityCommits: 0 }
-
-  // Last 4 weeks
-  const ownerLast4 = data.owner.slice(-4)
-  const allLast4 = data.all.slice(-4)
-
-  const ownerCommits = ownerLast4.reduce((sum, w) => sum + w, 0)
-  const totalCommits = allLast4.reduce((sum, w) => sum + w, 0)
-
-  return { ownerCommits, communityCommits: totalCommits - ownerCommits }
-}
-
-// Get code additions/deletions for last 4 weeks from code frequency stats
-async function getCodeFrequency(
-  owner: string,
-  name: string
-): Promise<{ additions: number; deletions: number }> {
-  const response = await fetch(
-    `${GITHUB_API_BASE}/repos/${owner}/${name}/stats/code_frequency`,
-    { headers: githubHeaders() }
-  )
-
-  await checkRateLimit(response)
-
-  // GitHub returns 202 when stats are being computed
-  if (response.status === 202 || !response.ok) return { additions: 0, deletions: 0 }
-
-  // Returns array of [unix_timestamp, additions, deletions] per week
-  const data = (await response.json()) as Array<[number, number, number]>
-  if (!Array.isArray(data) || data.length === 0) return { additions: 0, deletions: 0 }
-
-  // Last 4 weeks
-  const last4 = data.slice(-4)
-  const additions = last4.reduce((sum, week) => sum + week[1], 0)
-  const deletions = last4.reduce((sum, week) => sum + Math.abs(week[2]), 0)
-
-  return { additions, deletions }
-}
-
-// Get latest release date and tag
-async function getLatestRelease(
-  owner: string,
-  name: string
-): Promise<{ date: string | null; tag: string | null }> {
-  const response = await fetch(
-    `${GITHUB_API_BASE}/repos/${owner}/${name}/releases?per_page=1`,
-    { headers: githubHeaders() }
-  )
-
-  await checkRateLimit(response)
-
-  if (!response.ok) return { date: null, tag: null }
-
-  const data = (await response.json()) as Array<{
-    published_at: string | null
-    tag_name: string
-  }>
-
-  if (!Array.isArray(data) || data.length === 0) return { date: null, tag: null }
-
-  const release = data[0]
-  return {
-    date: release.published_at ? release.published_at.split('T')[0] : null,
-    tag: release.tag_name || null,
+// ── GraphQL types ──
+interface GraphQLRepoNode {
+  nameWithOwner: string
+  defaultBranchRef: {
+    target: {
+      history: { totalCount: number }
+    }
+  } | null
+  releases: {
+    nodes: Array<{
+      publishedAt: string | null
+      tagName: string
+    }>
   }
+}
+
+interface GraphQLResponse {
+  data?: {
+    [key: string]: GraphQLRepoNode | { cost: number; remaining: number; resetAt: string }
+    rateLimit: { cost: number; remaining: number; resetAt: string }
+  }
+  errors?: Array<{ message: string; type?: string }>
+}
+
+// ── GraphQL: Build batched query for commits + releases ──
+function buildGraphQLQuery(repos: RepoRow[], since: string): string {
+  const repoQueries = repos.map((r, i) => {
+    // Sanitize owner/name for GraphQL alias (replace hyphens/dots with underscores)
+    const alias = `r${i}`
+    return `${alias}: repository(owner: "${r.owner}", name: "${r.name}") {
+      nameWithOwner
+      defaultBranchRef {
+        target {
+          ... on Commit {
+            history(since: "${since}") { totalCount }
+          }
+        }
+      }
+      releases(first: 1, orderBy: {field: CREATED_AT, direction: DESC}) {
+        nodes {
+          publishedAt
+          tagName
+        }
+      }
+    }`
+  })
+
+  return `query {
+    rateLimit { cost remaining resetAt }
+    ${repoQueries.join('\n    ')}
+  }`
+}
+
+// ── GraphQL: Execute query with rate limit handling ──
+async function graphqlQuery(query: string): Promise<GraphQLResponse> {
+  const response = await fetch(GITHUB_GRAPHQL_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'GitFind/1.0',
+    },
+    body: JSON.stringify({ query }),
+  })
+
+  if (response.status === 403 || response.status === 502) {
+    log(`  GitHub returned ${response.status}, waiting 60s before retry...`)
+    await new Promise((r) => setTimeout(r, 60_000))
+    return graphqlQuery(query)
+  }
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(`GraphQL request failed: ${response.status} ${text}`)
+  }
+
+  const result = (await response.json()) as GraphQLResponse
+
+  const rateLimit = result.data?.rateLimit as { cost: number; remaining: number; resetAt: string } | undefined
+  if (rateLimit && rateLimit.remaining < 100) {
+    const resetTime = new Date(rateLimit.resetAt).getTime()
+    const sleepMs = Math.max(resetTime - Date.now() + 5000, 10000)
+    log(`  GraphQL rate limit low (${rateLimit.remaining}) — sleeping ${Math.round(sleepMs / 1000)}s...`)
+    await new Promise((r) => setTimeout(r, sleepMs))
+  }
+
+  return result
 }
 
 interface RepoRow {
@@ -182,13 +167,22 @@ interface RepoRow {
   name: string
 }
 
+interface GraphQLData {
+  commitCount4w: number
+  releaseDate: string | null
+  releaseTag: string | null
+}
+
 async function main(): Promise<void> {
   const { createServiceClient } = await import('../lib/supabase.js')
   const db = createServiceClient()
 
   const todayStr = new Date().toISOString().split('T')[0]
+  const fourWeeksAgo = new Date()
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28)
+  const sinceDate = fourWeeksAgo.toISOString()
 
-  log('=== Weekly Stats Script ===')
+  log('=== Weekly Stats Script (GraphQL + REST) ===')
   log(`Date: ${todayStr}`)
 
   // Fetch all repos from DB, paginated
@@ -222,33 +216,93 @@ async function main(): Promise<void> {
     return
   }
 
+  // ── Phase 1: GraphQL batched queries for commits + releases ──
+  log('\n── Phase 1: Fetching commits + releases (GraphQL) ──')
+
+  const graphqlData = new Map<string, GraphQLData>() // keyed by "owner/name" lowercase
+  let graphqlErrors = 0
+  let totalCost = 0
+
+  for (let i = 0; i < allRepos.length; i += GRAPHQL_BATCH_SIZE) {
+    const batch = allRepos.slice(i, i + GRAPHQL_BATCH_SIZE)
+    const batchNum = Math.floor(i / GRAPHQL_BATCH_SIZE) + 1
+    const totalBatches = Math.ceil(allRepos.length / GRAPHQL_BATCH_SIZE)
+
+    try {
+      const query = buildGraphQLQuery(batch, sinceDate)
+      const result = await graphqlQuery(query)
+
+      const rateLimit = result.data?.rateLimit as { cost: number; remaining: number; resetAt: string } | undefined
+      if (rateLimit) {
+        totalCost += rateLimit.cost
+      }
+
+      // Handle partial errors (some repos may be deleted/private)
+      if (result.errors) {
+        for (const err of result.errors) {
+          if (err.type !== 'NOT_FOUND') {
+            log(`  Batch ${batchNum} GraphQL error: ${err.message}`)
+          }
+        }
+      }
+
+      // Extract data from aliased responses
+      for (let j = 0; j < batch.length; j++) {
+        const alias = `r${j}`
+        const node = result.data?.[alias] as GraphQLRepoNode | null | undefined
+
+        if (!node || !node.nameWithOwner) continue
+
+        const key = node.nameWithOwner.toLowerCase()
+        const commitCount = node.defaultBranchRef?.target?.history?.totalCount ?? 0
+        const release = node.releases?.nodes?.[0]
+
+        graphqlData.set(key, {
+          commitCount4w: commitCount,
+          releaseDate: release?.publishedAt ? release.publishedAt.split('T')[0] : null,
+          releaseTag: release?.tagName ?? null,
+        })
+      }
+
+      if (batchNum % 10 === 0 || batchNum === totalBatches) {
+        log(`  Batch ${batchNum}/${totalBatches} — ${graphqlData.size} repos fetched (cost: ${totalCost} pts)`)
+      }
+    } catch (err) {
+      log(`  Batch ${batchNum}/${totalBatches} — error: ${err instanceof Error ? err.message : String(err)}`)
+      graphqlErrors += batch.length
+    }
+  }
+
+  log(`GraphQL phase complete: ${graphqlData.size} repos, ${totalCost} total points, ${graphqlErrors} errors`)
+
+  // ── Phase 2: REST calls for contributor counts + DB upserts ──
+  log('\n── Phase 2: Fetching contributors (REST) + upserting ──')
+
   let updated = 0
   let errors = 0
 
   for (let i = 0; i < allRepos.length; i++) {
     const repo = allRepos[i]
     const label = `${repo.owner}/${repo.name}`
+    const key = label.toLowerCase()
 
     try {
-      // 5 API calls per repo
       const contributors = await getContributorCount(repo.owner, repo.name)
-      const commitCount4w = await getCommitCount4w(repo.owner, repo.name)
-      const release = await getLatestRelease(repo.owner, repo.name)
-      const participation = await getParticipation(repo.owner, repo.name)
-      const codeFreq = await getCodeFrequency(repo.owner, repo.name)
+
+      // Update repos.contributors for scoring
+      await db.from('repos').update({ contributors }).eq('id', repo.id)
+
+      // Get GraphQL data (may be missing if repo was deleted/private)
+      const gql = graphqlData.get(key)
 
       const { error: upsertError } = await db.from('weekly_stats').upsert(
         {
           repo_id: repo.id,
           snapshot_date: todayStr,
           contributors,
-          commit_count_4w: commitCount4w,
-          last_release_date: release.date,
-          last_release_tag: release.tag,
-          owner_commits_4w: participation.ownerCommits,
-          community_commits_4w: participation.communityCommits,
-          additions_4w: codeFreq.additions,
-          deletions_4w: codeFreq.deletions,
+          commit_count_4w: gql?.commitCount4w ?? 0,
+          last_release_date: gql?.releaseDate ?? null,
+          last_release_tag: gql?.releaseTag ?? null,
         },
         { onConflict: 'repo_id,snapshot_date' }
       )
@@ -273,6 +327,7 @@ async function main(): Promise<void> {
   log(`\n=== Weekly Stats Complete ===`)
   log(`Updated: ${updated}`)
   log(`Errors: ${errors}`)
+  log(`GraphQL cost: ${totalCost} points`)
 }
 
 main().catch((err) => {

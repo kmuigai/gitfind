@@ -11,7 +11,7 @@ jobs:
   weekly-stats:
     name: Fetch Contributors, Commits & Releases
     runs-on: ubuntu-latest
-    timeout-minutes: 540 # 9 hours — 8K repos × 5 calls at 5K/hour
+    timeout-minutes: 150 # ~2 hours — GraphQL batched commits/releases + REST contributors
 
     steps:
       - name: Checkout repository
