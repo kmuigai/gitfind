@@ -460,10 +460,106 @@ async function main(): Promise<void> {
     )
   }
 
+  // ── Phase 2c: Backfill unenriched DB repos (highest stars first) ──────
+  const backfillSlots = MAX_ENRICHMENTS_PER_RUN - enriched
+  if (backfillSlots > 0) {
+    log(`\n── Phase 2c: Backfilling unenriched DB repos (${backfillSlots} slots) ──`)
+
+    // Find repos that exist in DB but have no enrichment, ordered by stars
+    const { data: unenrichedRows } = await db
+      .rpc('get_unenriched_repos' as never, { row_limit: backfillSlots } as never) as unknown as {
+        data: Array<{
+          id: string; github_id: number; name: string; owner: string;
+          description: string | null; stars: number; forks: number;
+          contributors: number; language: string | null; url: string;
+          topics: string[] | null;
+        }> | null
+      }
+
+    // Fallback: if the RPC doesn't exist, query manually
+    let backfillRepos = unenrichedRows
+    if (!backfillRepos) {
+      // Left-anti-join: repos without enrichments, sorted by stars desc
+      const { data: allRepoIds } = await db
+        .from('repos')
+        .select('id')
+        .order('stars', { ascending: false })
+        .limit(backfillSlots * 3)
+
+      if (allRepoIds && allRepoIds.length > 0) {
+        const ids = (allRepoIds as unknown as Array<{ id: string }>).map((r) => r.id)
+        const { data: enrichedIds } = await db
+          .from('enrichments')
+          .select('repo_id')
+          .in('repo_id', ids)
+
+        const enrichedSet = new Set(
+          ((enrichedIds ?? []) as unknown as Array<{ repo_id: string }>).map((e) => e.repo_id)
+        )
+        const unenrichedIds = ids.filter((id) => !enrichedSet.has(id)).slice(0, backfillSlots)
+
+        if (unenrichedIds.length > 0) {
+          const { data: rows } = await db
+            .from('repos')
+            .select('id, github_id, name, owner, description, stars, forks, contributors, language, url')
+            .in('id', unenrichedIds)
+            .order('stars', { ascending: false })
+
+          backfillRepos = (rows ?? []) as unknown as typeof backfillRepos
+        }
+      }
+    }
+
+    if (backfillRepos && backfillRepos.length > 0) {
+      log(`  Found ${backfillRepos.length} unenriched repos to backfill`)
+      const backfillLimiter = createLimiter(ENRICH_CONCURRENCY)
+
+      await Promise.all(
+        backfillRepos.map((row) => {
+          const item: ScoreResult = {
+            repoId: row.id,
+            label: `${row.owner}/${row.name}`,
+            score: 0, // will be calculated by enrichRepo
+            breakdown: calculateScore({
+              stars: row.stars, stars_7d: 0, stars_30d: 0,
+              contributors: row.contributors ?? 0, forks: row.forks,
+              hn_mentions_7d: 0, hn_mentions_30d: 0, commits_30d: 0,
+            }).breakdown,
+            repoData: {
+              github_id: row.github_id,
+              name: row.name,
+              owner: row.owner,
+              description: row.description,
+              stars: row.stars,
+              forks: row.forks,
+              language: row.language,
+              url: row.url,
+              pushed_at: '',
+              created_at: '',
+              topics: row.topics ?? undefined,
+            },
+            contributorCount: row.contributors ?? 0,
+          }
+          // Recalculate score properly
+          const { score, breakdown } = calculateScore({
+            stars: row.stars, stars_7d: 0, stars_30d: 0,
+            contributors: row.contributors ?? 0, forks: row.forks,
+            hn_mentions_7d: 0, hn_mentions_30d: 0, commits_30d: 0,
+          })
+          item.score = score
+          item.breakdown = breakdown
+          return backfillLimiter(() => enrichRepoPass(db, item))
+        })
+      )
+      log(`  Backfill complete`)
+    } else {
+      log('  No unenriched repos found for backfill')
+    }
+  }
+
   log(`\n=== Pipeline Complete ===`)
   log(`Discovered: ${discovered.size} unique repos`)
-  log(`Scored: ${scored} | Stale-skipped: ${skippedStale} | Enriched: ${enriched}/${enrichmentCandidates.length} candidates`)
-  log(`Remaining unenriched: ${enrichmentCandidates.length - enriched}`)
+  log(`Scored: ${scored} | Stale-skipped: ${skippedStale} | Enriched: ${enriched}`)
   log(`Errors: ${totalErrors}`)
 }
 
