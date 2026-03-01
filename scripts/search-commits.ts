@@ -91,10 +91,66 @@ async function main(): Promise<void> {
   const cutoffStr = cutoff.toISOString().slice(0, 10)
   const cutoffDate = new Date(cutoffStr + 'T00:00:00Z')
 
+  // Re-query window: re-fetch last 5 days to catch late-indexed results
+  const REQUERY_DAYS = 5
+
+  // Fetch commit count for a tool+date and upsert into DB
+  async function fetchAndUpsert(
+    tool: (typeof TOOLS)[number],
+    dateStr: string,
+    prefix: string,
+  ): Promise<boolean> {
+    const url = `https://api.github.com/search/commits?q=${encodeURIComponent(tool.query(dateStr))}&per_page=1`
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github.cloak-preview+json',
+        'User-Agent': 'GitFind/1.0',
+      },
+    })
+
+    if (response.status === 403) {
+      const remaining = response.headers.get('X-RateLimit-Remaining')
+      if (remaining === '0') {
+        const reset = response.headers.get('X-RateLimit-Reset')
+        const waitMs = reset ? (parseInt(reset) * 1000 - Date.now()) : 60000
+        log(`Rate limited. Waiting ${Math.ceil(waitMs / 1000)}s...`)
+        await new Promise((r) => setTimeout(r, Math.max(waitMs, 1000)))
+        return false // Signal retry
+      }
+    }
+
+    if (!response.ok) {
+      log(`${prefix}Error for ${tool.name} ${dateStr}: ${response.status}`)
+      return true // Skip this date
+    }
+
+    const data = await response.json() as { total_count: number }
+    const count = data.total_count
+
+    await db.from('tool_contributions').upsert(
+      {
+        repo_id: repoId,
+        tool_name: tool.name,
+        commit_count: count,
+        month: dateStr,
+      },
+      { onConflict: 'repo_id,tool_name,month' }
+    )
+
+    log(`${prefix}${tool.name} ${dateStr}: ${count.toLocaleString()} commits`)
+
+    // Respect rate limit: 30 requests/min = 2s between requests
+    await new Promise((r) => setTimeout(r, 2200))
+    return true
+  }
+
   let totalImported = 0
 
+  // ── Pass 1: Fill forward — new dates we haven't seen yet ──
+  log('── Pass 1: Fill forward ──')
+
   for (const tool of TOOLS) {
-    // Find the last date we have data for this tool
     const { data: latest } = await db
       .from('tool_contributions')
       .select('month')
@@ -107,7 +163,6 @@ async function main(): Promise<void> {
       ? (latest[0] as unknown as { month: string }).month
       : tool.startDate
 
-    // Start from the day after the last date
     const startDate = new Date(lastDate + 'T00:00:00Z')
     startDate.setUTCDate(startDate.getUTCDate() + 1)
 
@@ -122,65 +177,43 @@ async function main(): Promise<void> {
 
     while (current < cutoffDate) {
       const dateStr = current.toISOString().slice(0, 10)
-
-      try {
-        const url = `https://api.github.com/search/commits?q=${encodeURIComponent(tool.query(dateStr))}&per_page=1`
-        const response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: 'application/vnd.github.cloak-preview+json',
-            'User-Agent': 'GitFind/1.0',
-          },
-        })
-
-        if (response.status === 403) {
-          const remaining = response.headers.get('X-RateLimit-Remaining')
-          if (remaining === '0') {
-            const reset = response.headers.get('X-RateLimit-Reset')
-            const waitMs = reset ? (parseInt(reset) * 1000 - Date.now()) : 60000
-            log(`Rate limited. Waiting ${Math.ceil(waitMs / 1000)}s...`)
-            await new Promise((r) => setTimeout(r, Math.max(waitMs, 1000)))
-            continue // Retry this date
-          }
-        }
-
-        if (!response.ok) {
-          log(`Error for ${tool.name} ${dateStr}: ${response.status}`)
-          current.setUTCDate(current.getUTCDate() + 1)
-          continue
-        }
-
-        const data = await response.json() as { total_count: number }
-        const count = data.total_count
-
-        await db.from('tool_contributions').upsert(
-          {
-            repo_id: repoId,
-            tool_name: tool.name,
-            commit_count: count,
-            month: dateStr,
-          },
-          { onConflict: 'repo_id,tool_name,month' }
-        )
-
-        log(`  ${tool.name} ${dateStr}: ${count.toLocaleString()} commits`)
+      const ok = await fetchAndUpsert(tool, dateStr, '  ')
+      if (ok) {
         imported++
-
-        // Respect rate limit: 30 requests/min = 2s between requests
-        await new Promise((r) => setTimeout(r, 2200))
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        log(`Error for ${tool.name} ${dateStr}: ${msg}`)
+        current.setUTCDate(current.getUTCDate() + 1)
       }
-
-      current.setUTCDate(current.getUTCDate() + 1)
+      // If !ok, it was a rate limit — retry same date
     }
 
     log(`${tool.name}: imported ${imported} days`)
     totalImported += imported
   }
 
-  log(`\nDone! Imported ${totalImported} total data points across ${TOOLS.length} tools.`)
+  // ── Pass 2: Re-query window — re-fetch last N days to catch late-indexed commits ──
+  log(`\n── Pass 2: Re-query last ${REQUERY_DAYS} days ──`)
+
+  let totalRequeried = 0
+
+  for (const tool of TOOLS) {
+    let requeried = 0
+
+    for (let d = REQUERY_DAYS + 2; d >= 2; d--) {
+      const reqDate = new Date()
+      reqDate.setUTCDate(reqDate.getUTCDate() - d)
+      const dateStr = reqDate.toISOString().slice(0, 10)
+
+      let ok = false
+      while (!ok) {
+        ok = await fetchAndUpsert(tool, dateStr, '  [requery] ')
+      }
+      requeried++
+    }
+
+    log(`${tool.name}: re-queried ${requeried} days`)
+    totalRequeried += requeried
+  }
+
+  log(`\nDone! Imported ${totalImported} new + re-queried ${totalRequeried} days across ${TOOLS.length} tools.`)
 }
 
 main().catch((err) => {
