@@ -27,7 +27,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const view = params.view === 'top' ? 'top' : 'trending'
 
   const [topProjects, toolData] = await Promise.all([
-    view === 'trending' ? getTrendingRepos(6) : getTopRepos(6),
+    view === 'trending' ? getTrendingRepos(12) : getTopRepos(12),
     getToolContributionsByDay(),
   ])
 
