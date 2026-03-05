@@ -82,15 +82,8 @@ export default function RootLayout({
         {/* Navigation */}
         <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/90 backdrop-blur-sm">
           <nav className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
-            {/* Logo */}
-            <Link
-              href="/"
-              className="flex items-center gap-2 font-mono text-sm font-semibold tracking-[-0.06em] text-[var(--foreground)] transition-opacity hover:opacity-80"
-            >
-              <span className="text-[var(--accent)]">❯</span>
-              <span>gitfind</span>
-              <span className="text-[var(--foreground-muted)]">.ai</span>
-            </Link>
+            {/* Logo — on mobile, toggles nav menu */}
+            <MobileMenu categories={NAV_CATEGORIES} features={NAV_FEATURES} />
 
             {/* Quick links — hidden on mobile */}
             <div className="hidden items-center gap-1 sm:flex">
@@ -117,7 +110,6 @@ export default function RootLayout({
 
             {/* Right side */}
             <div className="flex items-center gap-2">
-              <MobileMenu categories={NAV_CATEGORIES} features={NAV_FEATURES} />
               <ThemeToggle />
               <Link
                 href="/submit"
