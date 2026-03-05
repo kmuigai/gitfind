@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import Link from 'next/link'
 import { Analytics } from '@vercel/analytics/next'
 import ThemeToggle from '@/components/ThemeToggle'
+import MobileMenu from '@/components/MobileMenu'
 import './globals.css'
 
 const geistSans = Geist({
@@ -116,6 +117,7 @@ export default function RootLayout({
 
             {/* Right side */}
             <div className="flex items-center gap-2">
+              <MobileMenu categories={NAV_CATEGORIES} features={NAV_FEATURES} />
               <ThemeToggle />
               <Link
                 href="/submit"
