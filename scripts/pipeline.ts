@@ -83,7 +83,7 @@ function logError(msg: string, err: unknown): void {
 async function main(): Promise<void> {
   // Dynamic imports — evaluated after dotenv.config() has run
   const [
-    { searchReposByCategory, searchTrendingMidTier, searchNewbornRockets, getReadme, cleanReadme, detectPackageName },
+    { searchReposByCategory, searchTrendingMidTier, searchNewbornRockets, searchHighStarRepos, getReadme, cleanReadme, detectPackageName },
     { calculateScore },
     { getHNMentions },
     { enrichRepo },
@@ -429,6 +429,23 @@ async function main(): Promise<void> {
     log(`Layer 3: ${newborn.length} found, ${added} new (${discovered.size} total unique)`)
   } catch (err) {
     logError('Layer 3 failed', err)
+    totalErrors++
+  }
+
+  // Layer 4: High-star legends (established repos >10k stars)
+  log('\n── Layer 4: High-Star Legends ──')
+  try {
+    const legends = await searchHighStarRepos()
+    let added = 0
+    for (const repo of legends) {
+      if (!discovered.has(repo.github_id)) {
+        discovered.set(repo.github_id, repo)
+        added++
+      }
+    }
+    log(`Layer 4: ${legends.length} found, ${added} new (${discovered.size} total unique)`)
+  } catch (err) {
+    logError('Layer 4 failed', err)
     totalErrors++
   }
 

@@ -232,6 +232,31 @@ export async function searchNewbornRockets(): Promise<GitHubRepo[]> {
   return repos
 }
 
+// Layer 4: High-star legendary repos (>10k stars) that may not have recent trending signals
+export async function searchHighStarRepos(): Promise<GitHubRepo[]> {
+  const seen = new Set<number>()
+  const repos: GitHubRepo[] = []
+
+  // 3 pages × 100 results = 300 repos, sorted by stars descending
+  for (let page = 1; page <= 3; page++) {
+    const query = encodeURIComponent('stars:>10000')
+    const data = await githubFetch<GitHubSearchResult>(
+      `/search/repositories?q=${query}&sort=stars&order=desc&per_page=100&page=${page}`
+    )
+
+    for (const item of data.items) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id)
+        repos.push(mapSearchItem(item))
+      }
+    }
+
+    await new Promise((r) => setTimeout(r, 250))
+  }
+
+  return repos
+}
+
 interface StargazerEntry {
   starred_at: string
   user: { login: string }
