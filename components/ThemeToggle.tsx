@@ -12,12 +12,12 @@ function getInitialTheme(): Theme {
 }
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>('dark')
   const [mounted, setMounted] = useState(false)
+  const [theme, setTheme] = useState<Theme>('dark')
 
   useEffect(() => {
+    setTheme(getInitialTheme()) // eslint-disable-line react-hooks/set-state-in-effect -- hydration: must read localStorage in effect
     setMounted(true)
-    setTheme(getInitialTheme())
   }, [])
 
   function toggle() {

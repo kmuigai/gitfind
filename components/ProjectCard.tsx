@@ -88,7 +88,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
       {enrichment?.why_it_matters && (
         <div className="rounded-md bg-[var(--accent-subtle)] px-3 py-2">
           <p className="text-xs leading-relaxed text-[var(--foreground-muted)]">
-            <span className="font-mono font-medium text-[var(--accent)]">// why it matters </span>
+            <span className="font-mono font-medium text-[var(--accent)]">{'// why it matters '}</span>
             {enrichment.why_it_matters}
           </p>
         </div>
