@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, type MouseEvent } from 'react'
+import { track } from '@vercel/analytics'
 import {
   LineChart,
   Line,
@@ -93,7 +94,9 @@ function formatTick(date: string, dataLength: number): string {
 export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
   const [hasAnimated, setHasAnimated] = useState(false)
   const [range, setRange] = useState<TimeRange>('ALL')
+  const [downloading, setDownloading] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const chartRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const el = containerRef.current
@@ -138,6 +141,108 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
     return { label: `${formatted}%`, type: 'pct' as const, positive: pct >= 0 }
   }, [filtered, range])
 
+  const handleDownload = useCallback(async (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    const source = chartRef.current
+    if (!source || downloading) return
+    setDownloading(true)
+    track('png_download', { chart: 'claude-code', range })
+
+    try {
+      const svgEl = source.querySelector('svg.recharts-surface')
+      if (!svgEl) return
+
+      const svgClone = svgEl.cloneNode(true) as SVGSVGElement
+      const resolveVars = (src: Element, cln: Element) => {
+        const computed = getComputedStyle(src)
+        if (cln instanceof SVGElement) {
+          for (const attr of ['stroke', 'fill']) {
+            const val = cln.getAttribute(attr)
+            if (val?.includes('var(')) {
+              cln.setAttribute(attr, computed.getPropertyValue(attr))
+            }
+          }
+          for (const prop of Array.from(cln.style)) {
+            if (cln.style.getPropertyValue(prop).includes('var(')) {
+              cln.style.setProperty(prop, computed.getPropertyValue(prop))
+            }
+          }
+          const fontAttr = cln.getAttribute('font-family')
+          if (fontAttr?.includes('var(')) {
+            cln.setAttribute('font-family', 'ui-monospace, monospace')
+          }
+          if (cln.style.fontFamily?.includes('var(')) {
+            cln.style.fontFamily = 'ui-monospace, monospace'
+          }
+        }
+        const srcKids = Array.from(src.children)
+        const clnKids = Array.from(cln.children)
+        for (let i = 0; i < clnKids.length && i < srcKids.length; i++) {
+          resolveVars(srcKids[i], clnKids[i])
+        }
+      }
+      resolveVars(svgEl, svgClone)
+
+      const rect = svgEl.getBoundingClientRect()
+      const svgW = Math.round(rect.width)
+      const svgH = Math.round(rect.height)
+      svgClone.setAttribute('width', String(svgW))
+      svgClone.setAttribute('height', String(svgH))
+      svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+
+      const pad = 48
+      const headerH = 40
+      const footerH = 20
+      const canvasW = svgW + pad * 2
+      const canvasH = headerH + svgH + footerH + pad * 2
+      const scale = 2
+
+      const canvas = document.createElement('canvas')
+      canvas.width = canvasW * scale
+      canvas.height = canvasH * scale
+      const ctx = canvas.getContext('2d')!
+      ctx.scale(scale, scale)
+
+      ctx.fillStyle = '#0a0a0a'
+      ctx.fillRect(0, 0, canvasW, canvasH)
+
+      ctx.font = '600 14px ui-monospace, monospace'
+      ctx.fillStyle = '#e4e4e7'
+      ctx.fillText('Claude Code Commits', pad, pad + 14)
+      ctx.font = '14px ui-monospace, monospace'
+      ctx.fillStyle = '#a1a1aa'
+      const tagline = 'gitfind.ai'
+      ctx.fillText(tagline, canvasW - pad - ctx.measureText(tagline).width, pad + 14)
+
+      const svgString = new XMLSerializer().serializeToString(svgClone)
+      const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString)
+      const img = new Image()
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => {
+          ctx.drawImage(img, pad, pad + headerH, svgW, svgH)
+          resolve()
+        }
+        img.onerror = reject
+        img.src = svgDataUrl
+      })
+
+      canvas.toBlob((blob) => {
+        if (!blob) return
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.download = `claude-code-commits-${range.toLowerCase()}.png`
+        link.href = url
+        link.click()
+        URL.revokeObjectURL(url)
+      }, 'image/png')
+    } catch (err) {
+      console.error('PNG export failed:', err)
+    } finally {
+      setDownloading(false)
+    }
+  }, [downloading, range])
+
   if (data.length < 2) return null
 
   const formatted = filtered.map((d, i) => ({
@@ -171,25 +276,46 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
             </button>
           ))}
         </div>
-        {metric && (
-          <span
-            className="text-sm"
+        <div className="flex items-center gap-3">
+          {metric && (
+            <span
+              className="text-sm"
+              style={{
+                fontFamily: MONO,
+                color: metric.type === 'total'
+                  ? 'var(--foreground-muted)'
+                  : metric.positive ? 'var(--score-high)' : 'var(--error)',
+              }}
+            >
+              {metric.label}
+            </span>
+          )}
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            className="flex items-center gap-1.5 px-3 py-1 text-xs transition-colors"
             style={{
               fontFamily: MONO,
-              color: metric.type === 'total'
-                ? 'var(--foreground-muted)'
-                : metric.positive ? 'var(--score-high)' : 'var(--error)',
+              borderRadius: '6px',
+              border: '1px solid var(--border)',
+              color: 'var(--foreground-subtle)',
+              opacity: downloading ? 0.5 : 1,
             }}
           >
-            {metric.label}
-          </span>
-        )}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            {downloading ? 'Exporting…' : 'PNG'}
+          </button>
+        </div>
       </div>
 
       {/* Chart */}
-      <div className="h-72 w-full sm:h-80">
+      <div ref={chartRef} className="h-72 w-full sm:h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={formatted} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+          <LineChart data={formatted} margin={{ top: 8, right: 30, left: -8, bottom: 0 }}>
             <CartesianGrid
               strokeDasharray="2 4"
               stroke="var(--border)"

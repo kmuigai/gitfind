@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo, useCallback, type MouseEvent } from 'react'
+import { track } from '@vercel/analytics'
 import {
   LineChart,
   Line,
@@ -160,6 +161,7 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
     const source = chartRef.current
     if (!source || downloading) return
     setDownloading(true)
+    track('png_download', { chart: 'ai-code-index', range })
 
     try {
       // Grab the live SVG rendered by Recharts
