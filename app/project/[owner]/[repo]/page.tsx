@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getRepo, getPackageDownloads } from '@/lib/queries'
+import { getRepo, getPackageDownloads, getReposByCategory } from '@/lib/queries'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScoreBreakdown from '@/components/ScoreBreakdown'
+import ProjectCard from '@/components/ProjectCard'
 
 export const revalidate = 3600
 
@@ -87,7 +88,11 @@ export default async function ProjectPage({ params }: Props) {
 
   const enrichment = project.enrichment
   const score = enrichment?.early_signal_score ?? 0
-  const downloads = await getPackageDownloads(project.id)
+  const [downloads, relatedRaw] = await Promise.all([
+    getPackageDownloads(project.id),
+    enrichment?.category ? getReposByCategory(enrichment.category, 5) : Promise.resolve([]),
+  ])
+  const relatedProjects = relatedRaw.filter((r) => r.id !== project.id).slice(0, 4)
 
   return (
     <div>
@@ -167,6 +172,17 @@ export default async function ProjectPage({ params }: Props) {
                   </p>
                 </div>
               )}
+
+              {enrichment?.trend_narrative && (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] p-5">
+                  <h2 className="mb-2 font-mono text-xs font-medium uppercase tracking-wider text-[var(--foreground-muted)]">
+                    Why it&apos;s trending
+                  </h2>
+                  <p className="text-sm leading-relaxed text-[var(--foreground)]">
+                    {enrichment.trend_narrative}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Right column — score and stats */}
@@ -218,6 +234,22 @@ export default async function ProjectPage({ params }: Props) {
           </div>
         </div>
       </section>
+
+      {/* Related projects */}
+      {relatedProjects.length > 0 && (
+        <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
+          <div className="mx-auto max-w-4xl">
+            <h2 className="mb-4 font-mono text-xs font-medium uppercase tracking-wider text-[var(--foreground-muted)]">
+              Related projects
+            </h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {relatedProjects.map((rp) => (
+                <ProjectCard key={rp.id} project={rp} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <NewsletterSignup />
     </div>

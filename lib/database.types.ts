@@ -85,6 +85,7 @@ export type Database = {
           early_signal_score: number
           score_breakdown: Json | null
           scored_at: string
+          trend_narrative: string | null
         }
         Insert: {
           id?: string
@@ -95,6 +96,7 @@ export type Database = {
           early_signal_score: number
           score_breakdown?: Json | null
           scored_at?: string
+          trend_narrative?: string | null
         }
         Update: {
           id?: string
@@ -105,6 +107,7 @@ export type Database = {
           early_signal_score?: number
           score_breakdown?: Json | null
           scored_at?: string
+          trend_narrative?: string | null
         }
         Relationships: [
           {
