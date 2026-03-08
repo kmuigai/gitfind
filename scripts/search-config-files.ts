@@ -19,7 +19,7 @@ interface ConfigQuery {
 const CONFIG_QUERIES: ConfigQuery[] = [
   {
     label: 'AGENTS.md',
-    tool: 'Claude Code',
+    tool: 'AGENTS.md',
     query: 'filename:AGENTS.md path:/',
   },
   {

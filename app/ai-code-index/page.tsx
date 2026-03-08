@@ -45,6 +45,15 @@ const TOOL_SLUGS: Record<string, string> = {
   'Codex': 'codex',
 }
 
+const CONFIG_FILES: Record<string, string> = {
+  'AGENTS.md': 'Claude Code + Codex',
+  'Claude Code': 'CLAUDE.md',
+  'Cursor': '.cursorrules',
+  'GitHub Copilot': 'copilot-instructions.md',
+  'Windsurf': '.windsurfrules',
+  'Aider': '.aider.conf.yml',
+}
+
 interface ToolStats {
   name: string
   color: string
@@ -363,6 +372,7 @@ export default async function AICodeIndexPage() {
                                 <span className="inline-flex items-center gap-1.5" style={{ color: TOOL_COLORS[row.tool] ?? 'var(--foreground)' }}>
                                   <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: TOOL_COLORS[row.tool] ?? 'var(--foreground-subtle)' }} />
                                   {row.tool}
+                                  <span className="text-[var(--foreground-subtle)] font-normal">({CONFIG_FILES[row.tool] ?? ''})</span>
                                 </span>
                               </td>
                               <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
