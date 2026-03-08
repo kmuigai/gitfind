@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 
 export const runtime = 'edge'
-export const alt = 'GitFind — Rising GitHub Projects for Product People'
+export const alt = 'GitFind — Rising GitHub Projects for Builders'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
@@ -78,7 +78,7 @@ export default function Image() {
               }}
             />
             <span style={{ color: '#6c6af6', fontSize: '15px', fontWeight: 500 }}>
-              Open source intelligence for product people
+              Open source intelligence for builders
             </span>
           </div>
 
@@ -105,7 +105,7 @@ export default function Image() {
             }}
           >
             Rising GitHub projects ranked by Early Signal Score.
-            GitHub, translated for product managers.
+            GitHub, translated for builders.
           </p>
         </div>
 

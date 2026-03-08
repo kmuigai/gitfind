@@ -115,7 +115,7 @@ function buildNarrativePrompt(mover: TopMover): string {
     }
   }
 
-  return `You are writing a trend narrative for GitFind, a directory that helps non-technical product managers understand what's happening on GitHub.
+  return `You are writing a trend narrative for GitFind, a directory that helps builders understand what's happening on GitHub.
 
 Repository: ${mover.owner}/${mover.name}
 Description: ${mover.description ?? 'No description'}
@@ -134,7 +134,7 @@ ${topSignals.length > 0 ? `- Strongest signals: ${topSignals.join(', ')}` : ''}
 ${breakdown && breakdown.manipulation_penalty > 0 ? `- Manipulation penalty applied: -${breakdown.manipulation_penalty} points` : ''}
 
 Write a 2-3 sentence trend narrative explaining WHY this project is gaining attention right now. Rules:
-1. Write in plain English for non-technical product managers. No jargon.
+1. Write in plain English for builders — founders, PMs, and technical decision-makers. No jargon.
 2. Connect the data points into a story — don't just list stats.
 3. If star acceleration is high, explain what that momentum means.
 4. If HN mentions are notable (>0), mention the community buzz.

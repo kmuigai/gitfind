@@ -22,8 +22,8 @@ export const metadata: Metadata = {
     template: '%s — GitFind',
   },
   description:
-    'Discover the fastest-growing open source projects on GitHub, ranked and explained in plain English for product managers, founders, and investors.',
-  keywords: ['GitHub trending', 'open source discovery', 'product manager tools', 'GitHub intelligence', 'early signal', 'trending repositories', 'GitHub projects'],
+    'Discover the fastest-growing open source projects on GitHub, ranked and explained in plain English for builders, founders, and investors.',
+  keywords: ['GitHub trending', 'open source discovery', 'open source intelligence', 'GitHub intelligence', 'early signal', 'trending repositories', 'GitHub projects'],
   authors: [{ name: 'GitFind' }],
   metadataBase: new URL('https://gitfind.ai'),
   openGraph: {
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'GitFind — GitHub, Translated | Trending Projects Ranked & Explained',
-    description: 'Discover the fastest-growing open source projects on GitHub, ranked and explained in plain English for product managers, founders, and investors.',
+    description: 'Discover the fastest-growing open source projects on GitHub, ranked and explained in plain English for builders, founders, and investors.',
   },
   robots: {
     index: true,

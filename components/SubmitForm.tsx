@@ -106,13 +106,13 @@ export default function SubmitForm() {
 
           <div>
             <label htmlFor="note" className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-              Why should PMs care? <span className="text-[var(--foreground-muted)] font-normal">(optional)</span>
+              Why should builders care? <span className="text-[var(--foreground-muted)] font-normal">(optional)</span>
             </label>
             <textarea
               id="note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Tell us what makes this project interesting for product managers, founders, or investors..."
+              placeholder="Tell us what makes this project interesting for builders, founders, or investors..."
               rows={3}
               disabled={status === 'loading'}
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--background-elevated)] px-4 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--foreground-subtle)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30 disabled:opacity-50 resize-none transition-colors"

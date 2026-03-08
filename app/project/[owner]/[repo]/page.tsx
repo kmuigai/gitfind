@@ -165,7 +165,7 @@ export default async function ProjectPage({ params }: Props) {
               {enrichment?.why_it_matters && (
                 <div className="rounded-lg border border-[var(--accent)]/20 bg-[var(--accent-subtle)] p-5">
                   <h2 className="mb-2 font-mono text-xs font-medium uppercase tracking-wider text-[var(--accent)]">
-                    Why it matters for PMs
+                    Why it matters
                   </h2>
                   <p className="text-sm leading-relaxed text-[var(--foreground-muted)]">
                     {enrichment.why_it_matters}

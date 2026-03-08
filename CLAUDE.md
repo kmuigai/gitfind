@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## What this project is
-An open source intelligence directory for product managers.
+An open source intelligence directory for builders.
 Surfaces rising GitHub projects with plain-English context.
 Built by a non-technical founder. Prioritise simplicity over cleverness.
 

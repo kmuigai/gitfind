@@ -1,6 +1,6 @@
 // Claude enrichment — generates plain-English summaries for each repo
 // Uses claude-sonnet-4-6 to produce:
-//   1. A 2-sentence plain-English summary (written for non-technical PMs)
+//   1. A 2-sentence plain-English summary (written for builders, not developers)
 //   2. A 2-sentence "why it matters" (product strategy / market angle)
 //   3. A category tag (one of the 8 GitFind categories)
 // Results are cached in the Supabase `enrichments` table
@@ -51,7 +51,7 @@ function buildPrompt(repo: RepoData): string {
   const readmeLine =
     repo.readme_excerpt ? `\n\nREADME excerpt:\n${repo.readme_excerpt}` : ''
 
-  return `You are writing for GitFind, a directory that helps non-technical product managers understand what's being built on GitHub.
+  return `You are writing for GitFind, a directory that helps builders understand what's being built on GitHub.
 
 Repository: ${repo.owner}/${repo.name}
 Description: ${repo.description ?? 'No description provided'}${topicsLine}
@@ -62,9 +62,9 @@ Contributors: ${repo.contributors}${readmeLine}
 
 Write a JSON response with exactly these 3 fields:
 
-1. "summary": 2 sentences. What this project does, written in plain English for a non-technical product manager. No developer jargon. No technical terms unless absolutely unavoidable (and if used, briefly explain them). Imagine explaining it to someone who reads TechCrunch but doesn't write code.
+1. "summary": 2 sentences. What this project does, written in plain English for builders — founders, PMs, and technical decision-makers. No developer jargon. No technical terms unless absolutely unavoidable (and if used, briefly explain them). Imagine explaining it to someone who reads TechCrunch but doesn't write code.
 
-2. "why_it_matters": 2 sentences. Why should a PM, founder, or investor care about this? What does it mean for product strategy, the market, or what's being built? Focus on business and product implications, not technical details.
+2. "why_it_matters": 2 sentences. Why should a builder, founder, or investor care about this? What does it mean for product strategy, the market, or what's being built? Focus on business and product implications, not technical details.
 
 3. "category": Exactly one of these category names (copy it exactly):
 ${CATEGORIES.map((c) => `- ${c}`).join('\n')}
