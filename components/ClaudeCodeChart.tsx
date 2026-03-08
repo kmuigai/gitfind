@@ -227,15 +227,25 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
         img.src = svgDataUrl
       })
 
-      canvas.toBlob((blob) => {
-        if (!blob) return
+      const fileName = `claude-code-commits-${range.toLowerCase()}.png`
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+      if (!blob) return
+
+      if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
+        const file = new File([blob], fileName, { type: 'image/png' })
+        try {
+          await navigator.share({ files: [file] })
+        } catch {
+          // User cancelled share — not an error
+        }
+      } else {
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
-        link.download = `claude-code-commits-${range.toLowerCase()}.png`
+        link.download = fileName
         link.href = url
         link.click()
         URL.revokeObjectURL(url)
-      }, 'image/png')
+      }
     } catch (err) {
       console.error('PNG export failed:', err)
     } finally {
