@@ -21,26 +21,33 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const repoName = `${owner}/${repo}`
+  const score = project.enrichment?.early_signal_score ?? 0
+  const category = project.enrichment?.category
   const description =
     project.enrichment?.summary ??
     project.description ??
     `${repoName} — Early Signal Score, stats, and plain-English analysis on GitFind.`
 
+  const scorePart = score > 0 ? ` | Score ${score}` : ''
+  const categoryPart = category ? ` | ${category}` : ''
+  const pageTitle = `${repoName}${scorePart}${categoryPart}`
+  const fullTitle = `${pageTitle} — GitFind`
+
   const url = `https://gitfind.ai/project/${owner}/${repo}`
 
   return {
-    title: `${repoName} — GitHub Project Analysis`,
+    title: pageTitle,
     description,
     alternates: { canonical: url },
     openGraph: {
-      title: `${repoName} — GitHub Project Analysis | GitFind`,
+      title: fullTitle,
       description,
       url,
       type: 'article',
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${repoName} — GitHub Project Analysis | GitFind`,
+      title: fullTitle,
       description,
     },
   }
@@ -94,8 +101,37 @@ export default async function ProjectPage({ params }: Props) {
   ])
   const relatedProjects = relatedRaw.filter((r) => r.id !== project.id).slice(0, 4)
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: `${owner}/${repoName}`,
+    description: enrichment?.summary ?? project.description ?? '',
+    url: project.url,
+    applicationCategory: enrichment?.category ?? 'DeveloperApplication',
+    operatingSystem: 'Cross-platform',
+    ...(project.language ? { programmingLanguage: project.language } : {}),
+    aggregateRating: score > 0
+      ? {
+          '@type': 'AggregateRating',
+          ratingValue: score,
+          bestRating: 100,
+          worstRating: 0,
+          ratingCount: project.stars,
+        }
+      : undefined,
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+  }
+
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Header */}
       <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-4xl">
