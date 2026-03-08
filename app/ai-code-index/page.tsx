@@ -116,6 +116,31 @@ function formatPct(n: number): string {
   return `${sign}${n.toFixed(1)}%`
 }
 
+function formatNumExact(n: number): string {
+  return n.toLocaleString()
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function formatDateShort(date: string): string {
+  const [, m, d] = date.split('-')
+  return `${MONTHS[parseInt(m, 10) - 1]} ${parseInt(d, 10)}`
+}
+
+// News feed — Bloomberg-style single-line headlines with source tags
+const NEWS_FEED: Array<{ tag: string; color: string; headline: string }> = [
+  { tag: 'CURSOR', color: TOOL_COLORS['Cursor'], headline: 'Cursor 2.4 silently enables Co-Authored-By for all users — Jan spike is attribution, not usage growth' },
+  { tag: 'CURSOR', color: TOOL_COLORS['Cursor'], headline: 'Before Jan 2026 Cursor had zero trackable commits despite being one of the most popular AI editors' },
+  { tag: 'CLAUDE', color: TOOL_COLORS['Claude Code'], headline: 'Claude Code accounts for 90%+ of all tracked AI commits — only tool with attribution on by default since day one' },
+  { tag: 'CLAUDE', color: TOOL_COLORS['Claude Code'], headline: 'Web launch in Oct 2025 removed CLI-only barrier — daily commits accelerated through Q4' },
+  { tag: 'CLAUDE', color: TOOL_COLORS['Claude Code'], headline: 'Claude Code GA in May 2025 is the single largest inflection point on the chart' },
+  { tag: 'COPILOT', color: TOOL_COLORS['GitHub Copilot'], headline: 'Copilot coding agent (copilot-swe-agent[bot]) went GA Sep 2025 but barely registers — most usage is inline completions' },
+  { tag: 'GEMINI', color: TOOL_COLORS['Gemini CLI'], headline: 'Google open-sourced Gemini CLI Jun 2025 with free tier (1k req/day) — steady growth since launch' },
+  { tag: 'CODEX', color: TOOL_COLORS['Codex'], headline: 'Codex CLI open-sourced Apr 2025 but attribution is opt-in — chart understates real usage' },
+  { tag: 'DEVIN', color: TOOL_COLORS['Devin'], headline: 'Devin price dropped from $500/mo to $20/mo in Apr 2025 — commit volume didn\'t follow' },
+  { tag: 'AIDER', color: TOOL_COLORS['Aider'], headline: 'Aider enabled Co-Authored-By Nov 2024 — longest attribution history in the index, steady baseline' },
+]
+
 export default async function AICodeIndexPage() {
   const data = await getAICodeIndexData()
   const stats = data.length >= 2 ? computeToolStats(data) : []
@@ -127,288 +152,234 @@ export default async function AICodeIndexPage() {
     ? ((totalCommits30d - totalCommitsPrior30d) / totalCommitsPrior30d) * 100
     : 0
 
-  // Growth leaderboard: sort by 30d trend
-  const leaderboard = [...stats]
-    .filter((t) => t.avg30d > 0)
-    .sort((a, b) => b.trendPct - a.trendPct)
+  const lastDate = data.length > 0 ? data[data.length - 1].date : null
 
-  // Market share: sort by 30d share descending
-  const marketShare = [...stats]
-    .filter((t) => t.share30d > 0)
-    .sort((a, b) => b.share30d - a.share30d)
+  // Sort by avg30d descending for commit table
+  const byVolume = [...stats].sort((a, b) => b.avg30d - a.avg30d)
+  // Sort by trend for momentum panel
+  const byMomentum = [...stats].filter((t) => t.avg30d > 0).sort((a, b) => b.trendPct - a.trendPct)
 
   return (
-    <div>
-      {/* Header */}
-      <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-4xl">
-          <nav className="mb-6 flex items-center gap-2 font-mono text-xs text-[var(--foreground-subtle)]">
-            <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
-              GitFind
-            </Link>
-            <span>/</span>
-            <span className="text-[var(--foreground-muted)]">AI Code Index</span>
-          </nav>
+    <div className="font-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>
+      <div className="px-4 sm:px-6">
+        <div className="mx-auto max-w-5xl">
 
-          <h1 className="font-mono text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-            AI Code Index
-          </h1>
-          <p className="mt-2 max-w-2xl font-mono text-sm text-[var(--foreground-muted)] leading-relaxed">
-            Tracking the rise of AI-written code across 7 tools and all public GitHub repositories.
-            Updated daily.
-          </p>
-        </div>
-      </section>
+          {/* Header */}
+          <div className="pt-8 pb-6 sm:pt-10">
+            <nav className="mb-4 flex items-center gap-2 text-xs text-[var(--foreground-subtle)]">
+              <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
+                GitFind
+              </Link>
+              <span>/</span>
+              <span className="text-[var(--foreground-muted)]">AI Code Index</span>
+            </nav>
 
-      {data.length >= 2 ? (
-        <>
-          {/* Hero Metric + Tool Cards */}
-          <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
-            <div className="mx-auto max-w-4xl">
-              {/* Hero */}
-              <div className="mb-8 flex items-baseline gap-4">
-                <span className="font-mono text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
-                  {formatNum(totalCommits)}
-                </span>
-                <span className="font-mono text-sm text-[var(--foreground-muted)]">
-                  total commits tracked
-                </span>
-                {overallTrend !== 0 && (
-                  <span
-                    className="font-mono text-sm font-medium"
-                    style={{ color: overallTrend > 0 ? '#22c55e' : '#ef4444' }}
-                  >
-                    {formatPct(overallTrend)} 30d
-                  </span>
-                )}
-              </div>
+            <h1 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
+              AI Code Index
+            </h1>
+            <p className="mt-1 text-xs text-[var(--foreground-subtle)]">
+              AI-authored commits across all public GitHub repos.
+              {lastDate && <> Updated {formatDateShort(lastDate)}.</>}
+            </p>
+          </div>
 
-              {/* Tool Summary Cards */}
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {stats.map((tool) => (
-                  <Link
-                    key={tool.name}
-                    href={`/ai-code-index/compare/${TOOL_SLUGS[tool.name]}-vs-${TOOL_SLUGS[stats.find((t) => t.name !== tool.name)?.name ?? 'cursor']}`}
-                    className="group rounded-lg border border-[var(--border)] bg-[var(--background-card)] px-4 py-3 transition-colors hover:border-[var(--accent)]"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: tool.color }}
-                      />
-                      <span className="font-mono text-xs text-[var(--foreground-muted)] group-hover:text-[var(--foreground)]">
-                        {tool.name}
-                      </span>
-                    </div>
-                    <div className="mt-2 font-mono text-lg font-semibold text-[var(--foreground)]">
-                      {formatNum(Math.round(tool.avg30d))}
-                      <span className="text-xs font-normal text-[var(--foreground-subtle)]">/day</span>
-                    </div>
-                    <div className="mt-0.5">
-                      <span
-                        className="font-mono text-xs font-medium"
-                        style={{
-                          color: tool.trend === 'up' ? '#22c55e' : tool.trend === 'down' ? '#ef4444' : 'var(--foreground-subtle)',
-                        }}
-                      >
-                        {tool.trend === 'up' ? '▲' : tool.trend === 'down' ? '▼' : '—'}{' '}
-                        {formatPct(tool.trendPct)}
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* Chart */}
-          <section className="px-4 py-8 sm:px-6 sm:py-12">
-            <div className="mx-auto max-w-4xl">
-              <AICodeIndexChart data={data} />
-            </div>
-          </section>
-
-          {/* Growth Leaderboard + Market Share — side by side */}
-          <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
-            <div className="mx-auto max-w-4xl grid grid-cols-1 gap-8 lg:grid-cols-2">
-              {/* Growth Leaderboard */}
-              <div>
-                <h2 className="font-mono text-lg font-semibold text-[var(--foreground)]">
-                  Growth (30d)
-                </h2>
-                <p className="mt-1 font-mono text-xs text-[var(--foreground-subtle)]">
-                  Sorted by 30-day momentum
-                </p>
-                <div className="mt-4 space-y-2">
-                  {leaderboard.map((tool, i) => (
-                    <div
-                      key={tool.name}
-                      className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--background-card)] px-4 py-2.5"
-                    >
-                      <span className="font-mono text-xs text-[var(--foreground-subtle)] w-4">
-                        {i + 1}.
-                      </span>
-                      <span
-                        className="h-2 w-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: tool.color }}
-                      />
-                      <span className="font-mono text-sm text-[var(--foreground)] flex-1">
-                        {tool.name}
-                      </span>
-                      <span className="font-mono text-xs text-[var(--foreground-muted)]">
-                        {formatNum(Math.round(tool.avg30d))}/day
-                      </span>
-                      <span
-                        className="font-mono text-xs font-medium w-16 text-right"
-                        style={{
-                          color: tool.trend === 'up' ? '#22c55e' : tool.trend === 'down' ? '#ef4444' : 'var(--foreground-subtle)',
-                        }}
-                      >
-                        {formatPct(tool.trendPct)}
-                      </span>
-                    </div>
-                  ))}
+          {data.length >= 2 ? (
+            <>
+              {/* Hero metrics — tighter gaps */}
+              <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2 pb-4" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-[var(--accent)]">Total commits</div>
+                  <div className="text-2xl font-semibold text-[var(--foreground)] sm:text-3xl" style={{ letterSpacing: '-0.02em' }}>
+                    {formatNumExact(totalCommits)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-[var(--accent)]">30d avg / day</div>
+                  <div className="text-2xl font-semibold text-[var(--foreground)] sm:text-3xl" style={{ letterSpacing: '-0.02em' }}>
+                    {formatNum(Math.round(totalCommits30d / 30))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-[var(--accent)]">30d change</div>
+                  <div className="text-2xl font-semibold sm:text-3xl" style={{
+                    letterSpacing: '-0.02em',
+                    color: overallTrend > 0 ? 'var(--score-high)' : overallTrend < 0 ? 'var(--error)' : 'var(--foreground)',
+                  }}>
+                    {formatPct(overallTrend)}
+                  </div>
                 </div>
               </div>
 
-              {/* Market Share */}
-              <div>
-                <h2 className="font-mono text-lg font-semibold text-[var(--foreground)]">
-                  Market share (30d)
-                </h2>
-                <p className="mt-1 font-mono text-xs text-[var(--foreground-subtle)]">
-                  Share of all AI-authored commits
-                </p>
-                <div className="mt-4 space-y-3">
-                  {marketShare.map((tool) => (
-                    <div key={tool.name}>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: tool.color }}
-                          />
-                          <span className="font-mono text-sm text-[var(--foreground)]">
-                            {tool.name}
-                          </span>
-                        </div>
-                        <span className="font-mono text-xs text-[var(--foreground-muted)]">
-                          {tool.share30d.toFixed(1)}%
+              {/* Two-panel layout — border between panels */}
+              <div className="mt-4 grid grid-cols-1 lg:grid-cols-[1fr_260px]">
+
+                {/* Panel 1: Commit volume table */}
+                <div className="lg:pr-6" style={{ borderRight: '1px solid var(--border-subtle)' }}>
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                    Commit volume
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border)' }}>
+                          <th className="px-2 py-1.5 text-left font-medium">Tool</th>
+                          <th className="px-2 py-1.5 text-right font-medium">Latest</th>
+                          <th className="px-2 py-1.5 text-right font-medium">Avg/day</th>
+                          <th className="px-2 py-1.5 text-right font-medium">30d</th>
+                          <th className="px-2 py-1.5 text-right font-medium">Share</th>
+                          <th className="px-2 py-1.5 text-right font-medium">Peak</th>
+                          <th className="px-2 py-1.5 text-right font-medium">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {byVolume.map((tool) => (
+                          <tr key={tool.name} className="group" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <td className="px-2 py-1.5">
+                              <Link
+                                href={`/ai-code-index/compare/${TOOL_SLUGS[tool.name]}-vs-${TOOL_SLUGS[byVolume.find((t) => t.name !== tool.name)?.name ?? 'cursor']}`}
+                                className="inline-flex items-center gap-1.5 transition-colors group-hover:brightness-125"
+                                style={{ color: tool.color }}
+                              >
+                                <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
+                                {tool.name}
+                                <span className="text-[var(--foreground-subtle)] opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">↔</span>
+                              </Link>
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
+                              {formatNum(tool.latestDaily)}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
+                              {formatNum(Math.round(tool.avg30d))}
+                            </td>
+                            <td className="px-2 py-1.5 text-right font-medium" style={{
+                              color: tool.trend === 'up' ? 'var(--score-high)' : tool.trend === 'down' ? 'var(--error)' : 'var(--foreground-subtle)',
+                            }}>
+                              {formatPct(tool.trendPct)}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
+                              {tool.share30d >= 0.1 ? `${tool.share30d.toFixed(1)}%` : '<0.1%'}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
+                              {formatNum(tool.peakDay.count)}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
+                              {formatNum(tool.totalCommits)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Panel 2: Momentum + Market share */}
+                <div className="lg:pl-6 mt-4 lg:mt-0">
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                    Momentum (30d)
+                  </div>
+                  <div>
+                    {byMomentum.map((tool, i) => (
+                      <div
+                        key={tool.name}
+                        className="flex items-center gap-2 px-2 py-1"
+                        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                      >
+                        <span className="w-3 text-right text-[var(--foreground-subtle)]">{i + 1}</span>
+                        <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
+                        <span className="flex-1 text-xs truncate text-[var(--foreground)]">{tool.name}</span>
+                        <span className="text-xs font-medium" style={{
+                          color: tool.trend === 'up' ? 'var(--score-high)' : tool.trend === 'down' ? 'var(--error)' : 'var(--foreground-subtle)',
+                        }}>
+                          {formatPct(tool.trendPct)}
                         </span>
                       </div>
-                      <div className="h-2 rounded-full bg-[var(--border)]">
-                        <div
-                          className="h-2 rounded-full transition-all"
-                          style={{
-                            width: `${Math.max(tool.share30d, 0.5)}%`,
-                            backgroundColor: tool.color,
-                          }}
-                        />
+                    ))}
+                  </div>
+
+                  <div className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                    Market share (30d)
+                  </div>
+                  <div>
+                    {byVolume.filter((t) => t.share30d >= 0.1).map((tool) => (
+                      <div
+                        key={tool.name}
+                        className="flex items-center gap-2 px-2 py-1"
+                        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                      >
+                        <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
+                        <span className="flex-1 text-xs truncate text-[var(--foreground)]">{tool.name}</span>
+                        <span className="text-xs text-[var(--foreground-muted)] w-10 text-right">{tool.share30d.toFixed(1)}%</span>
+                        <div className="w-16 h-1" style={{ backgroundColor: 'var(--border)' }}>
+                          <div
+                            className="h-1"
+                            style={{
+                              width: `${Math.min(tool.share30d, 100)}%`,
+                              backgroundColor: tool.color,
+                            }}
+                          />
+                        </div>
                       </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Chart */}
+              <div className="mt-8">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                  Daily commits
+                </div>
+                <AICodeIndexChart data={data} />
+              </div>
+
+              {/* News feed */}
+              <div className="mt-8" style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
+                <div className="mb-2 flex items-baseline justify-between">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                    News
+                  </div>
+                  <div className="text-xs text-[var(--foreground-subtle)]">
+                    API:{' '}
+                    <Link href="/api/ai-code-index" className="text-[var(--foreground-muted)] transition-colors hover:text-[var(--accent)]">
+                      /api/ai-code-index
+                    </Link>
+                  </div>
+                </div>
+                <div>
+                  {NEWS_FEED.map((item, i) => (
+                    <div
+                      key={i}
+                      className="flex items-baseline gap-0 py-[3px]"
+                      style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                    >
+                      <span
+                        className="w-[72px] flex-shrink-0 text-xs font-medium"
+                        style={{ color: item.color }}
+                      >
+                        {item.tag}
+                      </span>
+                      <span className="text-xs text-[var(--foreground-muted)] leading-snug">
+                        {item.headline}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
-          </section>
-        </>
-      ) : (
-        <section className="px-4 py-8 sm:px-6 sm:py-12">
-          <div className="mx-auto max-w-4xl">
-            <div className="rounded-lg border border-dashed border-[var(--border)] py-16 text-center">
-              <p className="text-sm text-[var(--foreground-muted)]">
-                No data yet — run{' '}
-                <code className="font-mono text-[var(--accent)]">npx tsx scripts/search-commits.ts</code>{' '}
+
+              <div className="pb-8" />
+            </>
+          ) : (
+            <div className="py-16 text-center" style={{ borderTop: '1px solid var(--border)' }}>
+              <p className="text-xs text-[var(--foreground-muted)]">
+                No data — run{' '}
+                <code className="text-[var(--accent)]">npx tsx scripts/search-commits.ts</code>{' '}
                 to start collecting.
               </p>
             </div>
-          </div>
-        </section>
-      )}
+          )}
 
-      {/* Compare */}
-      <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mx-auto max-w-4xl">
-          <h2 className="font-mono text-lg font-semibold text-[var(--foreground)]">
-            Head-to-head comparisons
-          </h2>
-          <p className="mt-2 font-mono text-sm text-[var(--foreground-muted)] leading-relaxed">
-            Pick any two tools and compare their commit activity, growth trends, and adoption side by side.
-          </p>
-          <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { slug: 'claude-code-vs-cursor', label: 'Claude Code vs Cursor', colors: ['#6c6af6', '#f59e0b'] },
-              { slug: 'claude-code-vs-copilot', label: 'Claude Code vs Copilot', colors: ['#6c6af6', '#3b82f6'] },
-              { slug: 'cursor-vs-copilot', label: 'Cursor vs Copilot', colors: ['#f59e0b', '#3b82f6'] },
-              { slug: 'claude-code-vs-gemini-cli', label: 'Claude Code vs Gemini CLI', colors: ['#6c6af6', '#ef4444'] },
-              { slug: 'claude-code-vs-aider', label: 'Claude Code vs Aider', colors: ['#6c6af6', '#22c55e'] },
-              { slug: 'cursor-vs-gemini-cli', label: 'Cursor vs Gemini CLI', colors: ['#f59e0b', '#ef4444'] },
-            ].map(({ slug, label, colors }) => (
-              <Link
-                key={slug}
-                href={`/ai-code-index/compare/${slug}`}
-                className="group flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--background-card)] px-4 py-3 transition-colors hover:border-[var(--accent)]"
-              >
-                <div className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors[0] }} />
-                  <span className="font-mono text-xs text-[var(--foreground-muted)]">vs</span>
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors[1] }} />
-                </div>
-                <span className="font-mono text-sm text-[var(--foreground)] transition-colors group-hover:text-[var(--accent)]">
-                  {label}
-                </span>
-              </Link>
-            ))}
-          </div>
-          <div className="mt-3">
-            <Link
-              href="/ai-code-index/compare/claude-code-vs-devin"
-              className="font-mono text-xs text-[var(--foreground-subtle)] transition-colors hover:text-[var(--accent)]"
-            >
-              View all 21 comparisons →
-            </Link>
-          </div>
         </div>
-      </section>
-
-      {/* Methodology */}
-      <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mx-auto max-w-4xl">
-          <h2 className="font-mono text-lg font-semibold text-[var(--foreground)]">
-            How we track this
-          </h2>
-          <p className="mt-2 font-mono text-sm text-[var(--foreground-muted)] leading-relaxed">
-            We query the GitHub Search API daily for commit signatures left by each tool.
-            Claude Code, Cursor, Aider, and Codex add Co-Authored-By trailers. Copilot&apos;s coding
-            agent commits as a bot account. Devin uses a distinct author email. These are
-            public commits only — the true volume is higher.
-          </p>
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { tool: 'Claude Code', method: 'Co-Authored-By trailer', color: '#6c6af6' },
-              { tool: 'Cursor', method: 'Co-Authored-By trailer', color: '#f59e0b' },
-              { tool: 'GitHub Copilot', method: 'Bot committer account', color: '#3b82f6' },
-              { tool: 'Aider', method: 'Co-Authored-By trailer', color: '#22c55e' },
-              { tool: 'Gemini CLI', method: 'Co-Authored-By trailer', color: '#ef4444' },
-              { tool: 'Devin', method: 'Bot author email', color: '#a855f7' },
-              { tool: 'Codex', method: 'Co-Authored-By trailer', color: '#10b981' },
-            ].map(({ tool, method, color }) => (
-              <div
-                key={tool}
-                className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] px-4 py-3"
-              >
-                <div className="flex items-center gap-2 font-mono text-sm font-medium text-[var(--foreground)]">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-                  {tool}
-                </div>
-                <div className="mt-1 font-mono text-xs text-[var(--foreground-muted)]">
-                  {method}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      </div>
 
       <NewsletterSignup />
     </div>
