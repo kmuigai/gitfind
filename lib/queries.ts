@@ -461,6 +461,82 @@ export async function getSDKAdoptionData(): Promise<ConfigAdoptionRow[]> {
   }))
 }
 
+// Config adoption time-series (all daily entries, not just latest)
+export interface AdoptionTimeSeriesEntry {
+  tool: string
+  date: string
+  count: number
+}
+
+export async function getConfigAdoptionTimeSeries(): Promise<AdoptionTimeSeriesEntry[]> {
+  const { data: placeholder } = await supabase
+    .from('repos')
+    .select('id')
+    .eq('owner', '_gitfind')
+    .eq('name', '_bigquery_aggregate')
+    .maybeSingle()
+
+  if (!placeholder) return []
+  const placeholderId = (placeholder as unknown as { id: string }).id
+
+  const { data, error } = await supabase
+    .from('tool_contributions')
+    .select('tool_name, month, commit_count')
+    .eq('repo_id', placeholderId)
+    .like('tool_name', '%[config]')
+    .order('month', { ascending: true })
+    .limit(500)
+
+  if (error || !data) return []
+
+  const typed = data as unknown as Array<{
+    tool_name: string
+    month: string
+    commit_count: number
+  }>
+
+  return typed.map((row) => ({
+    tool: row.tool_name.replace(' [config]', ''),
+    date: row.month,
+    count: row.commit_count,
+  }))
+}
+
+// SDK adoption time-series (all daily entries, not just latest)
+export async function getSDKAdoptionTimeSeries(): Promise<AdoptionTimeSeriesEntry[]> {
+  const { data: placeholder } = await supabase
+    .from('repos')
+    .select('id')
+    .eq('owner', '_gitfind')
+    .eq('name', '_bigquery_aggregate')
+    .maybeSingle()
+
+  if (!placeholder) return []
+  const placeholderId = (placeholder as unknown as { id: string }).id
+
+  const { data, error } = await supabase
+    .from('tool_contributions')
+    .select('tool_name, month, commit_count')
+    .eq('repo_id', placeholderId)
+    .like('tool_name', '%[sdk]')
+    .order('month', { ascending: true })
+    .limit(500)
+
+  if (error || !data) return []
+
+  const typed = data as unknown as Array<{
+    tool_name: string
+    month: string
+    commit_count: number
+  }>
+
+  return typed.map((row) => ({
+    tool: row.tool_name.replace(' [sdk]', ''),
+    date: row.month,
+    count: row.commit_count,
+  }))
+}
+
 // Fetch the latest package download snapshot for a repo
 export async function getPackageDownloads(repoId: string): Promise<PackageDownload | null> {
   const { data, error } = await supabase

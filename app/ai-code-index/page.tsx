@@ -1,17 +1,19 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getAICodeIndexData, getConfigAdoptionData, getSDKAdoptionData } from '@/lib/queries'
+import { getAICodeIndexData, getConfigAdoptionData, getSDKAdoptionData, getConfigAdoptionTimeSeries, getSDKAdoptionTimeSeries } from '@/lib/queries'
+import type { AdoptionTimeSeriesEntry } from '@/lib/queries'
 import AICodeIndexChart from '@/components/AICodeIndexChart'
+import MarketShareChart from '@/components/MarketShareChart'
 import NewsletterSignup from '@/components/NewsletterSignup'
 
 export const metadata: Metadata = {
-  title: 'AI Code Index',
+  title: 'AI Code Index — AI Coding Tool Adoption Tracker | GitFind',
   description:
-    'Daily commit counts for Claude Code, Cursor, Copilot, Aider, Gemini CLI, Devin, and Codex across all public GitHub repos. The rise of AI-written code, tracked live.',
+    'Track which AI coding tools developers actually use. Daily commit volume, market share, and adoption data for Claude Code, Cursor, Copilot, and more.',
   openGraph: {
     title: 'AI Code Index — GitFind',
     description:
-      'Daily commit counts for Claude Code, Cursor, Copilot, Aider, Gemini CLI, Devin, and Codex across all public GitHub repos.',
+      'Which AI coding tool is winning? Live commit data across 7 tools on all public GitHub repos.',
     url: 'https://gitfind.ai/ai-code-index',
     type: 'article',
   },
@@ -171,6 +173,104 @@ function formatNumExact(n: number): string {
   return n.toLocaleString()
 }
 
+// Compute adoption velocity from time-series data
+function computeAdoptionVelocity(
+  timeSeries: AdoptionTimeSeriesEntry[],
+  tool: string
+): { weeklyGrowthPct: number | null; dataPoints: number } {
+  const entries = timeSeries
+    .filter((e) => e.tool === tool)
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  if (entries.length < 2) return { weeklyGrowthPct: null, dataPoints: entries.length }
+
+  const first = entries[0]
+  const last = entries[entries.length - 1]
+  const daysBetween = Math.max(1, (new Date(last.date).getTime() - new Date(first.date).getTime()) / 86400000)
+
+  if (first.count === 0) return { weeklyGrowthPct: null, dataPoints: entries.length }
+
+  // Annualized daily growth rate → weekly
+  const dailyGrowthRate = (last.count / first.count) ** (1 / daysBetween) - 1
+  const weeklyGrowthPct = ((1 + dailyGrowthRate) ** 7 - 1) * 100
+
+  return { weeklyGrowthPct, dataPoints: entries.length }
+}
+
+// Composite AI Code Index Score — z-score weighted across 4 dimensions
+interface CompositeScore {
+  name: string
+  color: string
+  score: number
+  volumeZ: number
+  momentumZ: number
+  accelZ: number
+  consistencyZ: number
+}
+
+function computeCompositeScores(
+  stats: ToolStats[],
+  data: Array<{ date: string; [tool: string]: number | string }>
+): CompositeScore[] {
+  if (stats.length < 2) return []
+
+  const last30 = data.slice(-30)
+
+  // Compute raw values for each dimension
+  const raw = stats.map((tool) => {
+    // Volume: log scale of avg30d to compress dominance
+    const volume = tool.avg30d > 0 ? Math.log10(tool.avg30d) : 0
+
+    // Momentum: 30d trend %
+    const momentum = tool.trendPct
+
+    // Acceleration: WoW %
+    const accel = tool.wowPct
+
+    // Consistency: inverse coefficient of variation over last 30d
+    const dailyValues = last30.map((row) => (row[tool.name] as number) || 0)
+    const mean = dailyValues.reduce((s, v) => s + v, 0) / dailyValues.length
+    const variance = dailyValues.reduce((s, v) => s + (v - mean) ** 2, 0) / dailyValues.length
+    const stdDev = Math.sqrt(variance)
+    const cv = mean > 0 ? stdDev / mean : 1
+    const consistency = 1 / (1 + cv)
+
+    return { name: tool.name, color: tool.color, volume, momentum, accel, consistency }
+  })
+
+  // Z-score normalize each dimension
+  function zScores(values: number[]): number[] {
+    const mean = values.reduce((s, v) => s + v, 0) / values.length
+    const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length
+    const std = Math.sqrt(variance)
+    if (std === 0) return values.map(() => 0)
+    return values.map((v) => (v - mean) / std)
+  }
+
+  const volumeZ = zScores(raw.map((r) => r.volume))
+  const momentumZ = zScores(raw.map((r) => r.momentum))
+  const accelZ = zScores(raw.map((r) => r.accel))
+  const consistencyZ = zScores(raw.map((r) => r.consistency))
+
+  // Weighted composite: volume 35%, momentum 25%, acceleration 20%, consistency 20%
+  const composites = raw.map((r, i) => {
+    const rawScore = 0.35 * volumeZ[i] + 0.25 * momentumZ[i] + 0.20 * accelZ[i] + 0.20 * consistencyZ[i]
+    // Map to 0-100 scale (z-scores roughly -2 to +2, so multiply by 15 and center at 50)
+    const score = Math.max(0, Math.min(100, 50 + rawScore * 15))
+    return {
+      name: r.name,
+      color: r.color,
+      score: Math.round(score * 10) / 10,
+      volumeZ: volumeZ[i],
+      momentumZ: momentumZ[i],
+      accelZ: accelZ[i],
+      consistencyZ: consistencyZ[i],
+    }
+  })
+
+  return composites.sort((a, b) => b.score - a.score)
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 function formatDateShort(date: string): string {
@@ -205,12 +305,17 @@ export default async function AICodeIndexPage() {
 
   const lastDate = data.length > 0 ? data[data.length - 1].date : null
 
-  // Adoption data
-  const [configData, sdkData] = await Promise.all([
+  // Adoption data — latest + time-series for velocity
+  const [configData, sdkData, configTimeSeries, sdkTimeSeries] = await Promise.all([
     getConfigAdoptionData(),
     getSDKAdoptionData(),
+    getConfigAdoptionTimeSeries(),
+    getSDKAdoptionTimeSeries(),
   ])
   const hasAdoptionData = configData.length > 0 || sdkData.length > 0
+
+  // Composite scores
+  const compositeScores = computeCompositeScores(stats, data)
 
   // Sort by avg30d descending for commit table
   const byVolume = [...stats].sort((a, b) => b.avg30d - a.avg30d)
@@ -236,30 +341,37 @@ export default async function AICodeIndexPage() {
               AI Code Index
             </h1>
             <p className="mt-1 text-xs text-[var(--foreground-subtle)]">
-              AI-authored commits across all public GitHub repos.
+              Which AI coding tools are developers actually using? Live data from all public GitHub repos.
               {lastDate && <> Updated {formatDateShort(lastDate)}.</>}
             </p>
           </div>
 
           {data.length >= 2 ? (
             <>
-              {/* Hero metrics — tighter gaps */}
-              <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2 pb-4" style={{ borderBottom: '1px solid var(--border)' }}>
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-[var(--accent)]">Total commits</div>
-                  <div className="text-2xl font-semibold text-[var(--foreground)] sm:text-3xl">
+              {/* Hero KPI bar — segmented dark strip */}
+              <div
+                className="grid grid-cols-3 text-center"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.03)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '6px',
+                }}
+              >
+                <div className="px-4 py-3 sm:py-4">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">Total commits</div>
+                  <div className="text-xl font-semibold text-[var(--foreground)] sm:text-2xl">
                     {formatNumExact(totalCommits)}
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-[var(--accent)]">30d avg / day</div>
-                  <div className="text-2xl font-semibold text-[var(--foreground)] sm:text-3xl">
+                <div className="px-4 py-3 sm:py-4" style={{ borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">30d avg / day</div>
+                  <div className="text-xl font-semibold text-[var(--foreground)] sm:text-2xl">
                     {formatNum(Math.round(totalCommits30d / 30))}
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-[var(--accent)]">30d change</div>
-                  <div className="text-2xl font-semibold sm:text-3xl" style={{
+                <div className="px-4 py-3 sm:py-4">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">30d change</div>
+                  <div className="text-xl font-semibold sm:text-2xl" style={{
                     color: overallTrend > 0 ? 'var(--score-high)' : overallTrend < 0 ? 'var(--error)' : 'var(--foreground)',
                   }}>
                     {formatPct(overallTrend)}
@@ -267,29 +379,29 @@ export default async function AICodeIndexPage() {
                 </div>
               </div>
 
-              {/* Two-panel layout — border between panels */}
-              <div className="mt-4 grid grid-cols-1 lg:grid-cols-[1fr_260px]">
-
-                {/* Panel 1: Commit volume table */}
-                <div className="lg:pr-6" style={{ borderRight: '1px solid var(--border-subtle)' }}>
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
-                    Commit volume
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border)' }}>
-                          <th className="px-2 py-1.5 text-left font-medium">Tool</th>
-                          <th className="px-2 py-1.5 text-right font-medium">Latest</th>
-                          <th className="px-2 py-1.5 text-right font-medium">Avg/day</th>
-                          <th className="px-2 py-1.5 text-right font-medium">30d</th>
-                          <th className="px-2 py-1.5 text-right font-medium">WoW</th>
-                          <th className="px-2 py-1.5 text-right font-medium">Share</th>
-                          <th className="px-2 py-1.5 text-right font-medium">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {byVolume.map((tool) => (
+              {/* Full-width commit volume table with Score column */}
+              <div className="mt-4">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                  Commit volume
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border)' }}>
+                        <th className="px-2 py-1.5 text-left font-medium">Tool</th>
+                        <th className="px-2 py-1.5 text-right font-medium">Latest</th>
+                        <th className="px-2 py-1.5 text-right font-medium">Avg/day</th>
+                        <th className="px-2 py-1.5 text-right font-medium">30d</th>
+                        <th className="px-2 py-1.5 text-right font-medium">WoW</th>
+                        <th className="px-2 py-1.5 text-right font-medium">Share</th>
+                        <th className="px-2 py-1.5 text-right font-medium">Total</th>
+                        <th className="px-2 py-1.5 text-right font-medium">Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {byVolume.map((tool) => {
+                        const score = compositeScores.find((s) => s.name === tool.name)
+                        return (
                           <tr key={tool.name} className="group" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                             <td className="px-2 py-1.5">
                               <Link
@@ -329,103 +441,137 @@ export default async function AICodeIndexPage() {
                             <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
                               {formatNum(tool.totalCommits)}
                             </td>
+                            <td className="px-2 py-1.5 text-right">
+                              {score && (
+                                <span className="inline-flex items-center gap-1.5">
+                                  <span className="w-10 h-1 inline-block" style={{ backgroundColor: 'var(--border)' }}>
+                                    <span
+                                      className="block h-1"
+                                      style={{
+                                        width: `${score.score}%`,
+                                        backgroundColor: score.score >= 65 ? 'var(--score-high)' : score.score >= 40 ? 'var(--accent)' : 'var(--foreground-subtle)',
+                                      }}
+                                    />
+                                  </span>
+                                  <span className="font-medium w-6 text-right" style={{
+                                    color: score.score >= 65 ? 'var(--score-high)' : score.score >= 40 ? 'var(--accent)' : 'var(--foreground-muted)',
+                                  }}>
+                                    {score.score.toFixed(0)}
+                                  </span>
+                                </span>
+                              )}
+                            </td>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
+                <p className="mt-1 text-[10px] text-[var(--foreground-subtle)]">
+                  Score = Volume (35%) · Momentum (25%) · Acceleration (20%) · Consistency (20%)
+                </p>
+              </div>
 
-                {/* Panel 2: Momentum + Market share */}
-                <div className="lg:pl-6 mt-4 lg:mt-0">
+              {/* Metric strip — 3 panels in a horizontal band */}
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-0" style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+                {/* Momentum */}
+                <div className="py-3 px-1 sm:pr-4" style={{ borderRight: '1px solid var(--border-subtle)' }}>
                   <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
                     Momentum (30d)
                   </div>
-                  <div>
-                    {byMomentum.map((tool, i) => (
-                      <div
-                        key={tool.name}
-                        className="flex items-center gap-2 px-2 py-1"
-                        style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                      >
-                        <span className="w-3 text-right text-[var(--foreground-subtle)]">{i + 1}</span>
-                        <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
-                        <span className="flex-1 text-xs truncate text-[var(--foreground)]">{tool.name}</span>
-                        <span className="text-xs font-medium" style={{
-                          color: tool.trend === 'up' ? 'var(--score-high)' : tool.trend === 'down' ? 'var(--error)' : 'var(--foreground-subtle)',
-                        }}>
-                          {formatPct(tool.trendPct)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  {byMomentum.map((tool, i) => (
+                    <div
+                      key={tool.name}
+                      className="flex items-center gap-2 px-1 py-0.5"
+                    >
+                      <span className="w-3 text-right text-[var(--foreground-subtle)] text-[10px]">{i + 1}</span>
+                      <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
+                      <span className="flex-1 text-xs truncate text-[var(--foreground)]">{tool.name}</span>
+                      <span className="text-xs font-medium" style={{
+                        color: tool.trend === 'up' ? 'var(--score-high)' : tool.trend === 'down' ? 'var(--error)' : 'var(--foreground-subtle)',
+                      }}>
+                        {formatPct(tool.trendPct)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
 
-                  <div className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                {/* Doubling time */}
+                <div className="py-3 px-1 sm:px-4" style={{ borderRight: '1px solid var(--border-subtle)' }}>
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
                     Doubling time
                   </div>
                   <p className="mb-1 text-[10px] text-[var(--foreground-subtle)]">
-                    Days to 2× volume at current 30d growth rate
+                    Days to 2× at current rate
                   </p>
-                  <div>
-                    {[...stats]
-                      .filter((t) => t.doublingDays !== null && t.avg30d > 0)
-                      .sort((a, b) => (a.doublingDays ?? Infinity) - (b.doublingDays ?? Infinity))
-                      .map((tool) => (
-                      <div
-                        key={tool.name}
-                        className="flex items-center gap-2 px-2 py-1"
-                        style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                      >
-                        <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
-                        <span className="flex-1 text-xs truncate text-[var(--foreground)]">{tool.name}</span>
-                        <span className="text-xs font-medium" style={{
-                          color: (tool.doublingDays ?? 999) <= 60 ? 'var(--score-high)' : (tool.doublingDays ?? 999) <= 120 ? 'var(--accent)' : 'var(--foreground-muted)',
-                        }}>
-                          {tool.doublingDays}d
-                        </span>
-                      </div>
-                    ))}
-                    {stats.filter((t) => t.doublingDays === null && t.avg30d > 0).length > 0 && (
-                      <div className="px-2 py-1 text-[10px] text-[var(--foreground-subtle)]">
-                        {stats.filter((t) => t.doublingDays === null && t.avg30d > 0).map((t) => t.name).join(', ')} — declining or flat
-                      </div>
-                    )}
-                  </div>
+                  {[...stats]
+                    .filter((t) => t.doublingDays !== null && t.avg30d > 0)
+                    .sort((a, b) => (a.doublingDays ?? Infinity) - (b.doublingDays ?? Infinity))
+                    .map((tool) => (
+                    <div
+                      key={tool.name}
+                      className="flex items-center gap-2 px-1 py-0.5"
+                    >
+                      <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
+                      <span className="flex-1 text-xs truncate text-[var(--foreground)]">{tool.name}</span>
+                      <span className="text-xs font-medium" style={{
+                        color: (tool.doublingDays ?? 999) <= 60 ? 'var(--score-high)' : (tool.doublingDays ?? 999) <= 120 ? 'var(--accent)' : 'var(--foreground-muted)',
+                      }}>
+                        {tool.doublingDays}d
+                      </span>
+                    </div>
+                  ))}
+                  {stats.filter((t) => t.doublingDays === null && t.avg30d > 0).length > 0 && (
+                    <div className="px-1 py-0.5 text-[10px] text-[var(--foreground-subtle)]">
+                      {stats.filter((t) => t.doublingDays === null && t.avg30d > 0).map((t) => t.name).join(', ')} — flat/declining
+                    </div>
+                  )}
+                </div>
 
-                  <div className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                {/* Market share */}
+                <div className="py-3 px-1 sm:pl-4">
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
                     Market share (30d)
                   </div>
-                  <div>
-                    {byVolume.filter((t) => t.share30d >= 0.1).map((tool) => (
-                      <div
-                        key={tool.name}
-                        className="flex items-center gap-2 px-2 py-1"
-                        style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                      >
-                        <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
-                        <span className="flex-1 text-xs truncate text-[var(--foreground)]">{tool.name}</span>
-                        <span className="text-xs text-[var(--foreground-muted)] w-10 text-right">{tool.share30d.toFixed(1)}%</span>
-                        <div className="w-16 h-1" style={{ backgroundColor: 'var(--border)' }}>
-                          <div
-                            className="h-1"
-                            style={{
-                              width: `${Math.min(tool.share30d, 100)}%`,
-                              backgroundColor: tool.color,
-                            }}
-                          />
-                        </div>
+                  {byVolume.filter((t) => t.share30d >= 0.1).map((tool) => (
+                    <div
+                      key={tool.name}
+                      className="flex items-center gap-2 px-1 py-0.5"
+                    >
+                      <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
+                      <span className="flex-1 text-xs truncate text-[var(--foreground)]">{tool.name}</span>
+                      <span className="text-xs text-[var(--foreground-muted)] w-10 text-right">{tool.share30d.toFixed(1)}%</span>
+                      <div className="w-14 h-1" style={{ backgroundColor: 'var(--border)' }}>
+                        <div
+                          className="h-1"
+                          style={{
+                            width: `${Math.min(tool.share30d, 100)}%`,
+                            backgroundColor: tool.color,
+                          }}
+                        />
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
               {/* Chart */}
               <div className="mt-8">
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
-                  Daily commits
+                  Daily commit volume
                 </div>
                 <AICodeIndexChart data={data} />
+              </div>
+
+              {/* Market share over time */}
+              <div className="mt-8" style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                  Market share over time
+                </div>
+                <p className="mb-2 text-xs text-[var(--foreground-subtle)]">
+                  Each tool&apos;s share of total AI-authored commits, 7d smoothed
+                </p>
+                <MarketShareChart data={data} />
               </div>
 
               {/* Adoption — config files + SDK dependencies */}
@@ -437,7 +583,7 @@ export default async function AICodeIndexPage() {
                         Config file adoption
                       </div>
                       <p className="mb-2 text-xs text-[var(--foreground-subtle)]">
-                        Repos with tool-specific config files — % of {formatNum(TOTAL_PUBLIC_REPOS)} repos created since Feb 2025
+                        Repos with AI tool config files — % of repos created since Feb 2025
                       </p>
                       <table className="w-full text-xs">
                         <thead>
@@ -445,11 +591,13 @@ export default async function AICodeIndexPage() {
                             <th className="px-2 py-1.5 text-left font-medium">Tool</th>
                             <th className="px-2 py-1.5 text-right font-medium">Repos</th>
                             <th className="px-2 py-1.5 text-right font-medium">% GitHub</th>
+                            <th className="px-2 py-1.5 text-right font-medium">Δ/wk</th>
                           </tr>
                         </thead>
                         <tbody>
                           {[...configData].sort((a, b) => b.count - a.count).map((row) => {
                             const pct = (row.count / TOTAL_PUBLIC_REPOS) * 100
+                            const velocity = computeAdoptionVelocity(configTimeSeries, row.tool)
                             return (
                               <tr key={row.tool} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                 <td className="px-2 py-1.5">
@@ -465,6 +613,17 @@ export default async function AICodeIndexPage() {
                                 <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
                                   {pct >= 0.01 ? `${pct.toFixed(2)}%` : '<0.01%'}
                                 </td>
+                                <td className="px-2 py-1.5 text-right" style={{
+                                  color: velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct > 0.5
+                                    ? 'var(--score-high)'
+                                    : velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct < -0.5
+                                    ? 'var(--error)'
+                                    : 'var(--foreground-subtle)',
+                                }}>
+                                  {velocity.weeklyGrowthPct !== null
+                                    ? formatPct(velocity.weeklyGrowthPct)
+                                    : '—'}
+                                </td>
                               </tr>
                             )
                           })}
@@ -478,7 +637,7 @@ export default async function AICodeIndexPage() {
                         SDK adoption
                       </div>
                       <p className="mb-2 text-xs text-[var(--foreground-subtle)]">
-                        Repos depending on AI SDKs — % of {formatNum(TOTAL_PUBLIC_REPOS)} repos created since Feb 2025
+                        Repos with AI SDK dependencies — % of repos created since Feb 2025
                       </p>
                       <table className="w-full text-xs">
                         <thead>
@@ -486,11 +645,13 @@ export default async function AICodeIndexPage() {
                             <th className="px-2 py-1.5 text-left font-medium">SDK</th>
                             <th className="px-2 py-1.5 text-right font-medium">Repos</th>
                             <th className="px-2 py-1.5 text-right font-medium">% GitHub</th>
+                            <th className="px-2 py-1.5 text-right font-medium">Δ/wk</th>
                           </tr>
                         </thead>
                         <tbody>
                           {[...sdkData].sort((a, b) => b.count - a.count).map((row) => {
                             const pct = (row.count / TOTAL_PUBLIC_REPOS) * 100
+                            const velocity = computeAdoptionVelocity(sdkTimeSeries, row.tool)
                             return (
                               <tr key={row.tool} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                 <td className="px-2 py-1.5 text-[var(--foreground)]">
@@ -501,6 +662,17 @@ export default async function AICodeIndexPage() {
                                 </td>
                                 <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
                                   {pct >= 0.01 ? `${pct.toFixed(2)}%` : '<0.01%'}
+                                </td>
+                                <td className="px-2 py-1.5 text-right" style={{
+                                  color: velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct > 0.5
+                                    ? 'var(--score-high)'
+                                    : velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct < -0.5
+                                    ? 'var(--error)'
+                                    : 'var(--foreground-subtle)',
+                                }}>
+                                  {velocity.weeklyGrowthPct !== null
+                                    ? formatPct(velocity.weeklyGrowthPct)
+                                    : '—'}
                                 </td>
                               </tr>
                             )
