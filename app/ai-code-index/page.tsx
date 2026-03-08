@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getAICodeIndexData } from '@/lib/queries'
+import { getAICodeIndexData, getConfigAdoptionData, getSDKAdoptionData } from '@/lib/queries'
 import AICodeIndexChart from '@/components/AICodeIndexChart'
 import NewsletterSignup from '@/components/NewsletterSignup'
 
@@ -154,6 +154,13 @@ export default async function AICodeIndexPage() {
 
   const lastDate = data.length > 0 ? data[data.length - 1].date : null
 
+  // Adoption data
+  const [configData, sdkData] = await Promise.all([
+    getConfigAdoptionData(),
+    getSDKAdoptionData(),
+  ])
+  const hasAdoptionData = configData.length > 0 || sdkData.length > 0
+
   // Sort by avg30d descending for commit table
   const byVolume = [...stats].sort((a, b) => b.avg30d - a.avg30d)
   // Sort by trend for momentum panel
@@ -186,23 +193,22 @@ export default async function AICodeIndexPage() {
           {data.length >= 2 ? (
             <>
               {/* Hero metrics — tighter gaps */}
-              <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2 pb-4" style={{ borderBottom: '1px solid var(--border)' }}>
+              <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2 pb-4" style={{ borderBottom: '1px solid var(--border)' }}>
                 <div>
                   <div className="text-xs uppercase tracking-wider text-[var(--accent)]">Total commits</div>
-                  <div className="text-2xl font-semibold text-[var(--foreground)] sm:text-3xl" style={{ letterSpacing: '-0.02em' }}>
+                  <div className="text-2xl font-semibold text-[var(--foreground)] sm:text-3xl">
                     {formatNumExact(totalCommits)}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs uppercase tracking-wider text-[var(--accent)]">30d avg / day</div>
-                  <div className="text-2xl font-semibold text-[var(--foreground)] sm:text-3xl" style={{ letterSpacing: '-0.02em' }}>
+                  <div className="text-2xl font-semibold text-[var(--foreground)] sm:text-3xl">
                     {formatNum(Math.round(totalCommits30d / 30))}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs uppercase tracking-wider text-[var(--accent)]">30d change</div>
                   <div className="text-2xl font-semibold sm:text-3xl" style={{
-                    letterSpacing: '-0.02em',
                     color: overallTrend > 0 ? 'var(--score-high)' : overallTrend < 0 ? 'var(--error)' : 'var(--foreground)',
                   }}>
                     {formatPct(overallTrend)}
@@ -331,6 +337,75 @@ export default async function AICodeIndexPage() {
                 </div>
                 <AICodeIndexChart data={data} />
               </div>
+
+              {/* Adoption — config files + SDK dependencies */}
+              {hasAdoptionData && (
+                <div className="mt-8 grid grid-cols-1 lg:grid-cols-2" style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
+                  {configData.length > 0 && (
+                    <div className="lg:pr-6" style={{ borderRight: configData.length > 0 && sdkData.length > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                        Config file adoption
+                      </div>
+                      <p className="mb-2 text-xs text-[var(--foreground-subtle)]">
+                        Repos with tool-specific config files (AGENTS.md, .cursorrules, etc.)
+                      </p>
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border)' }}>
+                            <th className="px-2 py-1.5 text-left font-medium">Tool</th>
+                            <th className="px-2 py-1.5 text-right font-medium">Repos</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...configData].sort((a, b) => b.count - a.count).map((row) => (
+                            <tr key={row.tool} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <td className="px-2 py-1.5">
+                                <span className="inline-flex items-center gap-1.5" style={{ color: TOOL_COLORS[row.tool] ?? 'var(--foreground)' }}>
+                                  <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: TOOL_COLORS[row.tool] ?? 'var(--foreground-subtle)' }} />
+                                  {row.tool}
+                                </span>
+                              </td>
+                              <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
+                                {formatNum(row.count)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {sdkData.length > 0 && (
+                    <div className={configData.length > 0 ? 'lg:pl-6 mt-4 lg:mt-0' : ''}>
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                        SDK adoption
+                      </div>
+                      <p className="mb-2 text-xs text-[var(--foreground-subtle)]">
+                        Repos depending on AI SDKs (package.json, requirements.txt)
+                      </p>
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border)' }}>
+                            <th className="px-2 py-1.5 text-left font-medium">SDK</th>
+                            <th className="px-2 py-1.5 text-right font-medium">Repos</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...sdkData].sort((a, b) => b.count - a.count).map((row) => (
+                            <tr key={row.tool} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                              <td className="px-2 py-1.5 text-[var(--foreground)]">
+                                {row.tool}
+                              </td>
+                              <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
+                                {formatNum(row.count)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* News feed */}
               <div className="mt-8" style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>

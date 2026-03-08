@@ -1,56 +1,46 @@
-// Track AI tool config file adoption across GitHub using Code Search API
-// Searches for root-level config files (AGENTS.md, .cursorrules, etc.) and
-// stores daily totals in tool_contributions with "[config]" suffix.
+// Track AI SDK dependency adoption across GitHub using Code Search API
+// Searches for SDK packages in package.json / requirements.txt and
+// stores daily totals in tool_contributions with "[sdk]" suffix.
 //
-// Run: npx tsx scripts/search-config-files.ts
+// Run: npx tsx scripts/search-sdk-deps.ts
 //
 // Note: GitHub Code Search API allows 10 requests/min.
-// 7 queries → ~45s total with 6.5s delays.
+// 5 queries → ~35s total with 6.5s delays.
 
 import { config } from 'dotenv'
 config({ path: '.env.local' })
 
-interface ConfigQuery {
+interface SDKQuery {
   label: string
   tool: string
   query: string
 }
 
-const CONFIG_QUERIES: ConfigQuery[] = [
+const SDK_QUERIES: SDKQuery[] = [
   {
-    label: 'AGENTS.md',
-    tool: 'Claude Code',
-    query: 'filename:AGENTS.md path:/',
+    label: '@anthropic-ai/sdk (npm)',
+    tool: 'Anthropic',
+    query: '"@anthropic-ai/sdk" filename:package.json',
   },
   {
-    label: 'CLAUDE.md',
-    tool: 'Claude Code',
-    query: 'filename:CLAUDE.md path:/',
+    label: 'anthropic (PyPI)',
+    tool: 'Anthropic',
+    query: '"anthropic" filename:requirements.txt',
   },
   {
-    label: '.cursorrules',
-    tool: 'Cursor',
-    query: 'filename:.cursorrules',
+    label: 'openai (npm)',
+    tool: 'OpenAI',
+    query: '"openai" filename:package.json',
   },
   {
-    label: '.cursor/rules',
-    tool: 'Cursor',
-    query: 'path:.cursor filename:rules',
+    label: 'openai (PyPI)',
+    tool: 'OpenAI',
+    query: '"openai" filename:requirements.txt',
   },
   {
-    label: 'copilot-instructions.md',
-    tool: 'GitHub Copilot',
-    query: 'filename:copilot-instructions.md path:.github',
-  },
-  {
-    label: '.windsurfrules',
-    tool: 'Windsurf',
-    query: 'filename:.windsurfrules',
-  },
-  {
-    label: '.aider.conf.yml',
-    tool: 'Aider',
-    query: 'filename:.aider.conf.yml',
+    label: 'langchain (PyPI)',
+    tool: 'LangChain',
+    query: '"langchain" filename:requirements.txt',
   },
 ]
 
@@ -59,7 +49,6 @@ function log(msg: string): void {
   console.log(`[${timestamp}] ${msg}`)
 }
 
-// 6.5s delay between requests (Code Search: 10 req/min)
 function rateLimitDelay(): Promise<void> {
   return new Promise((r) => setTimeout(r, 6500))
 }
@@ -79,7 +68,6 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  // Upsert the placeholder repo — same one used by search-commits.ts
   const { data: placeholder, error: pErr } = await db
     .from('repos')
     .upsert(
@@ -107,13 +95,12 @@ async function main(): Promise<void> {
   const repoId = placeholder.id
   const today = new Date().toISOString().slice(0, 10)
 
-  log(`Searching config files — storing results for ${today}`)
+  log(`Searching SDK dependencies — storing results for ${today}`)
 
-  // Fetch total_count for each query
   const counts = new Map<string, number>()
 
-  for (let i = 0; i < CONFIG_QUERIES.length; i++) {
-    const q = CONFIG_QUERIES[i]
+  for (let i = 0; i < SDK_QUERIES.length; i++) {
+    const q = SDK_QUERIES[i]
     const url = `https://api.github.com/search/code?q=${encodeURIComponent(q.query)}&per_page=1`
 
     let success = false
@@ -134,13 +121,13 @@ async function main(): Promise<void> {
           const waitMs = reset ? parseInt(reset) * 1000 - Date.now() : 60000
           log(`Rate limited. Waiting ${Math.ceil(waitMs / 1000)}s...`)
           await new Promise((r) => setTimeout(r, Math.max(waitMs, 1000)))
-          continue // Retry same query
+          continue
         }
       }
 
       if (!response.ok) {
         log(`Error for ${q.label}: ${response.status} ${response.statusText}`)
-        success = true // Skip this query
+        success = true
         continue
       }
 
@@ -156,8 +143,7 @@ async function main(): Promise<void> {
       success = true
     }
 
-    // Rate limit delay (skip after last request)
-    if (i < CONFIG_QUERIES.length - 1) {
+    if (i < SDK_QUERIES.length - 1) {
       await rateLimitDelay()
     }
   }
@@ -165,16 +151,15 @@ async function main(): Promise<void> {
   // Combine counts by tool
   const toolTotals = new Map<string, number>()
 
-  for (const q of CONFIG_QUERIES) {
+  for (const q of SDK_QUERIES) {
     const count = counts.get(q.label) ?? 0
     toolTotals.set(q.tool, (toolTotals.get(q.tool) ?? 0) + count)
   }
 
-  // Upsert combined totals into tool_contributions with "[config]" suffix
   log('\nUpserting combined totals:')
 
   for (const [tool, total] of toolTotals) {
-    const toolName = `${tool} [config]`
+    const toolName = `${tool} [sdk]`
 
     const { error } = await db.from('tool_contributions').upsert(
       {
@@ -193,10 +178,10 @@ async function main(): Promise<void> {
     }
   }
 
-  log(`\nDone! Stored ${toolTotals.size} config adoption entries for ${today}.`)
+  log(`\nDone! Stored ${toolTotals.size} SDK adoption entries for ${today}.`)
 }
 
 main().catch((err: unknown) => {
-  console.error('Search config files failed:', err)
+  console.error('Search SDK deps failed:', err)
   process.exit(1)
 })

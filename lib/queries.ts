@@ -367,6 +367,100 @@ export async function getAICodeIndexData(): Promise<AICodeIndexRow[]> {
   return Array.from(dateMap.values())
 }
 
+// Config file adoption data (repos with AGENTS.md, .cursorrules, etc.)
+export interface ConfigAdoptionRow {
+  tool: string
+  count: number
+  date: string
+}
+
+export async function getConfigAdoptionData(): Promise<ConfigAdoptionRow[]> {
+  const { data: placeholder } = await supabase
+    .from('repos')
+    .select('id')
+    .eq('owner', '_gitfind')
+    .eq('name', '_bigquery_aggregate')
+    .maybeSingle()
+
+  if (!placeholder) return []
+  const placeholderId = (placeholder as unknown as { id: string }).id
+
+  // Config entries have tool_name like "Claude Code [config]"
+  const { data, error } = await supabase
+    .from('tool_contributions')
+    .select('tool_name, month, commit_count')
+    .eq('repo_id', placeholderId)
+    .like('tool_name', '%[config]')
+    .order('month', { ascending: false })
+    .limit(100)
+
+  if (error || !data) return []
+
+  const typed = data as unknown as Array<{
+    tool_name: string
+    month: string
+    commit_count: number
+  }>
+
+  // Get the latest date for each tool
+  const latestByTool = new Map<string, { count: number; date: string }>()
+  for (const row of typed) {
+    const tool = row.tool_name.replace(' [config]', '')
+    if (!latestByTool.has(tool)) {
+      latestByTool.set(tool, { count: row.commit_count, date: row.month })
+    }
+  }
+
+  return Array.from(latestByTool.entries()).map(([tool, { count, date }]) => ({
+    tool,
+    count,
+    date,
+  }))
+}
+
+// SDK dependency adoption data (repos with @anthropic-ai/sdk in package.json, etc.)
+export async function getSDKAdoptionData(): Promise<ConfigAdoptionRow[]> {
+  const { data: placeholder } = await supabase
+    .from('repos')
+    .select('id')
+    .eq('owner', '_gitfind')
+    .eq('name', '_bigquery_aggregate')
+    .maybeSingle()
+
+  if (!placeholder) return []
+  const placeholderId = (placeholder as unknown as { id: string }).id
+
+  const { data, error } = await supabase
+    .from('tool_contributions')
+    .select('tool_name, month, commit_count')
+    .eq('repo_id', placeholderId)
+    .like('tool_name', '%[sdk]')
+    .order('month', { ascending: false })
+    .limit(100)
+
+  if (error || !data) return []
+
+  const typed = data as unknown as Array<{
+    tool_name: string
+    month: string
+    commit_count: number
+  }>
+
+  const latestByTool = new Map<string, { count: number; date: string }>()
+  for (const row of typed) {
+    const tool = row.tool_name.replace(' [sdk]', '')
+    if (!latestByTool.has(tool)) {
+      latestByTool.set(tool, { count: row.commit_count, date: row.month })
+    }
+  }
+
+  return Array.from(latestByTool.entries()).map(([tool, { count, date }]) => ({
+    tool,
+    count,
+    date,
+  }))
+}
+
 // Fetch the latest package download snapshot for a repo
 export async function getPackageDownloads(repoId: string): Promise<PackageDownload | null> {
   const { data, error } = await supabase
