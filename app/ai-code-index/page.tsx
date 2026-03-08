@@ -45,6 +45,9 @@ const TOOL_SLUGS: Record<string, string> = {
   'Codex': 'codex',
 }
 
+// Repos created since Claude Code launch (Feb 24 2025), via GitHub Search API (Mar 2026)
+const TOTAL_PUBLIC_REPOS = 69_000_000
+
 const CONFIG_FILES: Record<string, string> = {
   'AGENTS.md': 'Claude Code + Codex',
   'Claude Code': 'CLAUDE.md',
@@ -356,30 +359,37 @@ export default async function AICodeIndexPage() {
                         Config file adoption
                       </div>
                       <p className="mb-2 text-xs text-[var(--foreground-subtle)]">
-                        Repos with tool-specific config files (AGENTS.md, .cursorrules, etc.)
+                        Repos with tool-specific config files — % of {formatNum(TOTAL_PUBLIC_REPOS)} repos created since Feb 2025
                       </p>
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border)' }}>
                             <th className="px-2 py-1.5 text-left font-medium">Tool</th>
                             <th className="px-2 py-1.5 text-right font-medium">Repos</th>
+                            <th className="px-2 py-1.5 text-right font-medium">% GitHub</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {[...configData].sort((a, b) => b.count - a.count).map((row) => (
-                            <tr key={row.tool} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                              <td className="px-2 py-1.5">
-                                <span className="inline-flex items-center gap-1.5" style={{ color: TOOL_COLORS[row.tool] ?? 'var(--foreground)' }}>
-                                  <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: TOOL_COLORS[row.tool] ?? 'var(--foreground-subtle)' }} />
-                                  {row.tool}
-                                  <span className="text-[var(--foreground-subtle)] font-normal">({CONFIG_FILES[row.tool] ?? ''})</span>
-                                </span>
-                              </td>
-                              <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
-                                {formatNum(row.count)}
-                              </td>
-                            </tr>
-                          ))}
+                          {[...configData].sort((a, b) => b.count - a.count).map((row) => {
+                            const pct = (row.count / TOTAL_PUBLIC_REPOS) * 100
+                            return (
+                              <tr key={row.tool} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                <td className="px-2 py-1.5">
+                                  <span className="inline-flex items-center gap-1.5" style={{ color: TOOL_COLORS[row.tool] ?? 'var(--foreground)' }}>
+                                    <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: TOOL_COLORS[row.tool] ?? 'var(--foreground-subtle)' }} />
+                                    {row.tool}
+                                    <span className="text-[var(--foreground-subtle)] font-normal">({CONFIG_FILES[row.tool] ?? ''})</span>
+                                  </span>
+                                </td>
+                                <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
+                                  {formatNum(row.count)}
+                                </td>
+                                <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
+                                  {pct >= 0.01 ? `${pct.toFixed(2)}%` : '<0.01%'}
+                                </td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -390,26 +400,33 @@ export default async function AICodeIndexPage() {
                         SDK adoption
                       </div>
                       <p className="mb-2 text-xs text-[var(--foreground-subtle)]">
-                        Repos depending on AI SDKs (package.json, requirements.txt)
+                        Repos depending on AI SDKs — % of {formatNum(TOTAL_PUBLIC_REPOS)} repos created since Feb 2025
                       </p>
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border)' }}>
                             <th className="px-2 py-1.5 text-left font-medium">SDK</th>
                             <th className="px-2 py-1.5 text-right font-medium">Repos</th>
+                            <th className="px-2 py-1.5 text-right font-medium">% GitHub</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {[...sdkData].sort((a, b) => b.count - a.count).map((row) => (
-                            <tr key={row.tool} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                              <td className="px-2 py-1.5 text-[var(--foreground)]">
-                                {row.tool}
-                              </td>
-                              <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
-                                {formatNum(row.count)}
-                              </td>
-                            </tr>
-                          ))}
+                          {[...sdkData].sort((a, b) => b.count - a.count).map((row) => {
+                            const pct = (row.count / TOTAL_PUBLIC_REPOS) * 100
+                            return (
+                              <tr key={row.tool} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                <td className="px-2 py-1.5 text-[var(--foreground)]">
+                                  {row.tool}
+                                </td>
+                                <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
+                                  {formatNum(row.count)}
+                                </td>
+                                <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
+                                  {pct >= 0.01 ? `${pct.toFixed(2)}%` : '<0.01%'}
+                                </td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                       </table>
                     </div>
