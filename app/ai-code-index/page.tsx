@@ -98,6 +98,51 @@ export default async function AICodeIndexPage() {
         </div>
       </section>
 
+      {/* Compare */}
+      <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="font-mono text-lg font-semibold text-[var(--foreground)]">
+            Head-to-head comparisons
+          </h2>
+          <p className="mt-2 font-mono text-sm text-[var(--foreground-muted)] leading-relaxed">
+            Pick any two tools and compare their commit activity, growth trends, and adoption side by side.
+          </p>
+          <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { slug: 'claude-code-vs-cursor', label: 'Claude Code vs Cursor', colors: ['#6c6af6', '#f59e0b'] },
+              { slug: 'claude-code-vs-copilot', label: 'Claude Code vs Copilot', colors: ['#6c6af6', '#3b82f6'] },
+              { slug: 'cursor-vs-copilot', label: 'Cursor vs Copilot', colors: ['#f59e0b', '#3b82f6'] },
+              { slug: 'claude-code-vs-gemini-cli', label: 'Claude Code vs Gemini CLI', colors: ['#6c6af6', '#ef4444'] },
+              { slug: 'claude-code-vs-aider', label: 'Claude Code vs Aider', colors: ['#6c6af6', '#22c55e'] },
+              { slug: 'cursor-vs-gemini-cli', label: 'Cursor vs Gemini CLI', colors: ['#f59e0b', '#ef4444'] },
+            ].map(({ slug, label, colors }) => (
+              <Link
+                key={slug}
+                href={`/ai-code-index/compare/${slug}`}
+                className="group flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--background-card)] px-4 py-3 transition-colors hover:border-[var(--accent)]"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors[0] }} />
+                  <span className="font-mono text-xs text-[var(--foreground-muted)]">vs</span>
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors[1] }} />
+                </div>
+                <span className="font-mono text-sm text-[var(--foreground)] transition-colors group-hover:text-[var(--accent)]">
+                  {label}
+                </span>
+              </Link>
+            ))}
+          </div>
+          <div className="mt-3">
+            <Link
+              href="/ai-code-index/compare/claude-code-vs-devin"
+              className="font-mono text-xs text-[var(--foreground-subtle)] transition-colors hover:text-[var(--accent)]"
+            >
+              View all 15 comparisons →
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Methodology */}
       <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
         <div className="mx-auto max-w-4xl">
