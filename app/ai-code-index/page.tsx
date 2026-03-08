@@ -357,21 +357,21 @@ export default async function AICodeIndexPage() {
                   borderRadius: '6px',
                 }}
               >
-                <div className="px-4 py-3 sm:py-4">
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">Total commits</div>
-                  <div className="text-xl font-semibold text-[var(--foreground)] sm:text-2xl">
+                <div className="px-1.5 py-3 sm:px-4 sm:py-4">
+                  <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">Total commits</div>
+                  <div className="text-base font-semibold text-[var(--foreground)] sm:text-2xl">
                     {formatNumExact(totalCommits)}
                   </div>
                 </div>
-                <div className="px-4 py-3 sm:py-4" style={{ borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">30d avg / day</div>
-                  <div className="text-xl font-semibold text-[var(--foreground)] sm:text-2xl">
+                <div className="px-1.5 py-3 sm:px-4 sm:py-4" style={{ borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
+                  <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">30d avg / day</div>
+                  <div className="text-base font-semibold text-[var(--foreground)] sm:text-2xl">
                     {formatNum(Math.round(totalCommits30d / 30))}
                   </div>
                 </div>
-                <div className="px-4 py-3 sm:py-4">
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">30d change</div>
-                  <div className="text-xl font-semibold sm:text-2xl" style={{
+                <div className="px-1.5 py-3 sm:px-4 sm:py-4">
+                  <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">30d change</div>
+                  <div className="text-base font-semibold sm:text-2xl" style={{
                     color: overallTrend > 0 ? 'var(--score-high)' : overallTrend < 0 ? 'var(--error)' : 'var(--foreground)',
                   }}>
                     {formatPct(overallTrend)}
