@@ -99,6 +99,7 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
   const [hiddenTools, setHiddenTools] = useState<Set<string>>(new Set())
   const [tooltipActive, setTooltipActive] = useState(true)
   const [downloading, setDownloading] = useState(false)
+  const [showMA, setShowMA] = useState(false)
   const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<HTMLDivElement>(null)
@@ -283,20 +284,36 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
 
   if (data.length < 2) return null
 
-  const formatted = filtered.map((d, i) => ({
-    ...d,
-    idx: i,
-    label: formatDate(d.date),
-    fullLabel: formatDateFull(d.date),
-  }))
+  const formatted = filtered.map((d, i) => {
+    const row: Record<string, number | string> = {
+      ...d,
+      idx: i,
+      label: formatDate(d.date),
+      fullLabel: formatDateFull(d.date),
+    }
+    // Compute 7d moving averages
+    if (showMA) {
+      for (const tool of TOOL_KEYS) {
+        let sum = 0
+        let count = 0
+        for (let j = Math.max(0, i - 6); j <= i; j++) {
+          const val = (filtered[j][tool] as number) || 0
+          sum += val
+          count++
+        }
+        row[`${tool}_ma7`] = count > 0 ? Math.round(sum / count) : 0
+      }
+    }
+    return row
+  })
 
   const ticks = getTickIndices(filtered)
 
   return (
     <div ref={containerRef}>
-      {/* Range selector + download */}
+      {/* Range selector + MA toggle + download */}
       <div className="mb-4 flex items-center justify-between">
-        <div className="flex gap-1" style={{ fontFamily: MONO }}>
+        <div className="flex gap-1 items-center" style={{ fontFamily: MONO }}>
           {RANGES.map((r) => (
             <button
               key={r}
@@ -313,6 +330,20 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
               {r}
             </button>
           ))}
+          <span className="mx-1 text-[var(--border)]">|</span>
+          <button
+            onClick={() => setShowMA((v) => !v)}
+            className="px-3 py-1 text-xs transition-colors"
+            style={{
+              fontFamily: MONO,
+              borderRadius: '6px',
+              border: showMA ? '1px solid var(--accent)' : '1px solid var(--border)',
+              background: showMA ? 'var(--accent)' : 'transparent',
+              color: showMA ? 'var(--on-accent)' : 'var(--foreground-subtle)',
+            }}
+          >
+            7d MA
+          </button>
         </div>
         <button
           onClick={handleDownload}
@@ -353,7 +384,7 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
                 ticks={ticks}
                 tickFormatter={(idx: number) => {
                   const d = formatted[idx]
-                  return d ? formatTick(d.date, formatted.length) : ''
+                  return d ? formatTick(String(d.date), formatted.length) : ''
                 }}
                 tick={{ fontSize: 11, fill: 'var(--foreground-subtle)', fontFamily: MONO }}
                 axisLine={{ stroke: 'var(--border)' }}
@@ -394,13 +425,27 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
                   dataKey={tool}
                   name={tool}
                   stroke={TOOL_COLORS[tool]}
-                  strokeWidth={1.5}
+                  strokeWidth={showMA ? 0.8 : 1.5}
+                  strokeOpacity={showMA ? 0.3 : 1}
                   dot={false}
-                  activeDot={{ r: 3, fill: TOOL_COLORS[tool], stroke: 'none' }}
+                  activeDot={showMA ? false : { r: 3, fill: TOOL_COLORS[tool], stroke: 'none' }}
                   isAnimationActive={hasAnimated}
                   animationBegin={0}
                   animationDuration={1500}
                   animationEasing="ease-out"
+                />
+              ))}
+              {showMA && visibleTools.map((tool) => (
+                <Line
+                  key={`${tool}_ma7`}
+                  type="monotone"
+                  dataKey={`${tool}_ma7`}
+                  name={`${tool} (7d MA)`}
+                  stroke={TOOL_COLORS[tool]}
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 3, fill: TOOL_COLORS[tool], stroke: 'none' }}
+                  isAnimationActive={false}
                 />
               ))}
             </LineChart>

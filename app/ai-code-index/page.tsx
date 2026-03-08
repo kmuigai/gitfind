@@ -68,10 +68,19 @@ interface ToolStats {
   trend: 'up' | 'down' | 'flat'
   peakDay: { date: string; count: number }
   share30d: number
+  // WoW + acceleration
+  wowPct: number
+  priorWowPct: number
+  acceleration: 'accel' | 'decel' | 'steady'
+  // Doubling time (days at current 30d growth rate)
+  doublingDays: number | null
 }
 
 function computeToolStats(data: Array<{ date: string; [tool: string]: number | string }>): ToolStats[] {
   const tools = Object.keys(TOOL_COLORS)
+  const last7 = data.slice(-7)
+  const prior7 = data.slice(-14, -7)
+  const weekBefore = data.slice(-21, -14)
   const last30 = data.slice(-30)
   const prior30 = data.slice(-60, -30)
 
@@ -100,6 +109,32 @@ function computeToolStats(data: Array<{ date: string; [tool: string]: number | s
 
     const share30d = total30dCommits > 0 ? (sum30d / total30dCommits) * 100 : 0
 
+    // WoW: this week avg vs last week avg
+    const avgThisWeek = last7.length > 0
+      ? last7.reduce((s, row) => s + ((row[tool] as number) || 0), 0) / last7.length
+      : 0
+    const avgLastWeek = prior7.length > 0
+      ? prior7.reduce((s, row) => s + ((row[tool] as number) || 0), 0) / prior7.length
+      : 0
+    const avgWeekBefore = weekBefore.length > 0
+      ? weekBefore.reduce((s, row) => s + ((row[tool] as number) || 0), 0) / weekBefore.length
+      : 0
+    const wowPct = avgLastWeek > 0 ? ((avgThisWeek - avgLastWeek) / avgLastWeek) * 100 : 0
+    const priorWowPct = avgWeekBefore > 0 ? ((avgLastWeek - avgWeekBefore) / avgWeekBefore) * 100 : 0
+
+    // Acceleration: is WoW growth speeding up or slowing down?
+    const accelDelta = wowPct - priorWowPct
+    const acceleration: 'accel' | 'decel' | 'steady' =
+      accelDelta > 3 ? 'accel' : accelDelta < -3 ? 'decel' : 'steady'
+
+    // Doubling time at current 30d growth rate
+    // If 30d avg grew X% over 30 days, doubling time = 30 * ln(2) / ln(1 + X/100)
+    let doublingDays: number | null = null
+    if (trendPct > 0 && avg30dPrior > 0) {
+      const growthRate = trendPct / 100
+      doublingDays = Math.round(30 * Math.log(2) / Math.log(1 + growthRate))
+    }
+
     return {
       name: tool,
       color: TOOL_COLORS[tool],
@@ -111,6 +146,10 @@ function computeToolStats(data: Array<{ date: string; [tool: string]: number | s
       trend,
       peakDay,
       share30d,
+      wowPct,
+      priorWowPct,
+      acceleration,
+      doublingDays,
     }
   }).filter((t) => t.totalCommits > 0)
 }
@@ -244,8 +283,8 @@ export default async function AICodeIndexPage() {
                           <th className="px-2 py-1.5 text-right font-medium">Latest</th>
                           <th className="px-2 py-1.5 text-right font-medium">Avg/day</th>
                           <th className="px-2 py-1.5 text-right font-medium">30d</th>
+                          <th className="px-2 py-1.5 text-right font-medium">WoW</th>
                           <th className="px-2 py-1.5 text-right font-medium">Share</th>
-                          <th className="px-2 py-1.5 text-right font-medium">Peak</th>
                           <th className="px-2 py-1.5 text-right font-medium">Total</th>
                         </tr>
                       </thead>
@@ -274,11 +313,18 @@ export default async function AICodeIndexPage() {
                             }}>
                               {formatPct(tool.trendPct)}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
-                              {tool.share30d >= 0.1 ? `${tool.share30d.toFixed(1)}%` : '<0.1%'}
+                            <td className="px-2 py-1.5 text-right" style={{
+                              color: tool.wowPct > 3 ? 'var(--score-high)' : tool.wowPct < -3 ? 'var(--error)' : 'var(--foreground-subtle)',
+                            }}>
+                              <span className="font-medium">{formatPct(tool.wowPct)}</span>
+                              <span className="ml-0.5 text-[10px]" style={{
+                                color: tool.acceleration === 'accel' ? 'var(--score-high)' : tool.acceleration === 'decel' ? 'var(--error)' : 'var(--foreground-subtle)',
+                              }}>
+                                {tool.acceleration === 'accel' ? '▲' : tool.acceleration === 'decel' ? '▼' : '—'}
+                              </span>
                             </td>
                             <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
-                              {formatNum(tool.peakDay.count)}
+                              {tool.share30d >= 0.1 ? `${tool.share30d.toFixed(1)}%` : '<0.1%'}
                             </td>
                             <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
                               {formatNum(tool.totalCommits)}
@@ -312,6 +358,38 @@ export default async function AICodeIndexPage() {
                         </span>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                    Doubling time
+                  </div>
+                  <p className="mb-1 text-[10px] text-[var(--foreground-subtle)]">
+                    Days to 2× volume at current 30d growth rate
+                  </p>
+                  <div>
+                    {[...stats]
+                      .filter((t) => t.doublingDays !== null && t.avg30d > 0)
+                      .sort((a, b) => (a.doublingDays ?? Infinity) - (b.doublingDays ?? Infinity))
+                      .map((tool) => (
+                      <div
+                        key={tool.name}
+                        className="flex items-center gap-2 px-2 py-1"
+                        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                      >
+                        <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
+                        <span className="flex-1 text-xs truncate text-[var(--foreground)]">{tool.name}</span>
+                        <span className="text-xs font-medium" style={{
+                          color: (tool.doublingDays ?? 999) <= 60 ? 'var(--score-high)' : (tool.doublingDays ?? 999) <= 120 ? 'var(--accent)' : 'var(--foreground-muted)',
+                        }}>
+                          {tool.doublingDays}d
+                        </span>
+                      </div>
+                    ))}
+                    {stats.filter((t) => t.doublingDays === null && t.avg30d > 0).length > 0 && (
+                      <div className="px-2 py-1 text-[10px] text-[var(--foreground-subtle)]">
+                        {stats.filter((t) => t.doublingDays === null && t.avg30d > 0).map((t) => t.name).join(', ')} — declining or flat
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
