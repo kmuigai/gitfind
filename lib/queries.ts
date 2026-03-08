@@ -292,6 +292,7 @@ const AI_CODE_INDEX_TOOLS = [
   'Aider',
   'Gemini CLI',
   'Devin',
+  'Codex',
 ] as const
 
 export type AIToolName = (typeof AI_CODE_INDEX_TOOLS)[number]

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, type MouseEvent } from 'react'
 import {
   LineChart,
   Line,
@@ -22,6 +22,7 @@ const TOOL_COLORS: Record<string, string> = {
   'Aider': '#22c55e',
   'Gemini CLI': '#ef4444',
   'Devin': '#a855f7',
+  'Codex': '#10b981',
 }
 
 const TOOL_KEYS = Object.keys(TOOL_COLORS)
@@ -96,8 +97,10 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
   const [range, setRange] = useState<TimeRange>('ALL')
   const [hiddenTools, setHiddenTools] = useState<Set<string>>(new Set())
   const [tooltipActive, setTooltipActive] = useState(true)
+  const [downloading, setDownloading] = useState(false)
   const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const chartRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const el = containerRef.current
@@ -152,6 +155,130 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
     })
   }
 
+  const handleDownload = useCallback(async (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    const source = chartRef.current
+    if (!source || downloading) return
+    setDownloading(true)
+
+    try {
+      // Grab the live SVG rendered by Recharts
+      const svgEl = source.querySelector('svg.recharts-surface')
+      if (!svgEl) return
+
+      // Clone SVG and resolve CSS variables from computed styles
+      const svgClone = svgEl.cloneNode(true) as SVGSVGElement
+      const resolveVars = (src: Element, cln: Element) => {
+        const computed = getComputedStyle(src)
+        if (cln instanceof SVGElement) {
+          for (const attr of ['stroke', 'fill']) {
+            const val = cln.getAttribute(attr)
+            if (val?.includes('var(')) {
+              cln.setAttribute(attr, computed.getPropertyValue(attr))
+            }
+          }
+          for (const prop of Array.from(cln.style)) {
+            if (cln.style.getPropertyValue(prop).includes('var(')) {
+              cln.style.setProperty(prop, computed.getPropertyValue(prop))
+            }
+          }
+          // Replace CSS variable fonts with system monospace
+          const fontAttr = cln.getAttribute('font-family')
+          if (fontAttr?.includes('var(')) {
+            cln.setAttribute('font-family', 'ui-monospace, monospace')
+          }
+          if (cln.style.fontFamily?.includes('var(')) {
+            cln.style.fontFamily = 'ui-monospace, monospace'
+          }
+        }
+        const srcKids = Array.from(src.children)
+        const clnKids = Array.from(cln.children)
+        for (let i = 0; i < clnKids.length && i < srcKids.length; i++) {
+          resolveVars(srcKids[i], clnKids[i])
+        }
+      }
+      resolveVars(svgEl, svgClone)
+
+      // Read dimensions from the live SVG
+      const rect = svgEl.getBoundingClientRect()
+      const svgW = Math.round(rect.width)
+      const svgH = Math.round(rect.height)
+      svgClone.setAttribute('width', String(svgW))
+      svgClone.setAttribute('height', String(svgH))
+      svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+
+      // Canvas layout
+      const pad = 48
+      const headerH = 40
+      const legendH = 44
+      const canvasW = svgW + pad * 2
+      const canvasH = headerH + svgH + legendH + pad * 2
+      const scale = 2
+
+      const canvas = document.createElement('canvas')
+      canvas.width = canvasW * scale
+      canvas.height = canvasH * scale
+      const ctx = canvas.getContext('2d')!
+      ctx.scale(scale, scale)
+
+      // Background
+      ctx.fillStyle = '#0a0a0a'
+      ctx.fillRect(0, 0, canvasW, canvasH)
+
+      // Watermark header
+      ctx.font = '600 14px ui-monospace, monospace'
+      ctx.fillStyle = '#e4e4e7'
+      ctx.fillText('AI Code Index', pad, pad + 14)
+      ctx.font = '14px ui-monospace, monospace'
+      ctx.fillStyle = '#a1a1aa'
+      const tagline = 'gitfind.ai'
+      ctx.fillText(tagline, canvasW - pad - ctx.measureText(tagline).width, pad + 14)
+
+      // Render SVG to canvas via Image
+      const svgString = new XMLSerializer().serializeToString(svgClone)
+      const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString)
+      const img = new Image()
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => {
+          ctx.drawImage(img, pad, pad + headerH, svgW, svgH)
+          resolve()
+        }
+        img.onerror = reject
+        img.src = svgDataUrl
+      })
+
+      // Legend
+      const legendY = pad + headerH + svgH + 20
+      let legendX = pad
+      ctx.font = '12px ui-monospace, monospace'
+      for (const tool of visibleTools) {
+        ctx.fillStyle = TOOL_COLORS[tool]
+        ctx.beginPath()
+        ctx.arc(legendX + 4, legendY + 4, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#a1a1aa'
+        ctx.fillText(tool, legendX + 14, legendY + 8)
+        legendX += 14 + ctx.measureText(tool).width + 24
+      }
+
+      // Download
+      canvas.toBlob((blob) => {
+        if (!blob) return
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.download = `ai-code-index-${range.toLowerCase()}.png`
+        link.href = url
+        link.click()
+        URL.revokeObjectURL(url)
+      }, 'image/png')
+    } catch (err) {
+      console.error('PNG export failed:', err)
+    } finally {
+      setDownloading(false)
+    }
+  }, [downloading, range, visibleTools])
+
   if (data.length < 2) return null
 
   const formatted = filtered.map((d, i) => ({
@@ -165,7 +292,7 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
 
   return (
     <div ref={containerRef}>
-      {/* Range selector */}
+      {/* Range selector + download */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex gap-1" style={{ fontFamily: MONO }}>
           {RANGES.map((r) => (
@@ -185,102 +312,123 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
             </button>
           ))}
         </div>
+        <button
+          onClick={handleDownload}
+          disabled={downloading}
+          className="flex items-center gap-1.5 px-3 py-1 text-xs transition-colors"
+          style={{
+            fontFamily: MONO,
+            borderRadius: '6px',
+            border: '1px solid var(--border)',
+            color: 'var(--foreground-subtle)',
+            opacity: downloading ? 0.5 : 1,
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          {downloading ? 'Exporting…' : 'PNG'}
+        </button>
       </div>
 
-      {/* Chart */}
-      <div className="h-72 w-full sm:h-96" onTouchStart={handleTouchTooltip}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={formatted} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
-            <CartesianGrid
-              strokeDasharray="2 4"
-              stroke="var(--border)"
-              strokeOpacity={0.4}
-              vertical={false}
-            />
-            <XAxis
-              dataKey="idx"
-              type="number"
-              domain={[0, formatted.length - 1]}
-              ticks={ticks}
-              tickFormatter={(idx: number) => {
-                const d = formatted[idx]
-                return d ? formatTick(d.date, formatted.length) : ''
-              }}
-              tick={{ fontSize: 11, fill: 'var(--foreground-subtle)', fontFamily: MONO }}
-              axisLine={{ stroke: 'var(--border)' }}
-              tickLine={false}
-              height={30}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: 'var(--foreground-subtle)', fontFamily: MONO }}
-              axisLine={false}
-              tickLine={false}
-              width={48}
-              tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)}
-            />
-            <Tooltip
-              active={tooltipActive ? undefined : false}
-              contentStyle={{
-                backgroundColor: 'var(--background-card)',
-                border: '1px solid var(--border)',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontFamily: MONO,
-                color: 'var(--foreground)',
-                padding: '8px 12px',
-              }}
-              labelFormatter={(_label, payload) => {
-                const item = payload?.[0]?.payload as { fullLabel?: string } | undefined
-                return item?.fullLabel ?? String(_label)
-              }}
-              formatter={(value: number | undefined, name?: string) => [
-                (value ?? 0).toLocaleString(),
-                name ?? '',
-              ]}
-            />
-            {visibleTools.map((tool) => (
-              <Line
+      {/* Chart + legend (ref used for PNG export) */}
+      <div ref={chartRef}>
+        <div className="h-72 w-full sm:h-96" onTouchStart={handleTouchTooltip}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={formatted} margin={{ top: 8, right: 30, left: -8, bottom: 0 }}>
+              <CartesianGrid
+                strokeDasharray="2 4"
+                stroke="var(--border)"
+                strokeOpacity={0.4}
+                vertical={false}
+              />
+              <XAxis
+                dataKey="idx"
+                type="number"
+                domain={[0, formatted.length - 1]}
+                ticks={ticks}
+                tickFormatter={(idx: number) => {
+                  const d = formatted[idx]
+                  return d ? formatTick(d.date, formatted.length) : ''
+                }}
+                tick={{ fontSize: 11, fill: 'var(--foreground-subtle)', fontFamily: MONO }}
+                axisLine={{ stroke: 'var(--border)' }}
+                tickLine={false}
+                height={30}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: 'var(--foreground-subtle)', fontFamily: MONO }}
+                axisLine={false}
+                tickLine={false}
+                width={48}
+                tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)}
+              />
+              <Tooltip
+                active={tooltipActive ? undefined : false}
+                contentStyle={{
+                  backgroundColor: 'var(--background-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontFamily: MONO,
+                  color: 'var(--foreground)',
+                  padding: '8px 12px',
+                }}
+                labelFormatter={(_label, payload) => {
+                  const item = payload?.[0]?.payload as { fullLabel?: string } | undefined
+                  return item?.fullLabel ?? String(_label)
+                }}
+                formatter={(value: number | undefined, name?: string) => [
+                  (value ?? 0).toLocaleString(),
+                  name ?? '',
+                ]}
+              />
+              {visibleTools.map((tool) => (
+                <Line
+                  key={tool}
+                  type="stepAfter"
+                  dataKey={tool}
+                  name={tool}
+                  stroke={TOOL_COLORS[tool]}
+                  strokeWidth={1.5}
+                  dot={false}
+                  activeDot={{ r: 3, fill: TOOL_COLORS[tool], stroke: 'none' }}
+                  isAnimationActive={hasAnimated}
+                  animationBegin={0}
+                  animationDuration={1500}
+                  animationEasing="ease-out"
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Legend */}
+        <div className="mt-4 flex flex-wrap gap-3">
+          {activeTools.map((tool) => {
+            const hidden = hiddenTools.has(tool)
+            return (
+              <button
                 key={tool}
-                type="stepAfter"
-                dataKey={tool}
-                name={tool}
-                stroke={TOOL_COLORS[tool]}
-                strokeWidth={1.5}
-                dot={false}
-                activeDot={{ r: 3, fill: TOOL_COLORS[tool], stroke: 'none' }}
-                isAnimationActive={hasAnimated}
-                animationBegin={0}
-                animationDuration={1500}
-                animationEasing="ease-out"
-              />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Legend */}
-      <div className="mt-4 flex flex-wrap gap-3">
-        {activeTools.map((tool) => {
-          const hidden = hiddenTools.has(tool)
-          return (
-            <button
-              key={tool}
-              onClick={() => toggleTool(tool)}
-              className="flex items-center gap-1.5 text-xs transition-opacity"
-              style={{
-                fontFamily: MONO,
-                opacity: hidden ? 0.35 : 1,
-                color: 'var(--foreground-muted)',
-              }}
-            >
-              <span
-                className="inline-block h-2 w-2 rounded-full"
-                style={{ backgroundColor: TOOL_COLORS[tool] }}
-              />
-              {tool}
-            </button>
-          )
-        })}
+                onClick={() => toggleTool(tool)}
+                className="flex items-center gap-1.5 text-xs transition-opacity"
+                style={{
+                  fontFamily: MONO,
+                  opacity: hidden ? 0.35 : 1,
+                  color: 'var(--foreground-muted)',
+                }}
+              >
+                <span
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{ backgroundColor: TOOL_COLORS[tool] }}
+                />
+                {tool}
+              </button>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

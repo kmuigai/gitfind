@@ -59,7 +59,7 @@ Four GitHub Actions workflows run on staggered schedules:
 - `enrichments` — Claude-generated summaries, scores, categories (~1K enriched)
 - `repo_snapshots` — daily time-series: stars, forks, stars_7d, open_issues (the core moat)
 - `weekly_stats` — weekly time-series: contributors, commit_count_4w, last_release_date/tag
-- `tool_contributions` — AI Code Index data (Claude Code, Cursor, Copilot, Aider, Gemini CLI, Devin)
+- `tool_contributions` — AI Code Index data (Claude Code, Cursor, Copilot, Aider, Gemini CLI, Devin, Codex)
 - `package_downloads` — npm/PyPI/crates.io download counts
 
 ### Key constraints

@@ -13,6 +13,7 @@ const TOOLS = [
   { name: 'Aider', slug: 'aider', color: '#22c55e' },
   { name: 'Gemini CLI', slug: 'gemini-cli', color: '#ef4444' },
   { name: 'Devin', slug: 'devin', color: '#a855f7' },
+  { name: 'Codex', slug: 'codex', color: '#10b981' },
 ] as const
 
 type Tool = (typeof TOOLS)[number]

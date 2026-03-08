@@ -7,11 +7,11 @@ import NewsletterSignup from '@/components/NewsletterSignup'
 export const metadata: Metadata = {
   title: 'AI Code Index',
   description:
-    'Daily commit counts for Claude Code, Cursor, Copilot, Aider, Gemini CLI, and Devin across all public GitHub repos. The rise of AI-written code, tracked live.',
+    'Daily commit counts for Claude Code, Cursor, Copilot, Aider, Gemini CLI, Devin, and Codex across all public GitHub repos. The rise of AI-written code, tracked live.',
   openGraph: {
     title: 'AI Code Index — GitFind',
     description:
-      'Daily commit counts for Claude Code, Cursor, Copilot, Aider, Gemini CLI, and Devin across all public GitHub repos.',
+      'Daily commit counts for Claude Code, Cursor, Copilot, Aider, Gemini CLI, Devin, and Codex across all public GitHub repos.',
     url: 'https://gitfind.ai/ai-code-index',
     type: 'article',
   },
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'AI Code Index — GitFind',
     description:
-      'The rise of AI-written code, tracked live across 6 tools.',
+      'The rise of AI-written code, tracked live across 7 tools.',
   },
 }
 
@@ -52,6 +52,11 @@ const TOOL_ICONS: Record<string, React.ReactNode> = {
   'Devin': (
     <span className="flex h-4 w-4 items-center justify-center rounded-sm text-[10px] font-bold" style={{ fontFamily: 'var(--font-geist-mono)' }}>D</span>
   ),
+  'Codex': (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+      <path d="M22.282 0H1.718C.769 0 0 .769 0 1.718v20.564C0 23.231.769 24 1.718 24h20.564c.949 0 1.718-.769 1.718-1.718V1.718C24 .769 23.231 0 22.282 0zM9.17 15.3H7.037V8.7H9.17v6.6zm4.897 0h-2.134V8.7h2.134v6.6zm4.896 0h-2.133V8.7h2.133v6.6z" />
+    </svg>
+  ),
 }
 
 export default async function AICodeIndexPage() {
@@ -75,7 +80,7 @@ export default async function AICodeIndexPage() {
             AI Code Index
           </h1>
           <p className="mt-2 max-w-2xl font-mono text-sm text-[var(--foreground-muted)] leading-relaxed">
-            Daily commit counts for 6 AI coding tools across all public GitHub repositories.
+            Daily commit counts for 7 AI coding tools across all public GitHub repositories.
             Data captured daily — a dataset that compounds over time.
           </p>
         </div>
@@ -151,7 +156,7 @@ export default async function AICodeIndexPage() {
           </h2>
           <p className="mt-2 font-mono text-sm text-[var(--foreground-muted)] leading-relaxed">
             We query the GitHub Search API daily for commit signatures left by each tool.
-            Claude Code, Cursor, and Aider add Co-Authored-By trailers. Copilot&apos;s coding
+            Claude Code, Cursor, Aider, and Codex add Co-Authored-By trailers. Copilot&apos;s coding
             agent commits as a bot account. Devin uses a distinct author email. These are
             public commits only — the true volume is higher.
           </p>
@@ -163,6 +168,7 @@ export default async function AICodeIndexPage() {
               { tool: 'Aider', method: 'Co-Authored-By trailer', color: '#22c55e' },
               { tool: 'Gemini CLI', method: 'Co-Authored-By trailer', color: '#ef4444' },
               { tool: 'Devin', method: 'Bot author email', color: '#a855f7' },
+              { tool: 'Codex', method: 'Co-Authored-By trailer', color: '#10b981' },
             ].map(({ tool, method, color }) => (
               <div
                 key={tool}

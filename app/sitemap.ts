@@ -4,7 +4,7 @@ import { getAllReposForSitemap } from '@/lib/queries'
 const BASE_URL = 'https://gitfind.ai'
 
 const AI_TOOL_SLUGS = [
-  'claude-code', 'cursor', 'copilot', 'aider', 'gemini-cli', 'devin',
+  'claude-code', 'cursor', 'copilot', 'aider', 'gemini-cli', 'devin', 'codex',
 ]
 
 const COMPARE_SLUGS: string[] = []
