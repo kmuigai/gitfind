@@ -48,7 +48,6 @@ const TOOL_SLUGS: Record<string, string> = {
 }
 
 // Repos created since Claude Code launch (Feb 24 2025), via GitHub Search API (Mar 2026)
-const TOTAL_PUBLIC_REPOS = 69_000_000
 
 const CONFIG_FILES: Record<string, string> = {
   'AGENTS.md': 'Claude Code + Codex',
@@ -173,7 +172,7 @@ function formatNumExact(n: number): string {
   return n.toLocaleString()
 }
 
-// Compute adoption velocity from time-series data
+// Compute actual week-over-week adoption change
 function computeAdoptionVelocity(
   timeSeries: AdoptionTimeSeriesEntry[],
   tool: string
@@ -184,15 +183,24 @@ function computeAdoptionVelocity(
 
   if (entries.length < 2) return { weeklyGrowthPct: null, dataPoints: entries.length }
 
-  const first = entries[0]
   const last = entries[entries.length - 1]
-  const daysBetween = Math.max(1, (new Date(last.date).getTime() - new Date(first.date).getTime()) / 86400000)
+  const lastDate = new Date(last.date).getTime()
 
-  if (first.count === 0) return { weeklyGrowthPct: null, dataPoints: entries.length }
+  // Find the entry closest to 7 days before the latest
+  let bestIdx = 0
+  let bestDiff = Infinity
+  for (let i = 0; i < entries.length - 1; i++) {
+    const diff = Math.abs(lastDate - new Date(entries[i].date).getTime() - 7 * 86400000)
+    if (diff < bestDiff) {
+      bestDiff = diff
+      bestIdx = i
+    }
+  }
 
-  // Annualized daily growth rate → weekly
-  const dailyGrowthRate = (last.count / first.count) ** (1 / daysBetween) - 1
-  const weeklyGrowthPct = ((1 + dailyGrowthRate) ** 7 - 1) * 100
+  const prior = entries[bestIdx]
+  if (prior.count === 0) return { weeklyGrowthPct: null, dataPoints: entries.length }
+
+  const weeklyGrowthPct = ((last.count - prior.count) / prior.count) * 100
 
   return { weeklyGrowthPct, dataPoints: entries.length }
 }
@@ -583,20 +591,18 @@ export default async function AICodeIndexPage() {
                         Config file adoption
                       </div>
                       <p className="mb-2 text-xs text-[var(--foreground-subtle)]">
-                        Repos with AI tool config files — % of repos created since Feb 2025
+                        Repos with AI tool config files
                       </p>
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border)' }}>
                             <th className="px-2 py-1.5 text-left font-medium">Tool</th>
                             <th className="px-2 py-1.5 text-right font-medium">Repos</th>
-                            <th className="px-2 py-1.5 text-right font-medium">% GitHub</th>
                             <th className="px-2 py-1.5 text-right font-medium">Δ/wk</th>
                           </tr>
                         </thead>
                         <tbody>
                           {[...configData].sort((a, b) => b.count - a.count).map((row) => {
-                            const pct = (row.count / TOTAL_PUBLIC_REPOS) * 100
                             const velocity = computeAdoptionVelocity(configTimeSeries, row.tool)
                             return (
                               <tr key={row.tool} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
@@ -609,9 +615,6 @@ export default async function AICodeIndexPage() {
                                 </td>
                                 <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
                                   {formatNum(row.count)}
-                                </td>
-                                <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
-                                  {pct >= 0.01 ? `${pct.toFixed(2)}%` : '<0.01%'}
                                 </td>
                                 <td className="px-2 py-1.5 text-right" style={{
                                   color: velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct > 0.5
@@ -637,20 +640,18 @@ export default async function AICodeIndexPage() {
                         SDK adoption
                       </div>
                       <p className="mb-2 text-xs text-[var(--foreground-subtle)]">
-                        Repos with AI SDK dependencies — % of repos created since Feb 2025
+                        Repos with AI SDK dependencies
                       </p>
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border)' }}>
                             <th className="px-2 py-1.5 text-left font-medium">SDK</th>
                             <th className="px-2 py-1.5 text-right font-medium">Repos</th>
-                            <th className="px-2 py-1.5 text-right font-medium">% GitHub</th>
                             <th className="px-2 py-1.5 text-right font-medium">Δ/wk</th>
                           </tr>
                         </thead>
                         <tbody>
                           {[...sdkData].sort((a, b) => b.count - a.count).map((row) => {
-                            const pct = (row.count / TOTAL_PUBLIC_REPOS) * 100
                             const velocity = computeAdoptionVelocity(sdkTimeSeries, row.tool)
                             return (
                               <tr key={row.tool} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
@@ -659,9 +660,6 @@ export default async function AICodeIndexPage() {
                                 </td>
                                 <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
                                   {formatNum(row.count)}
-                                </td>
-                                <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
-                                  {pct >= 0.01 ? `${pct.toFixed(2)}%` : '<0.01%'}
                                 </td>
                                 <td className="px-2 py-1.5 text-right" style={{
                                   color: velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct > 0.5
