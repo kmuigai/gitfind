@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next'
-import { getAllReposForSitemap } from '@/lib/queries'
+import { getAllReposForSitemap, getSnapshotDates } from '@/lib/queries'
 
 const BASE_URL = 'https://gitfind.ai'
 
@@ -24,6 +24,20 @@ const CATEGORY_SLUGS = [
   'mobile',
   'open-source-utilities',
 ]
+
+// Convert snapshot dates to unique week Sundays (YYYY-MM-DD)
+function getWeeklyDates(snapshotDates: string[]): string[] {
+  const weeks = new Set<string>()
+  for (const date of snapshotDates) {
+    const d = new Date(date)
+    d.setDate(d.getDate() - d.getDay()) // Roll back to Sunday
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    weeks.add(`${y}-${m}-${day}`)
+  }
+  return Array.from(weeks).sort().reverse()
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -59,7 +73,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ]
 
-  const repos = await getAllReposForSitemap()
+  const [repos, snapshotDates] = await Promise.all([
+    getAllReposForSitemap(),
+    getSnapshotDates(),
+  ])
 
   const projectRoutes: MetadataRoute.Sitemap = repos.map((repo) => ({
     url: `${BASE_URL}/project/${repo.owner}/${repo.name}`,
@@ -68,5 +85,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: repo.has_enrichment ? 0.7 : 0.3,
   }))
 
-  return [...staticRoutes, ...projectRoutes]
+  // Insights pages
+  const insightsRoutes: MetadataRoute.Sitemap = [
+    {
+      url: `${BASE_URL}/insights`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    {
+      url: `${BASE_URL}/insights/breakout-repos`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    },
+    // Weekly rising pages — one per snapshot week (use Sundays)
+    ...getWeeklyDates(snapshotDates).map((date) => ({
+      url: `${BASE_URL}/insights/rising-this-week/${date}`,
+      lastModified: new Date(date),
+      changeFrequency: 'weekly' as const,
+      priority: 0.7,
+    })),
+  ]
+
+  return [...staticRoutes, ...insightsRoutes, ...projectRoutes]
 }

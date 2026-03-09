@@ -238,6 +238,226 @@ export async function getTrendingRepos(limit = 6): Promise<RepoWithEnrichment[]>
   return hydrateDownloads(results)
 }
 
+// Fetch top rising repos with star velocity data for insights pages
+export interface RisingRepo extends RepoWithEnrichment {
+  stars_7d: number
+  stars_7d_prev: number
+}
+
+export async function getRisingRepos(limit = 10, snapshotDate?: string): Promise<RisingRepo[]> {
+  let targetDate = snapshotDate
+
+  if (!targetDate) {
+    // Get the latest snapshot date
+    const { data: latestRow } = await supabase
+      .from('repo_snapshots')
+      .select('snapshot_date')
+      .order('snapshot_date', { ascending: false })
+      .limit(1)
+
+    if (!latestRow || latestRow.length === 0) return []
+    targetDate = (latestRow[0] as unknown as { snapshot_date: string }).snapshot_date
+  }
+
+  const latestDate = targetDate
+
+  // Get date 7 days prior for acceleration
+  const latestD = new Date(latestDate)
+  latestD.setDate(latestD.getDate() - 7)
+  const prevDate = latestD.toISOString().slice(0, 10)
+
+  // Fetch latest snapshots sorted by stars_7d
+  const { data: snapshots, error: sErr } = await supabase
+    .from('repo_snapshots')
+    .select('repo_id, stars_7d')
+    .eq('snapshot_date', latestDate)
+    .gt('stars_7d', 0)
+    .order('stars_7d', { ascending: false })
+    .limit(limit * 3)
+
+  if (sErr || !snapshots || snapshots.length === 0) return []
+  const typedSnapshots = snapshots as unknown as Array<{ repo_id: string; stars_7d: number }>
+  const repoIds = typedSnapshots.map((s) => s.repo_id)
+
+  // Fetch previous week snapshots for acceleration
+  const { data: prevSnapshots } = await supabase
+    .from('repo_snapshots')
+    .select('repo_id, stars_7d')
+    .eq('snapshot_date', prevDate)
+    .in('repo_id', repoIds)
+
+  const prevMap = new Map<string, number>()
+  if (prevSnapshots) {
+    for (const s of prevSnapshots as unknown as Array<{ repo_id: string; stars_7d: number }>) {
+      prevMap.set(s.repo_id, s.stars_7d)
+    }
+  }
+
+  // Fetch repos + enrichments
+  const [{ data: repos }, { data: enrichments }] = await Promise.all([
+    supabase.from('repos').select('*').in('id', repoIds),
+    supabase.from('enrichments').select('*').in('repo_id', repoIds),
+  ])
+
+  if (!repos) return []
+  const typedRepos = repos as unknown as RawRepo[]
+  const typedEnrichments = (enrichments ?? []) as unknown as RawEnrichment[]
+
+  const enrichmentMap = new Map<string, RawEnrichment>()
+  for (const e of typedEnrichments) enrichmentMap.set(e.repo_id, e)
+  const repoMap = new Map<string, RawRepo>()
+  for (const r of typedRepos) repoMap.set(r.id, r)
+
+  const results: RisingRepo[] = []
+  for (const s of typedSnapshots) {
+    if (results.length >= limit) break
+    const repo = repoMap.get(s.repo_id)
+    const enrichment = enrichmentMap.get(s.repo_id)
+    if (!repo || !enrichment) continue
+    results.push({
+      ...repo,
+      enrichment,
+      stars_7d: s.stars_7d,
+      stars_7d_prev: prevMap.get(s.repo_id) ?? 0,
+    })
+  }
+
+  return results
+}
+
+// Get distinct snapshot dates (for generating archive pages)
+export async function getSnapshotDates(): Promise<string[]> {
+  const { data } = await supabase
+    .from('repo_snapshots')
+    .select('snapshot_date')
+    .order('snapshot_date', { ascending: false })
+    .limit(100)
+
+  if (!data) return []
+  const typed = data as unknown as Array<{ snapshot_date: string }>
+  // Deduplicate (PostgREST doesn't support DISTINCT on select)
+  const seen = new Set<string>()
+  return typed.filter((r) => {
+    if (seen.has(r.snapshot_date)) return false
+    seen.add(r.snapshot_date)
+    return true
+  }).map((r) => r.snapshot_date)
+}
+
+// Fetch repos that crossed star thresholds (1k, 5k, 10k, 25k, 50k, 100k) in the last 30 days
+export interface BreakoutRepo extends RepoWithEnrichment {
+  stars_now: number
+  stars_30d_ago: number
+  threshold: number
+}
+
+const THRESHOLDS = [100_000, 50_000, 25_000, 10_000, 5_000, 1_000] as const
+
+export async function getBreakoutRepos(): Promise<BreakoutRepo[]> {
+  // Get latest snapshot date
+  const { data: latestRow } = await supabase
+    .from('repo_snapshots')
+    .select('snapshot_date')
+    .order('snapshot_date', { ascending: false })
+    .limit(1)
+
+  if (!latestRow || latestRow.length === 0) return []
+  const latestDate = (latestRow[0] as unknown as { snapshot_date: string }).snapshot_date
+
+  // Get date ~30 days prior
+  const latestD = new Date(latestDate)
+  latestD.setDate(latestD.getDate() - 30)
+  const pastDate = latestD.toISOString().slice(0, 10)
+
+  // Find the closest actual snapshot date to 30 days ago
+  const { data: pastRow } = await supabase
+    .from('repo_snapshots')
+    .select('snapshot_date')
+    .lte('snapshot_date', pastDate)
+    .order('snapshot_date', { ascending: false })
+    .limit(1)
+
+  if (!pastRow || pastRow.length === 0) return []
+  const actualPastDate = (pastRow[0] as unknown as { snapshot_date: string }).snapshot_date
+
+  // Get current snapshots for repos with significant stars
+  const { data: currentSnaps } = await supabase
+    .from('repo_snapshots')
+    .select('repo_id, stars')
+    .eq('snapshot_date', latestDate)
+    .gte('stars', 1000)
+    .order('stars', { ascending: false })
+    .limit(500)
+
+  if (!currentSnaps || currentSnaps.length === 0) return []
+  const typedCurrent = currentSnaps as unknown as Array<{ repo_id: string; stars: number }>
+  const repoIds = typedCurrent.map((s) => s.repo_id)
+
+  // Get past snapshots for same repos
+  const { data: pastSnaps } = await supabase
+    .from('repo_snapshots')
+    .select('repo_id, stars')
+    .eq('snapshot_date', actualPastDate)
+    .in('repo_id', repoIds)
+
+  if (!pastSnaps) return []
+  const pastMap = new Map<string, number>()
+  for (const s of pastSnaps as unknown as Array<{ repo_id: string; stars: number }>) {
+    pastMap.set(s.repo_id, s.stars)
+  }
+
+  // Find repos that crossed a threshold
+  const crossers: Array<{ repo_id: string; stars_now: number; stars_30d_ago: number; threshold: number }> = []
+  for (const snap of typedCurrent) {
+    const past = pastMap.get(snap.repo_id)
+    if (past == null) continue
+    for (const t of THRESHOLDS) {
+      if (snap.stars >= t && past < t) {
+        crossers.push({ repo_id: snap.repo_id, stars_now: snap.stars, stars_30d_ago: past, threshold: t })
+        break // Only report the highest threshold crossed
+      }
+    }
+  }
+
+  if (crossers.length === 0) return []
+
+  // Sort by threshold DESC, then stars DESC
+  crossers.sort((a, b) => b.threshold - a.threshold || b.stars_now - a.stars_now)
+
+  const crosserIds = crossers.map((c) => c.repo_id)
+
+  // Fetch repos + enrichments
+  const [{ data: repos }, { data: enrichments }] = await Promise.all([
+    supabase.from('repos').select('*').in('id', crosserIds),
+    supabase.from('enrichments').select('*').in('repo_id', crosserIds),
+  ])
+
+  if (!repos) return []
+  const typedRepos = repos as unknown as RawRepo[]
+  const typedEnrichments = (enrichments ?? []) as unknown as RawEnrichment[]
+
+  const enrichmentMap = new Map<string, RawEnrichment>()
+  for (const e of typedEnrichments) enrichmentMap.set(e.repo_id, e)
+  const repoMap = new Map<string, RawRepo>()
+  for (const r of typedRepos) repoMap.set(r.id, r)
+
+  const results: BreakoutRepo[] = []
+  for (const c of crossers) {
+    const repo = repoMap.get(c.repo_id)
+    const enrichment = enrichmentMap.get(c.repo_id)
+    if (!repo || !enrichment) continue
+    results.push({
+      ...repo,
+      enrichment,
+      stars_now: c.stars_now,
+      stars_30d_ago: c.stars_30d_ago,
+      threshold: c.threshold,
+    })
+  }
+
+  return results
+}
+
 // Fetch daily Claude Code commit data for the chart
 // Uses BigQuery aggregate data (from _gitfind/_bigquery_aggregate placeholder repo)
 export async function getToolContributionsByDay(): Promise<

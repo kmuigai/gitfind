@@ -62,6 +62,7 @@ const NAV_CATEGORIES = [
 
 const NAV_FEATURES = [
   { name: 'AI Code Index', href: '/ai-code-index' },
+  { name: 'Insights', href: '/insights' },
 ]
 
 export default function RootLayout({
@@ -144,6 +145,14 @@ export default function RootLayout({
                       className="font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:text-[var(--foreground)]"
                     >
                       AI Code Index
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/insights"
+                      className="font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:text-[var(--foreground)]"
+                    >
+                      Insights
                     </Link>
                   </li>
                   <li>
