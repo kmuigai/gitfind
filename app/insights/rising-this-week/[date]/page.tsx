@@ -57,6 +57,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: `The 10 fastest-accelerating GitHub repos for the week of ${weekLabel}, ranked by 7-day star velocity.`,
       url,
     },
+    twitter: {
+      card: 'summary_large_image',
+      title: `Rising This Week: ${weekLabel} — GitFind Insights`,
+      description: `The 10 fastest-accelerating GitHub repos for the week of ${weekLabel}, ranked by 7-day star velocity.`,
+    },
   }
 }
 
