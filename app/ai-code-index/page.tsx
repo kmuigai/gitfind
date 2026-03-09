@@ -380,7 +380,7 @@ export default async function AICodeIndexPage() {
               </div>
 
               {/* Full-width commit volume table with Score column */}
-              <div className="mt-4">
+              <div className="mt-8">
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
                   Commit volume
                 </div>
@@ -473,7 +473,7 @@ export default async function AICodeIndexPage() {
               </div>
 
               {/* Metric strip — 3 panels in a horizontal band */}
-              <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-0" style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+              <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-0" style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
                 {/* Momentum */}
                 <div className="py-3 px-1 sm:pr-4" style={{ borderRight: '1px solid var(--border-subtle)' }}>
                   <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
@@ -556,7 +556,7 @@ export default async function AICodeIndexPage() {
               </div>
 
               {/* Chart */}
-              <div className="mt-8">
+              <div className="mt-10">
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
                   Daily commit volume
                 </div>
@@ -564,7 +564,7 @@ export default async function AICodeIndexPage() {
               </div>
 
               {/* Market share over time */}
-              <div className="mt-8" style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
+              <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
                   Market share over time
                 </div>
@@ -576,7 +576,7 @@ export default async function AICodeIndexPage() {
 
               {/* Adoption — config files + SDK dependencies */}
               {hasAdoptionData && (
-                <div className="mt-8 grid grid-cols-1 lg:grid-cols-2" style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
+                <div className="mt-10 grid grid-cols-1 lg:grid-cols-2" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
                   {configData.length > 0 && (
                     <div className="lg:pr-6" style={{ borderRight: configData.length > 0 && sdkData.length > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
                       <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
@@ -685,7 +685,7 @@ export default async function AICodeIndexPage() {
               )}
 
               {/* News feed */}
-              <div className="mt-8" style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
+              <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
                 <div className="mb-2 flex items-baseline justify-between">
                   <div className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
                     News
