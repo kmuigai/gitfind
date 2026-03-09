@@ -83,7 +83,7 @@ function logError(msg: string, err: unknown): void {
 async function main(): Promise<void> {
   // Dynamic imports — evaluated after dotenv.config() has run
   const [
-    { searchReposByCategory, searchTrendingMidTier, searchNewbornRockets, searchHighStarRepos, getReadme, cleanReadme, detectPackageName },
+    { searchReposByCategory, searchTrendingMidTier, searchMidHighRepos, searchNewbornRockets, searchHighStarRepos, getReadme, cleanReadme, detectPackageName },
     { calculateScore },
     { getHNMentions },
     { enrichRepo },
@@ -406,8 +406,7 @@ async function main(): Promise<void> {
     totalErrors++
   }
 
-  // Layer 3: Newborn rockets
-  // Smart wait: only sleep the remaining time needed to clear the 30-req/min search window
+  // Rate limit gate: Layers 1+2 used ~30 search requests. Wait for the 30-req/min window to reset.
   const elapsedMs = Date.now() - discoveryStartedAt
   const waitMs = Math.max(0, 62_000 - elapsedMs)
   if (waitMs > 0) {
@@ -416,6 +415,25 @@ async function main(): Promise<void> {
   } else {
     log('Search rate limit window already cleared, continuing...')
   }
+
+  // Layer 2.5: Mid-high repos (10k–100k stars, pushed recently)
+  log('\n── Layer 2.5: Mid-High Active Repos ──')
+  try {
+    const midHigh = await searchMidHighRepos()
+    let added = 0
+    for (const repo of midHigh) {
+      if (!discovered.has(repo.github_id)) {
+        discovered.set(repo.github_id, repo)
+        added++
+      }
+    }
+    log(`Layer 2.5: ${midHigh.length} found, ${added} new (${discovered.size} total unique)`)
+  } catch (err) {
+    logError('Layer 2.5 failed', err)
+    totalErrors++
+  }
+
+  // Layer 3: Newborn rockets
   log('\n── Layer 3: Newborn Rockets ──')
   try {
     const newborn = await searchNewbornRockets()
@@ -430,6 +448,16 @@ async function main(): Promise<void> {
   } catch (err) {
     logError('Layer 3 failed', err)
     totalErrors++
+  }
+
+  // Rate limit gate: Layers 2.5+3 used ~5 requests. Layer 4 needs 10. Wait for window reset.
+  const elapsed2Ms = Date.now() - discoveryStartedAt
+  const wait2Ms = Math.max(0, 124_000 - elapsed2Ms) // 2 full 62s windows from start
+  if (wait2Ms > 0) {
+    log(`Waiting ${Math.ceil(wait2Ms / 1000)}s for search rate limit window...`)
+    await new Promise((r) => setTimeout(r, wait2Ms))
+  } else {
+    log('Search rate limit window already cleared, continuing...')
   }
 
   // Layer 4: High-star legends (established repos >10k stars)
