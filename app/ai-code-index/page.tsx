@@ -883,9 +883,9 @@ export default async function AICodeIndexPage() {
                   <div className="mb-4 space-y-2">
                     {convergenceAlerts.map((alert) => {
                       const levelColors = {
-                        red: { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.3)', badge: '#ef4444', label: 'CONVERGENCE' },
-                        orange: { bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.3)', badge: '#f97316', label: 'CONVERGENCE' },
-                        yellow: { bg: 'rgba(234,179,8,0.06)', border: 'rgba(234,179,8,0.2)', badge: '#eab308', label: 'WATCH' },
+                        red: { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.3)', badge: '#ef4444', label: 'BREAKOUT' },
+                        orange: { bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.3)', badge: '#f59e0b', label: 'TRENDING' },
+                        yellow: { bg: 'rgba(234,179,8,0.06)', border: 'rgba(234,179,8,0.2)', badge: '#6c6af6', label: 'EMERGING' },
                       }
                       const colors = levelColors[alert.level]
                       return (

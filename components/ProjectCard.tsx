@@ -7,7 +7,7 @@ interface ProjectCardProps {
 }
 
 function ScoreBadge({ score }: { score: number }) {
-  const tier = score >= 70 ? 'Trending' : score >= 40 ? 'Rising' : 'Watch'
+  const tier = score >= 70 ? 'Breakout' : score >= 40 ? 'Trending' : 'Emerging'
   const color =
     score >= 70
       ? 'text-[var(--score-high)] border-[var(--score-high)]/30 bg-[var(--score-high)]/5'
