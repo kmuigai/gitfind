@@ -32,7 +32,7 @@ export default async function Ticker() {
       <div
         className="flex items-center whitespace-nowrap py-1.5"
         style={{
-          animation: `ticker ${repos.length * 9}s linear infinite`,
+          animation: `ticker ${repos.length * 6}s linear infinite`,
           width: 'max-content',
         }}
       >

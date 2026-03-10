@@ -838,7 +838,11 @@ export async function getAgentPRTimeSeries(): Promise<AdoptionTimeSeriesEntry[]>
 }
 
 // Aggregate KPI — total repos with any AI tool config + total AI commits
-export async function getAggregateKPIs(): Promise<{ configAggregate: number | null; commitAggregate: number | null }> {
+export async function getAggregateKPIs(): Promise<{
+  configAggregate: number | null
+  configAggregateWoW: number | null
+  commitAggregate: number | null
+}> {
   const { data: placeholder } = await supabase
     .from('repos')
     .select('id')
@@ -846,41 +850,51 @@ export async function getAggregateKPIs(): Promise<{ configAggregate: number | nu
     .eq('name', '_bigquery_aggregate')
     .maybeSingle()
 
-  if (!placeholder) return { configAggregate: null, commitAggregate: null }
+  if (!placeholder) return { configAggregate: null, configAggregateWoW: null, commitAggregate: null }
   const placeholderId = (placeholder as unknown as { id: string }).id
 
   const { data, error } = await supabase
     .from('tool_contributions')
-    .select('tool_name, commit_count')
+    .select('tool_name, month, commit_count')
     .eq('repo_id', placeholderId)
     .in('tool_name', ['All Tools [config-aggregate]', 'All Tools [commit-aggregate]'])
     .order('month', { ascending: false })
-    .limit(10)
+    .limit(20)
 
-  if (error || !data) return { configAggregate: null, commitAggregate: null }
+  if (error || !data) return { configAggregate: null, configAggregateWoW: null, commitAggregate: null }
 
   const typed = data as unknown as Array<{
     tool_name: string
+    month: string
     commit_count: number
   }>
 
   let configAggregate: number | null = null
+  let configPrior: number | null = null
   let commitAggregate: number | null = null
 
   for (const row of typed) {
-    if (row.tool_name === 'All Tools [config-aggregate]' && configAggregate === null) {
-      configAggregate = row.commit_count
+    if (row.tool_name === 'All Tools [config-aggregate]') {
+      if (configAggregate === null) {
+        configAggregate = row.commit_count
+      } else if (configPrior === null) {
+        configPrior = row.commit_count
+      }
     }
     if (row.tool_name === 'All Tools [commit-aggregate]' && commitAggregate === null) {
       commitAggregate = row.commit_count
     }
   }
 
-  return { configAggregate, commitAggregate }
+  const configAggregateWoW = configAggregate !== null && configPrior !== null && configPrior > 0
+    ? ((configAggregate - configPrior) / configPrior) * 100
+    : null
+
+  return { configAggregate, configAggregateWoW, commitAggregate }
 }
 
-// HN Buzz — latest mention counts and points per tool
-export async function getHNBuzzData(): Promise<Array<{ tool: string; mentions: number; points: number }>> {
+// Community Buzz — unified mention counts from HN, Reddit, and GitHub Discussions
+export async function getCommunityBuzzData(): Promise<Array<{ tool: string; mentions: number; hn: number; reddit: number; ghDiscussions: number }>> {
   const { data: placeholder } = await supabase
     .from('repos')
     .select('id')
@@ -895,9 +909,9 @@ export async function getHNBuzzData(): Promise<Array<{ tool: string; mentions: n
     .from('tool_contributions')
     .select('tool_name, month, commit_count')
     .eq('repo_id', placeholderId)
-    .or('tool_name.like.%[hn-buzz],tool_name.like.%[hn-points]')
+    .or('tool_name.like.%[hn-buzz],tool_name.like.%[reddit-buzz],tool_name.like.%[gh-discussions-buzz]')
     .order('month', { ascending: false })
-    .limit(200)
+    .limit(500)
 
   if (error || !data) return []
 
@@ -907,26 +921,33 @@ export async function getHNBuzzData(): Promise<Array<{ tool: string; mentions: n
     commit_count: number
   }>
 
-  // Get latest entry per tool per type
-  const latestBuzz = new Map<string, number>()
-  const latestPoints = new Map<string, number>()
+  // Get latest entry per tool per source
+  const latestHN = new Map<string, number>()
+  const latestReddit = new Map<string, number>()
+  const latestGHD = new Map<string, number>()
 
   for (const row of typed) {
     if (row.tool_name.endsWith('[hn-buzz]')) {
       const tool = row.tool_name.replace(' [hn-buzz]', '')
-      if (!latestBuzz.has(tool)) latestBuzz.set(tool, row.commit_count)
-    } else if (row.tool_name.endsWith('[hn-points]')) {
-      const tool = row.tool_name.replace(' [hn-points]', '')
-      if (!latestPoints.has(tool)) latestPoints.set(tool, row.commit_count)
+      if (!latestHN.has(tool)) latestHN.set(tool, row.commit_count)
+    } else if (row.tool_name.endsWith('[reddit-buzz]')) {
+      const tool = row.tool_name.replace(' [reddit-buzz]', '')
+      if (!latestReddit.has(tool)) latestReddit.set(tool, row.commit_count)
+    } else if (row.tool_name.endsWith('[gh-discussions-buzz]')) {
+      const tool = row.tool_name.replace(' [gh-discussions-buzz]', '')
+      if (!latestGHD.has(tool)) latestGHD.set(tool, row.commit_count)
     }
   }
 
-  const tools = new Set([...latestBuzz.keys(), ...latestPoints.keys()])
-  return Array.from(tools).map((tool) => ({
-    tool,
-    mentions: latestBuzz.get(tool) ?? 0,
-    points: latestPoints.get(tool) ?? 0,
-  }))
+  const allTools = new Set([...latestHN.keys(), ...latestReddit.keys(), ...latestGHD.keys()])
+  return Array.from(allTools)
+    .map((tool) => {
+      const hn = latestHN.get(tool) ?? 0
+      const reddit = latestReddit.get(tool) ?? 0
+      const ghDiscussions = latestGHD.get(tool) ?? 0
+      return { tool, mentions: hn + reddit + ghDiscussions, hn, reddit, ghDiscussions }
+    })
+    .filter((t) => t.mentions > 0)
 }
 
 // Fetch the latest package download snapshot for a repo
