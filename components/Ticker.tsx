@@ -8,9 +8,9 @@ function formatNum(n: number): string {
 }
 
 function getBadge(pct: number, stars_7d: number): { label: string; color: string } | null {
-  if (pct >= 200) return { label: 'BREAKOUT', color: '#ef4444' }
-  if (pct >= 50) return { label: 'TRENDING', color: '#f59e0b' }
-  if (stars_7d >= 500) return { label: 'TRENDING', color: '#f59e0b' }
+  if (pct >= 200) return { label: 'BREAKOUT', color: 'var(--badge-breakout)' }
+  if (pct >= 50) return { label: 'HOT', color: 'var(--badge-hot)' }
+  if (stars_7d >= 500) return { label: 'HOT', color: 'var(--badge-hot)' }
   return null
 }
 

@@ -16,6 +16,9 @@
   --score-high: #22c55e;
   --score-mid: #f59e0b;
   --score-low: #6b7280;
+  --badge-breakout: #ef4444;
+  --badge-hot: #f59e0b;
+  --badge-active: #06b6d4;
   --chart-line: #6c6af6;
   --error: #ef4444;
   --on-accent: #ffffff;
@@ -36,6 +39,9 @@
   --score-high: #16a34a;
   --score-mid: #d97706;
   --score-low: #6b7280;
+  --badge-breakout: #b91c1c;
+  --badge-hot: #b45309;
+  --badge-active: #0e7490;
   --chart-line: #5553d4;
   --error: #dc2626;
   --on-accent: #ffffff;
@@ -56,6 +62,9 @@
   --color-score-high: var(--score-high);
   --color-score-mid: var(--score-mid);
   --color-score-low: var(--score-low);
+  --color-badge-breakout: var(--badge-breakout);
+  --color-badge-hot: var(--badge-hot);
+  --color-badge-active: var(--badge-active);
   --color-error: var(--error);
   --color-on-accent: var(--on-accent);
   --font-sans: var(--font-geist-sans);

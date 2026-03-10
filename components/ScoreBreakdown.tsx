@@ -33,17 +33,17 @@ const SIGNALS = [
 export default function ScoreBreakdown({ score, breakdown }: ScoreBreakdownProps) {
   const [expanded, setExpanded] = useState(false)
 
-  const tier = score >= 70 ? 'Breakout' : score >= 40 ? 'Trending' : 'Emerging'
+  const tier = score >= 70 ? 'Breakout' : score >= 40 ? 'Hot' : 'Active'
   const textColor =
-    score >= 70 ? 'text-[var(--score-high)]' : score >= 40 ? 'text-[var(--score-mid)]' : 'text-[var(--score-low)]'
+    score >= 70 ? 'text-[var(--badge-breakout)]' : score >= 40 ? 'text-[var(--badge-hot)]' : 'text-[var(--badge-active)]'
   const barColor =
-    score >= 70 ? 'bg-[var(--score-high)]' : score >= 40 ? 'bg-[var(--score-mid)]' : 'bg-[var(--score-low)]'
+    score >= 70 ? 'bg-[var(--badge-breakout)]' : score >= 40 ? 'bg-[var(--badge-hot)]' : 'bg-[var(--badge-active)]'
   const tierText =
     score >= 70
       ? 'Strong early signal — breaking out'
       : score >= 40
-        ? 'Gaining traction — trending upward'
-        : 'Emerging — early signal detected'
+        ? 'Gaining traction — heating up'
+        : 'On the radar — signal detected'
 
   return (
     <div className="space-y-3">

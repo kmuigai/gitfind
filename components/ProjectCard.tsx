@@ -7,13 +7,13 @@ interface ProjectCardProps {
 }
 
 function ScoreBadge({ score }: { score: number }) {
-  const tier = score >= 70 ? 'Breakout' : score >= 40 ? 'Trending' : 'Emerging'
+  const tier = score >= 70 ? 'Breakout' : score >= 40 ? 'Hot' : 'Active'
   const color =
     score >= 70
-      ? 'text-[var(--score-high)] border-[var(--score-high)]/30 bg-[var(--score-high)]/5'
+      ? 'text-[var(--badge-breakout)] border-[var(--badge-breakout)]/30 bg-[var(--badge-breakout)]/10'
       : score >= 40
-        ? 'text-[var(--score-mid)] border-[var(--score-mid)]/30 bg-[var(--score-mid)]/5'
-        : 'text-[var(--score-low)] border-[var(--score-low)]/30 bg-[var(--score-low)]/5'
+        ? 'text-[var(--badge-hot)] border-[var(--badge-hot)]/30 bg-[var(--badge-hot)]/10'
+        : 'text-[var(--badge-active)] border-[var(--badge-active)]/30 bg-[var(--badge-active)]/10'
 
   return (
     <span
@@ -62,7 +62,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   const score = enrichment?.early_signal_score ?? 0
 
   return (
-    <article className="group relative flex h-full flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--background-card)] p-5 transition-all duration-200 hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)]">
+    <article className="group relative flex h-full flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--background-card)] p-5 transition-all duration-200 hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)] hover:-translate-y-1 hover:shadow-lg hover:shadow-black/20">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">

@@ -82,13 +82,13 @@ function formatAcceleration(current: number, prev: number): { label: string; pos
 }
 
 function ScoreBadge({ score }: { score: number }) {
-  const tier = score >= 70 ? 'Breakout' : score >= 40 ? 'Trending' : 'Emerging'
+  const tier = score >= 70 ? 'Breakout' : score >= 40 ? 'Hot' : 'Active'
   const color =
     score >= 70
-      ? 'text-[var(--score-high)] border-[var(--score-high)]/30 bg-[var(--score-high)]/5'
+      ? 'text-[var(--badge-breakout)] border-[var(--badge-breakout)]/30 bg-[var(--badge-breakout)]/10'
       : score >= 40
-        ? 'text-[var(--score-mid)] border-[var(--score-mid)]/30 bg-[var(--score-mid)]/5'
-        : 'text-[var(--score-low)] border-[var(--score-low)]/30 bg-[var(--score-low)]/5'
+        ? 'text-[var(--badge-hot)] border-[var(--badge-hot)]/30 bg-[var(--badge-hot)]/10'
+        : 'text-[var(--badge-active)] border-[var(--badge-active)]/30 bg-[var(--badge-active)]/10'
 
   return (
     <span className={`inline-flex flex-col items-center rounded-full border px-2 py-0.5 ${color}`}>
