@@ -656,7 +656,7 @@ export default async function AICodeIndexPage() {
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
                   Daily commit volume
                 </div>
-                <AICodeIndexChart data={data} />
+                <AICodeIndexChart data={data} configTimeSeries={configTimeSeries} agentPRTimeSeries={agentPRTimeSeries} />
               </div>
 
               {/* Market share over time */}

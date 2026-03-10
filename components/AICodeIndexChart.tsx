@@ -12,8 +12,16 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 
+interface TimeSeriesEntry {
+  tool: string
+  date: string
+  count: number
+}
+
 interface AICodeIndexChartProps {
   data: Array<{ date: string; [tool: string]: number | string }>
+  configTimeSeries?: TimeSeriesEntry[]
+  agentPRTimeSeries?: TimeSeriesEntry[]
 }
 
 const TOOL_COLORS: Record<string, string> = {
@@ -28,6 +36,14 @@ const TOOL_COLORS: Record<string, string> = {
 
 const TOOL_KEYS = Object.keys(TOOL_COLORS)
 
+// Extended colors for config/agent layers (some tools differ from commit tools)
+const LAYER_COLORS: Record<string, string> = {
+  ...TOOL_COLORS,
+  'AGENTS.md': '#8b5cf6',
+  'Windsurf': '#06b6d4',
+  'CodeRabbit': '#f97316',
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 type TimeRange = '1W' | '1M' | '3M' | '1Y' | 'ALL'
@@ -39,6 +55,13 @@ const RANGE_DAYS: Record<TimeRange, number | null> = {
   '3M': 90,
   '1Y': 365,
   'ALL': null,
+}
+
+type LayerKey = 'config' | 'agentPR'
+
+const LAYER_LABELS: Record<LayerKey, string> = {
+  config: 'Config Files',
+  agentPR: 'Agent PRs',
 }
 
 const MONO = 'var(--font-geist-mono), ui-monospace, monospace'
@@ -93,16 +116,95 @@ function formatTick(date: string, dataLength: number): string {
   return formatMonthYear(date)
 }
 
-export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
+// Parse active layers from URL hash (e.g. #layers=config,agentPR)
+function parseLayersFromHash(): Set<LayerKey> {
+  if (typeof window === 'undefined') return new Set()
+  const hash = window.location.hash
+  const match = hash.match(/layers=([^&]+)/)
+  if (!match) return new Set()
+  const keys = match[1].split(',').filter((k): k is LayerKey => k === 'config' || k === 'agentPR')
+  return new Set(keys)
+}
+
+function updateHashLayers(layers: Set<LayerKey>) {
+  if (typeof window === 'undefined') return
+  if (layers.size === 0) {
+    // Remove hash if no layers
+    if (window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    }
+  } else {
+    window.history.replaceState(null, '', `#layers=${[...layers].join(',')}`)
+  }
+}
+
+// Build overlay chart data from time-series entries, filtered to the same date range
+function buildLayerData(
+  entries: TimeSeriesEntry[],
+  dateRange: { start: string; end: string },
+): { dates: string[]; tools: string[]; rows: Array<Record<string, number | string>> } {
+  if (entries.length === 0) return { dates: [], tools: [], rows: [] }
+
+  // Filter to date range
+  const filtered = entries.filter((e) => e.date >= dateRange.start && e.date <= dateRange.end)
+  if (filtered.length === 0) return { dates: [], tools: [], rows: [] }
+
+  // Pivot: date → { tool: count }
+  const tools = [...new Set(filtered.map((e) => e.tool))].sort()
+  const dateMap = new Map<string, Record<string, number>>()
+  for (const e of filtered) {
+    const row = dateMap.get(e.date) ?? {}
+    row[e.tool] = e.count
+    dateMap.set(e.date, row)
+  }
+
+  const dates = [...dateMap.keys()].sort()
+  const rows = dates.map((date, i) => {
+    const row: Record<string, number | string> = { date, idx: i, label: formatDate(date), fullLabel: formatDateFull(date) }
+    const vals = dateMap.get(date) ?? {}
+    for (const tool of tools) {
+      row[tool] = vals[tool] ?? 0
+    }
+    return row
+  })
+
+  return { dates, tools, rows }
+}
+
+export default function AICodeIndexChart({ data, configTimeSeries, agentPRTimeSeries }: AICodeIndexChartProps) {
   const [hasAnimated, setHasAnimated] = useState(false)
   const [range, setRange] = useState<TimeRange>('ALL')
   const [hiddenTools, setHiddenTools] = useState<Set<string>>(new Set())
   const [tooltipActive, setTooltipActive] = useState(true)
   const [downloading, setDownloading] = useState(false)
   const [showMA, setShowMA] = useState(false)
+  const [activeLayers, setActiveLayers] = useState<Set<LayerKey>>(() => parseLayersFromHash())
   const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<HTMLDivElement>(null)
+
+  // Sync hash on mount (for SSR hydration)
+  useEffect(() => {
+    setActiveLayers(parseLayersFromHash())
+  }, [])
+
+  const toggleLayer = useCallback((layer: LayerKey) => {
+    setActiveLayers((prev) => {
+      const next = new Set(prev)
+      if (next.has(layer)) next.delete(layer)
+      else next.add(layer)
+      updateHashLayers(next)
+      return next
+    })
+  }, [])
+
+  // Which layers have data
+  const availableLayers = useMemo(() => {
+    const available: LayerKey[] = []
+    if (configTimeSeries && configTimeSeries.length > 0) available.push('config')
+    if (agentPRTimeSeries && agentPRTimeSeries.length > 0) available.push('agentPR')
+    return available
+  }, [configTimeSeries, agentPRTimeSeries])
 
   useEffect(() => {
     const el = containerRef.current
@@ -126,6 +228,12 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
     return data.slice(-days)
   }, [data, range])
 
+  // Date range for overlay filtering
+  const dateRange = useMemo(() => {
+    if (filtered.length === 0) return { start: '', end: '' }
+    return { start: filtered[0].date, end: filtered[filtered.length - 1].date }
+  }, [filtered])
+
   // Determine which tools actually have data
   const activeTools = useMemo(() => {
     return TOOL_KEYS.filter((tool) =>
@@ -136,6 +244,17 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
   const visibleTools = useMemo(() => {
     return activeTools.filter((t) => !hiddenTools.has(t))
   }, [activeTools, hiddenTools])
+
+  // Build overlay data for active layers
+  const configLayerData = useMemo(() => {
+    if (!activeLayers.has('config') || !configTimeSeries) return null
+    return buildLayerData(configTimeSeries, dateRange)
+  }, [activeLayers, configTimeSeries, dateRange])
+
+  const agentPRLayerData = useMemo(() => {
+    if (!activeLayers.has('agentPR') || !agentPRTimeSeries) return null
+    return buildLayerData(agentPRTimeSeries, dateRange)
+  }, [activeLayers, agentPRTimeSeries, dateRange])
 
   // On touch: show tooltip, then auto-hide after 2s
   const handleTouchTooltip = useCallback(() => {
@@ -321,9 +440,9 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
 
   return (
     <div ref={containerRef}>
-      {/* Range selector + MA toggle + download */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex gap-1 items-center" style={{ fontFamily: MONO }}>
+      {/* Range selector + MA toggle + layer toggles + download */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1 items-center" style={{ fontFamily: MONO }}>
           {RANGES.map((r) => (
             <button
               key={r}
@@ -354,6 +473,30 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
           >
             7d MA
           </button>
+          {availableLayers.length > 0 && (
+            <>
+              <span className="mx-1 text-[var(--border)]">|</span>
+              {availableLayers.map((layer) => {
+                const isActive = activeLayers.has(layer)
+                return (
+                  <button
+                    key={layer}
+                    onClick={() => toggleLayer(layer)}
+                    className="px-3 py-1 text-xs transition-colors"
+                    style={{
+                      fontFamily: MONO,
+                      borderRadius: '6px',
+                      border: isActive ? '1px solid #22c55e' : '1px solid var(--border)',
+                      background: isActive ? 'rgba(34,197,94,0.15)' : 'transparent',
+                      color: isActive ? '#22c55e' : 'var(--foreground-subtle)',
+                    }}
+                  >
+                    {LAYER_LABELS[layer]}
+                  </button>
+                )
+              })}
+            </>
+          )}
         </div>
         <button
           onClick={handleDownload}
@@ -487,6 +630,186 @@ export default function AICodeIndexChart({ data }: AICodeIndexChartProps) {
           })}
         </div>
       </div>
+
+      {/* Signal Layer: Config File Adoption */}
+      {configLayerData && configLayerData.rows.length > 0 && (
+        <div className="mt-6" style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem' }}>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#22c55e]">
+              Layer
+            </span>
+            <span className="text-xs text-[var(--foreground-muted)]" style={{ fontFamily: MONO }}>
+              Config file adoption over time (repos)
+            </span>
+          </div>
+          <div className="h-40 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={configLayerData.rows}
+                margin={{ top: 4, right: 30, left: -8, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="2 4"
+                  stroke="var(--border)"
+                  strokeOpacity={0.3}
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="idx"
+                  type="number"
+                  domain={[0, Math.max(configLayerData.rows.length - 1, 1)]}
+                  ticks={getTickIndices(configLayerData.rows as Array<{ date: string }>)}
+                  tickFormatter={(idx: number) => {
+                    const d = configLayerData.rows[idx]
+                    return d ? formatTick(String(d.date), configLayerData.rows.length) : ''
+                  }}
+                  tick={{ fontSize: 10, fill: 'var(--foreground-subtle)', fontFamily: MONO }}
+                  axisLine={{ stroke: 'var(--border)' }}
+                  tickLine={false}
+                  height={24}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: 'var(--foreground-subtle)', fontFamily: MONO }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={48}
+                  tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--background-card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontFamily: MONO,
+                    color: 'var(--foreground)',
+                    padding: '6px 10px',
+                  }}
+                  labelFormatter={(_label, payload) => {
+                    const item = payload?.[0]?.payload as { fullLabel?: string } | undefined
+                    return item?.fullLabel ?? String(_label)
+                  }}
+                  formatter={(value: number | undefined, name?: string) => [
+                    `${(value ?? 0).toLocaleString()} repos`,
+                    name ?? '',
+                  ]}
+                />
+                {configLayerData.tools.map((tool) => (
+                  <Line
+                    key={tool}
+                    type="monotone"
+                    dataKey={tool}
+                    name={tool}
+                    stroke={LAYER_COLORS[tool] ?? 'var(--foreground-subtle)'}
+                    strokeWidth={1.5}
+                    dot={{ r: 4, fill: LAYER_COLORS[tool] ?? 'var(--foreground-subtle)', stroke: 'none' }}
+                    activeDot={{ r: 5, fill: LAYER_COLORS[tool] ?? 'var(--foreground-subtle)', stroke: 'none' }}
+                    isAnimationActive={false}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-3">
+            {configLayerData.tools.map((tool) => (
+              <span key={tool} className="flex items-center gap-1.5 text-[10px]" style={{ fontFamily: MONO, color: 'var(--foreground-muted)' }}>
+                <span className="inline-block h-1.5 w-1.5 rounded-sm" style={{ backgroundColor: LAYER_COLORS[tool] ?? 'var(--foreground-subtle)' }} />
+                {tool}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Signal Layer: Agent PRs */}
+      {agentPRLayerData && agentPRLayerData.rows.length > 0 && (
+        <div className="mt-6" style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem' }}>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#22c55e]">
+              Layer
+            </span>
+            <span className="text-xs text-[var(--foreground-muted)]" style={{ fontFamily: MONO }}>
+              Autonomous agent PRs per day
+            </span>
+          </div>
+          <div className="h-40 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={agentPRLayerData.rows}
+                margin={{ top: 4, right: 30, left: -8, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="2 4"
+                  stroke="var(--border)"
+                  strokeOpacity={0.3}
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="idx"
+                  type="number"
+                  domain={[0, Math.max(agentPRLayerData.rows.length - 1, 1)]}
+                  ticks={getTickIndices(agentPRLayerData.rows as Array<{ date: string }>)}
+                  tickFormatter={(idx: number) => {
+                    const d = agentPRLayerData.rows[idx]
+                    return d ? formatTick(String(d.date), agentPRLayerData.rows.length) : ''
+                  }}
+                  tick={{ fontSize: 10, fill: 'var(--foreground-subtle)', fontFamily: MONO }}
+                  axisLine={{ stroke: 'var(--border)' }}
+                  tickLine={false}
+                  height={24}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: 'var(--foreground-subtle)', fontFamily: MONO }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={48}
+                  tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--background-card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontFamily: MONO,
+                    color: 'var(--foreground)',
+                    padding: '6px 10px',
+                  }}
+                  labelFormatter={(_label, payload) => {
+                    const item = payload?.[0]?.payload as { fullLabel?: string } | undefined
+                    return item?.fullLabel ?? String(_label)
+                  }}
+                  formatter={(value: number | undefined, name?: string) => [
+                    `${(value ?? 0).toLocaleString()} PRs`,
+                    name ?? '',
+                  ]}
+                />
+                {agentPRLayerData.tools.map((tool) => (
+                  <Line
+                    key={tool}
+                    type="monotone"
+                    dataKey={tool}
+                    name={tool}
+                    stroke={LAYER_COLORS[tool] ?? 'var(--foreground-subtle)'}
+                    strokeWidth={1.5}
+                    dot={{ r: 4, fill: LAYER_COLORS[tool] ?? 'var(--foreground-subtle)', stroke: 'none' }}
+                    activeDot={{ r: 5, fill: LAYER_COLORS[tool] ?? 'var(--foreground-subtle)', stroke: 'none' }}
+                    isAnimationActive={false}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-3">
+            {agentPRLayerData.tools.map((tool) => (
+              <span key={tool} className="flex items-center gap-1.5 text-[10px]" style={{ fontFamily: MONO, color: 'var(--foreground-muted)' }}>
+                <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: LAYER_COLORS[tool] ?? 'var(--foreground-subtle)' }} />
+                {tool}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

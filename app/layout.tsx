@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Analytics } from '@vercel/analytics/next'
 import ThemeToggle from '@/components/ThemeToggle'
 import MobileMenu from '@/components/MobileMenu'
+import Ticker from '@/components/Ticker'
 import './globals.css'
 
 const geistSans = Geist({
@@ -127,7 +128,7 @@ export default function RootLayout({
         <main className="min-h-[calc(100vh-3.5rem)]">{children}</main>
 
         {/* Footer */}
-        <footer className="border-t border-[var(--border)] py-12 mt-16">
+        <footer className="border-t border-[var(--border)] py-12 mt-16 pb-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
             <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
               {/* Brand + links */}
@@ -213,6 +214,7 @@ export default function RootLayout({
             </div>
           </div>
         </footer>
+        <Ticker />
         <Analytics />
       </body>
     </html>

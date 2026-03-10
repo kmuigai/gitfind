@@ -704,6 +704,7 @@ export async function getConfigAdoptionTimeSeries(): Promise<AdoptionTimeSeriesE
     .select('tool_name, month, commit_count')
     .eq('repo_id', placeholderId)
     .like('tool_name', '%[config]')
+    .like('month', '____-__-__')
     .order('month', { ascending: true })
     .limit(500)
 
@@ -817,6 +818,7 @@ export async function getAgentPRTimeSeries(): Promise<AdoptionTimeSeriesEntry[]>
     .select('tool_name, month, commit_count')
     .eq('repo_id', placeholderId)
     .like('tool_name', '%[pr]')
+    .like('month', '____-__-__')
     .order('month', { ascending: true })
     .limit(500)
 
@@ -997,4 +999,81 @@ function joinReposAndEnrichments(
       const bOrder = enrichmentOrder.get(b.id) ?? 999
       return aOrder - bOrder
     })
+}
+
+// Ticker: top repos by stars % increase (7d), with floor filters
+export interface TickerRepo {
+  owner: string
+  name: string
+  stars: number
+  stars_7d: number
+  pct_increase: number
+  summary: string | null
+  category: string | null
+}
+
+export async function getTickerRepos(limit = 15): Promise<TickerRepo[]> {
+  // Get latest snapshot date
+  const { data: latestRow } = await supabase
+    .from('repo_snapshots')
+    .select('snapshot_date')
+    .order('snapshot_date', { ascending: false })
+    .limit(1)
+
+  if (!latestRow || latestRow.length === 0) return []
+  const latestDate = (latestRow[0] as unknown as { snapshot_date: string }).snapshot_date
+
+  // Fetch snapshots with meaningful star growth
+  const { data: snapshots } = await supabase
+    .from('repo_snapshots')
+    .select('repo_id, stars, stars_7d')
+    .eq('snapshot_date', latestDate)
+    .gte('stars_7d', 20)
+    .gte('stars', 50)
+    .order('stars_7d', { ascending: false })
+    .limit(limit * 3)
+
+  if (!snapshots || snapshots.length === 0) return []
+  const typedSnaps = snapshots as unknown as Array<{ repo_id: string; stars: number; stars_7d: number }>
+
+  // Calculate % increase and sort
+  const withPct = typedSnaps
+    .map((s) => ({
+      ...s,
+      pct_increase: s.stars > s.stars_7d ? (s.stars_7d / (s.stars - s.stars_7d)) * 100 : 999,
+    }))
+    .sort((a, b) => b.pct_increase - a.pct_increase)
+
+  const repoIds = withPct.map((s) => s.repo_id)
+
+  const [{ data: repos }, { data: enrichments }] = await Promise.all([
+    supabase.from('repos').select('id, owner, name, stars').in('id', repoIds),
+    supabase.from('enrichments').select('repo_id, summary, category').in('repo_id', repoIds),
+  ])
+
+  if (!repos) return []
+  const typedRepos = repos as unknown as Array<{ id: string; owner: string; name: string; stars: number }>
+  const typedEnrichments = (enrichments ?? []) as unknown as Array<{ repo_id: string; summary: string; category: string }>
+
+  const repoMap = new Map(typedRepos.map((r) => [r.id, r]))
+  const enrichmentMap = new Map(typedEnrichments.map((e) => [e.repo_id, e]))
+
+  const results: TickerRepo[] = []
+  for (const s of withPct) {
+    if (results.length >= limit) break
+    const repo = repoMap.get(s.repo_id)
+    const enrichment = enrichmentMap.get(s.repo_id)
+    if (!repo || !enrichment) continue
+    results.push({
+      owner: repo.owner,
+      name: repo.name,
+      stars: s.stars,
+      stars_7d: s.stars_7d,
+      pct_increase: Math.round(s.pct_increase),
+      summary: enrichment?.summary ?? null,
+      category: enrichment?.category ?? null,
+    })
+  }
+
+  return results
 }
