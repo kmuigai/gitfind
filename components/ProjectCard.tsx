@@ -62,7 +62,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   const score = enrichment?.early_signal_score ?? 0
 
   return (
-    <article className="group relative flex h-full flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--background-card)] p-5 transition-all duration-200 hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)] hover:-translate-y-1 hover:shadow-lg hover:shadow-black/20">
+    <article className="group relative flex h-full flex-col gap-3 rounded-lg border border-[var(--border)] border-l-2 border-l-transparent bg-[var(--background-card)] p-5 transition-all duration-200 hover:border-[var(--accent)]/40 hover:border-l-[var(--accent)] hover:bg-[var(--background-elevated)]">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">

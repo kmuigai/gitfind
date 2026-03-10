@@ -290,9 +290,9 @@ export default async function BreakoutReposPage() {
       {/* Methodology */}
       <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-4xl">
-          <h2 className="font-mono text-sm font-medium text-[var(--foreground-muted)]">
-            Methodology
-          </h2>
+          <div className="term-label mb-2">
+            {'// METHODOLOGY'}
+          </div>
           <p className="mt-2 text-xs leading-relaxed text-[var(--foreground-subtle)]">
             A breakout is defined as a repo whose star count crossed a major threshold (1k, 5k, 10k, 25k, 50k, or 100k) within the last 30 days.
             Only repos with enriched context are included. Each repo is tagged with the highest threshold crossed.

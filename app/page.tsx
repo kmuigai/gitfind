@@ -63,12 +63,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <div className="mx-auto max-w-7xl">
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="font-mono text-lg font-semibold text-[var(--foreground)]">
+              <h2 className="term-label text-[11px]">
                 {view === 'trending'
-                  ? 'This week\u0027s movers'
-                  : 'Top ranked'}
+                  ? '// THIS_WEEKS_MOVERS'
+                  : '// TOP_RANKED'}
               </h2>
-              <p className="mt-1 font-mono text-sm text-[var(--foreground-muted)]">
+              <p className="mt-1 font-mono text-[11px] text-[var(--foreground-muted)]">
                 {view === 'trending'
                   ? 'The projects gaining the most traction right now'
                   : 'Scored by velocity, community growth, and cross-platform buzz'}
@@ -98,10 +98,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <div className="mx-auto max-w-4xl">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="font-mono text-lg font-semibold text-[var(--foreground)]">
-                  The rise of AI-written code
+                <h2 className="term-label text-[11px]">
+                  {'// AI_COMMIT_TRACKING'}
                 </h2>
-                <p className="mt-1 font-mono text-sm text-[var(--foreground-muted)]">
+                <p className="mt-1 font-mono text-[11px] text-[var(--foreground-muted)]">
                   Claude Code commits across public GitHub repositories, tracked daily since 2025.
                 </p>
               </div>

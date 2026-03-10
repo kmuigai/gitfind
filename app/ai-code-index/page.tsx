@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getAICodeIndexData, getConfigAdoptionData, getSDKAdoptionData, getConfigAdoptionTimeSeries, getSDKAdoptionTimeSeries, getAgentPRData, getAgentPRTimeSeries, getAggregateKPIs, getHNBuzzData } from '@/lib/queries'
+import { getAICodeIndexData, getConfigAdoptionData, getSDKAdoptionData, getConfigAdoptionTimeSeries, getSDKAdoptionTimeSeries, getAgentPRData, getAgentPRTimeSeries, getAggregateKPIs, getCommunityBuzzData } from '@/lib/queries'
 import type { AdoptionTimeSeriesEntry } from '@/lib/queries'
 import AICodeIndexChart from '@/components/AICodeIndexChart'
 import MarketShareChart from '@/components/MarketShareChart'
@@ -282,6 +282,12 @@ function computeCompositeScores(
   return composites.sort((a, b) => b.score - a.score)
 }
 
+function renderBlockBar(value: number, max: number = 100): string {
+  const pct = Math.max(0, Math.min(1, value / max))
+  const filled = Math.round(pct * 8)
+  return '█'.repeat(filled) + '░'.repeat(8 - filled)
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 function formatDateShort(date: string): string {
@@ -301,7 +307,7 @@ function computeConvergenceAlerts(
   stats: ReturnType<typeof computeToolStats>,
   configTimeSeries: AdoptionTimeSeriesEntry[],
   agentPRData: Array<{ tool: string; count: number; date: string }>,
-  hnBuzzData: Array<{ tool: string; mentions: number; points: number }>,
+  buzzData: Array<{ tool: string; mentions: number }>,
 ): ConvergenceAlert[] {
   const alerts: ConvergenceAlert[] = []
 
@@ -333,10 +339,10 @@ function computeConvergenceAlerts(
       signals.push(`${formatNum(agentData.count)} agent PRs/day`)
     }
 
-    // Signal 5: HN buzz (>5 stories in 7 days)
-    const hnData = hnBuzzData.find((h) => h.tool === tool)
-    if (hnData && hnData.mentions >= 5) {
-      signals.push(`${hnData.mentions} HN stories (7d)`)
+    // Signal 5: Community buzz (>10 mentions across HN + Reddit + GH Discussions in 7 days)
+    const buzzEntry = buzzData.find((h) => h.tool === tool)
+    if (buzzEntry && buzzEntry.mentions >= 10) {
+      signals.push(`${buzzEntry.mentions} community mentions (7d)`)
     }
 
     // Signal 6: Market share dominance (>50%)
@@ -385,10 +391,20 @@ export default async function AICodeIndexPage() {
     ? ((totalCommits30d - totalCommitsPrior30d) / totalCommitsPrior30d) * 100
     : 0
 
+  // Aggregate WoW: total commits this week vs last week
+  const last7 = data.slice(-7)
+  const prior7 = data.slice(-14, -7)
+  const toolKeys = Object.keys(TOOL_COLORS)
+  const sumWeek = (rows: typeof data) => rows.reduce((sum, row) =>
+    sum + toolKeys.reduce((ts, t) => ts + ((row[t] as number) || 0), 0), 0)
+  const thisWeekTotal = sumWeek(last7)
+  const lastWeekTotal = sumWeek(prior7)
+  const overallWoW = lastWeekTotal > 0 ? ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100 : 0
+
   const lastDate = data.length > 0 ? data[data.length - 1].date : null
 
   // Adoption data — latest + time-series for velocity
-  const [configData, sdkData, configTimeSeries, sdkTimeSeries, agentPRData, agentPRTimeSeries, aggregateKPIs, hnBuzzData] = await Promise.all([
+  const [configData, sdkData, configTimeSeries, sdkTimeSeries, agentPRData, agentPRTimeSeries, aggregateKPIs, buzzData] = await Promise.all([
     getConfigAdoptionData(),
     getSDKAdoptionData(),
     getConfigAdoptionTimeSeries(),
@@ -396,12 +412,12 @@ export default async function AICodeIndexPage() {
     getAgentPRData(),
     getAgentPRTimeSeries(),
     getAggregateKPIs(),
-    getHNBuzzData(),
+    getCommunityBuzzData(),
   ])
   const hasAdoptionData = configData.length > 0 || sdkData.length > 0
 
   // Convergence alerts
-  const convergenceAlerts = computeConvergenceAlerts(stats, configTimeSeries, agentPRData, hnBuzzData)
+  const convergenceAlerts = computeConvergenceAlerts(stats, configTimeSeries, agentPRData, buzzData)
 
   // Composite scores
   const compositeScores = computeCompositeScores(stats, data)
@@ -447,81 +463,98 @@ export default async function AICodeIndexPage() {
                 }}
               >
                 <div className="px-1.5 py-3 sm:px-4 sm:py-4">
-                  <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">Total commits</div>
+                  <div className="term-label mb-1">TOTAL_COMMITS</div>
                   <div className="text-base font-semibold text-[var(--foreground)] sm:text-2xl">
                     {formatNumExact(totalCommits)}
                   </div>
                 </div>
                 <div className="px-1.5 py-3 sm:px-4 sm:py-4" style={{ borderLeft: '1px solid var(--border)' }}>
-                  <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">30d avg / day</div>
+                  <div className="term-label mb-1">30D_AVG/DAY</div>
                   <div className="text-base font-semibold text-[var(--foreground)] sm:text-2xl">
                     {formatNum(Math.round(totalCommits30d / 30))}
                   </div>
+                  <div className="text-[9px] sm:text-[10px] mt-0.5" style={{
+                    color: overallWoW > 0.5 ? 'var(--score-high)' : overallWoW < -0.5 ? 'var(--error)' : 'var(--foreground-subtle)',
+                  }}>
+                    <span className={`status-dot ${overallWoW > 0.5 ? 'status-dot--positive' : overallWoW < -0.5 ? 'status-dot--negative' : 'status-dot--flat'}`} />
+                    {formatPct(overallWoW)} WoW
+                  </div>
                 </div>
                 <div className="px-1.5 py-3 sm:px-4 sm:py-4" style={{ borderLeft: '1px solid var(--border)' }}>
-                  <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">30d change</div>
+                  <div className="term-label mb-1">30D_CHANGE</div>
                   <div className="text-base font-semibold sm:text-2xl" style={{
                     color: overallTrend > 0 ? 'var(--score-high)' : overallTrend < 0 ? 'var(--error)' : 'var(--foreground)',
                   }}>
+                    <span className={`status-dot ${overallTrend > 5 ? 'status-dot--positive' : overallTrend < -5 ? 'status-dot--negative' : 'status-dot--flat'}`} />
                     {formatPct(overallTrend)}
                   </div>
                 </div>
                 <div className="px-1.5 py-3 sm:px-4 sm:py-4" style={{ borderLeft: '1px solid var(--border)' }}>
-                  <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">AI Repos</div>
+                  <div className="term-label mb-1">AI_REPOS</div>
                   <div className="text-base font-semibold text-[var(--foreground)] sm:text-2xl">
                     {aggregateKPIs.configAggregate !== null ? formatNum(aggregateKPIs.configAggregate) : '—'}
                   </div>
-                  <div className="text-[9px] text-[var(--foreground-subtle)] mt-0.5">AI config files detected</div>
+                  <div className="text-[9px] sm:text-[10px] mt-0.5" style={{
+                    color: (aggregateKPIs.configAggregateWoW ?? 0) > 0.5 ? 'var(--score-high)' : (aggregateKPIs.configAggregateWoW ?? 0) < -0.5 ? 'var(--error)' : 'var(--foreground-subtle)',
+                  }}>
+                    <span className={`status-dot ${(aggregateKPIs.configAggregateWoW ?? 0) > 0.5 ? 'status-dot--positive' : (aggregateKPIs.configAggregateWoW ?? 0) < -0.5 ? 'status-dot--negative' : 'status-dot--flat'}`} />
+                    {formatPct(aggregateKPIs.configAggregateWoW ?? 0)} WoW
+                  </div>
                 </div>
               </div>
 
               {/* Full-width commit volume table with Score column */}
               <div className="mt-8">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
-                  Commit volume
+                <div className="mb-1 flex items-baseline justify-between">
+                  <div className="term-label">
+                    {'// COMMIT_VOLUME'}
+                  </div>
+                  <span className="font-mono text-[9px] text-[var(--foreground-subtle)] uppercase tracking-widest">
+                    {'>'} {byVolume.length} nodes indexed
+                  </span>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="term-table">
                     <thead>
-                      <tr className="text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border)' }}>
-                        <th className="px-2 py-1.5 text-left font-medium">Tool</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Latest</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Avg/day</th>
-                        <th className="px-2 py-1.5 text-right font-medium">30d</th>
-                        <th className="px-2 py-1.5 text-right font-medium">WoW</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Share</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Total</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Score</th>
+                      <tr>
+                        <th className="text-left">Tool Node</th>
+                        <th className="text-right">Latest</th>
+                        <th className="text-right">Avg/day</th>
+                        <th className="text-right">30d</th>
+                        <th className="text-right">WoW</th>
+                        <th className="text-right">Share</th>
+                        <th className="text-right">Total</th>
+                        <th className="text-center">Score</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {byVolume.map((tool) => {
+                      {byVolume.map((tool, i) => {
                         const score = compositeScores.find((s) => s.name === tool.name)
                         return (
-                          <tr key={tool.name} className="group" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                            <td className="px-2 py-1.5">
+                          <tr key={tool.name} className="group" style={{ animation: `row-appear 0.3s ease-out ${i * 50}ms both` }}>
+                            <td>
                               <Link
                                 href={`/ai-code-index/compare/${TOOL_SLUGS[tool.name]}-vs-${TOOL_SLUGS[byVolume.find((t) => t.name !== tool.name)?.name ?? 'cursor']}`}
                                 className="inline-flex items-center gap-1.5 transition-colors group-hover:brightness-125"
                                 style={{ color: tool.color }}
                               >
+                                <span className="term-idx">[{String(i).padStart(2, '0')}]</span>
                                 <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
                                 {tool.name}
-                                <span className="text-[var(--foreground-subtle)] opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">↔</span>
                               </Link>
                             </td>
-                            <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
+                            <td className="text-right text-[var(--foreground)]">
                               {formatNum(tool.latestDaily)}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
+                            <td className="text-right text-[var(--foreground)]">
                               {formatNum(Math.round(tool.avg30d))}
                             </td>
-                            <td className="px-2 py-1.5 text-right font-medium" style={{
+                            <td className="text-right font-medium" style={{
                               color: tool.trend === 'up' ? 'var(--score-high)' : tool.trend === 'down' ? 'var(--error)' : 'var(--foreground-subtle)',
                             }}>
                               {formatPct(tool.trendPct)}
                             </td>
-                            <td className="px-2 py-1.5 text-right" style={{
+                            <td className="text-right" style={{
                               color: tool.wowPct > 3 ? 'var(--score-high)' : tool.wowPct < -3 ? 'var(--error)' : 'var(--foreground-subtle)',
                             }}>
                               <span className="font-medium">{formatPct(tool.wowPct)}</span>
@@ -531,25 +564,22 @@ export default async function AICodeIndexPage() {
                                 {tool.acceleration === 'accel' ? '▲' : tool.acceleration === 'decel' ? '▼' : '—'}
                               </span>
                             </td>
-                            <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
+                            <td className="text-right text-[var(--foreground-muted)]">
                               {tool.share30d >= 0.1 ? `${tool.share30d.toFixed(1)}%` : '<0.1%'}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
+                            <td className="text-right text-[var(--foreground-muted)]">
                               {formatNum(tool.totalCommits)}
                             </td>
-                            <td className="px-2 py-1.5 text-right">
+                            <td className="text-center">
                               {score && (
-                                <span className="inline-flex items-center gap-1.5">
-                                  <span className="w-10 h-1 inline-block" style={{ backgroundColor: 'var(--border)' }}>
-                                    <span
-                                      className="block h-1"
-                                      style={{
-                                        width: `${score.score}%`,
-                                        backgroundColor: score.score >= 65 ? 'var(--score-high)' : score.score >= 40 ? 'var(--accent)' : 'var(--foreground-subtle)',
-                                      }}
-                                    />
+                                <span className="term-bar">
+                                  <span className="term-bar-filled" style={{
+                                    color: score.score >= 65 ? 'var(--score-high)' : score.score >= 40 ? 'var(--accent)' : 'var(--foreground-subtle)',
+                                  }}>
+                                    {renderBlockBar(score.score)}
                                   </span>
-                                  <span className="font-medium w-6 text-right" style={{
+                                  {' '}
+                                  <span className="font-bold" style={{
                                     color: score.score >= 65 ? 'var(--score-high)' : score.score >= 40 ? 'var(--accent)' : 'var(--foreground-muted)',
                                   }}>
                                     {score.score.toFixed(0)}
@@ -563,199 +593,247 @@ export default async function AICodeIndexPage() {
                     </tbody>
                   </table>
                 </div>
-                <p className="mt-1 text-[10px] text-[var(--foreground-subtle)]">
-                  Score = Volume (35%) · Momentum (25%) · Acceleration (20%) · Consistency (20%)
+                <p className="mt-1.5 font-mono text-[9px] text-[var(--foreground-subtle)] tracking-wider">
+                  SCORE = VOLUME (35%) · MOMENTUM (25%) · ACCELERATION (20%) · CONSISTENCY (20%)
                 </p>
               </div>
 
-              {/* Metric strip — 3 panels in a horizontal band */}
-              <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-0" style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+              {/* Metric strip — 3 tables in a horizontal band */}
+              <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Momentum */}
-                <div className="py-3 px-1 sm:pr-4" style={{ borderRight: '1px solid var(--border-subtle)' }}>
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
-                    Momentum (30d)
+                <div>
+                  <div className="mb-1 flex items-baseline justify-between">
+                    <div className="term-label">{'// MOMENTUM_30D'}</div>
+                    <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">{'>'} {byMomentum.length} NODES</span>
                   </div>
-                  {byMomentum.map((tool, i) => (
-                    <div
-                      key={tool.name}
-                      className="flex items-center gap-2 px-1 py-0.5"
-                    >
-                      <span className="w-3 text-right text-[var(--foreground-subtle)] text-[10px]">{i + 1}</span>
-                      <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
-                      <span className="flex-1 text-xs truncate text-[var(--foreground)]">{tool.name}</span>
-                      <span className="text-xs font-medium" style={{
-                        color: tool.trend === 'up' ? 'var(--score-high)' : tool.trend === 'down' ? 'var(--error)' : 'var(--foreground-subtle)',
-                      }}>
-                        {formatPct(tool.trendPct)}
-                      </span>
-                    </div>
-                  ))}
+                  <table className="term-table">
+                    <thead>
+                      <tr>
+                        <th className="text-left">Tool Node</th>
+                        <th className="text-right">30d</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {byMomentum.map((tool, i) => (
+                        <tr key={tool.name}>
+                          <td>
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className="term-idx">[{String(i).padStart(2, '0')}]</span>
+                              <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
+                              <span style={{ color: tool.color }}>{tool.name}</span>
+                            </span>
+                          </td>
+                          <td className="text-right font-medium" style={{
+                            color: tool.trend === 'up' ? 'var(--score-high)' : tool.trend === 'down' ? 'var(--error)' : 'var(--foreground-subtle)',
+                          }}>
+                            {formatPct(tool.trendPct)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
 
                 {/* Doubling time */}
-                <div className="py-3 px-1 sm:px-4" style={{ borderRight: '1px solid var(--border-subtle)' }}>
-                  <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
-                    Doubling time
+                <div>
+                  <div className="mb-1 flex items-baseline justify-between">
+                    <div className="term-label">{'// DOUBLING_TIME'}</div>
+                    <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">DAYS_TO_2X</span>
                   </div>
-                  <p className="mb-1 text-[10px] text-[var(--foreground-subtle)]">
-                    Days to 2× at current rate
-                  </p>
-                  {[...stats]
-                    .filter((t) => t.doublingDays !== null && t.avg30d > 0)
-                    .sort((a, b) => (a.doublingDays ?? Infinity) - (b.doublingDays ?? Infinity))
-                    .map((tool) => (
-                    <div
-                      key={tool.name}
-                      className="flex items-center gap-2 px-1 py-0.5"
-                    >
-                      <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
-                      <span className="flex-1 text-xs truncate text-[var(--foreground)]">{tool.name}</span>
-                      <span className="text-xs font-medium" style={{
-                        color: (tool.doublingDays ?? 999) <= 60 ? 'var(--score-high)' : (tool.doublingDays ?? 999) <= 120 ? 'var(--accent)' : 'var(--foreground-muted)',
-                      }}>
-                        {tool.doublingDays}d
-                      </span>
-                    </div>
-                  ))}
-                  {stats.filter((t) => t.doublingDays === null && t.avg30d > 0).length > 0 && (
-                    <div className="px-1 py-0.5 text-[10px] text-[var(--foreground-subtle)]">
-                      {stats.filter((t) => t.doublingDays === null && t.avg30d > 0).map((t) => t.name).join(', ')} — flat/declining
-                    </div>
-                  )}
+                  <table className="term-table">
+                    <thead>
+                      <tr>
+                        <th className="text-left">Tool Node</th>
+                        <th className="text-right">Days</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...stats]
+                        .filter((t) => t.doublingDays !== null && t.avg30d > 0)
+                        .sort((a, b) => (a.doublingDays ?? Infinity) - (b.doublingDays ?? Infinity))
+                        .map((tool, i) => (
+                        <tr key={tool.name}>
+                          <td>
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className="term-idx">[{String(i).padStart(2, '0')}]</span>
+                              <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
+                              <span style={{ color: tool.color }}>{tool.name}</span>
+                            </span>
+                          </td>
+                          <td className="text-right font-medium" style={{
+                            color: (tool.doublingDays ?? 999) <= 60 ? 'var(--score-high)' : (tool.doublingDays ?? 999) <= 120 ? 'var(--accent)' : 'var(--foreground-muted)',
+                          }}>
+                            {tool.doublingDays}d
+                          </td>
+                        </tr>
+                      ))}
+                      {stats.filter((t) => t.doublingDays === null && t.avg30d > 0).length > 0 && (
+                        <tr>
+                          <td colSpan={2} className="text-[10px] text-[var(--foreground-subtle)]">
+                            {stats.filter((t) => t.doublingDays === null && t.avg30d > 0).map((t) => t.name).join(', ')} — flat/declining
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
 
                 {/* Market share */}
-                <div className="py-3 px-1 sm:pl-4">
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
-                    Market share (30d)
+                <div>
+                  <div className="mb-1 flex items-baseline justify-between">
+                    <div className="term-label">{'// MARKET_SHARE_30D'}</div>
                   </div>
-                  {byVolume.filter((t) => t.share30d >= 0.1).map((tool) => (
-                    <div
-                      key={tool.name}
-                      className="flex items-center gap-2 px-1 py-0.5"
-                    >
-                      <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
-                      <span className="flex-1 text-xs truncate text-[var(--foreground)]">{tool.name}</span>
-                      <span className="text-xs text-[var(--foreground-muted)] w-10 text-right">{tool.share30d.toFixed(1)}%</span>
-                      <div className="w-14 h-1" style={{ backgroundColor: 'var(--border)' }}>
-                        <div
-                          className="h-1"
-                          style={{
-                            width: `${Math.min(tool.share30d, 100)}%`,
-                            backgroundColor: tool.color,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                  <table className="term-table">
+                    <thead>
+                      <tr>
+                        <th className="text-left">Tool Node</th>
+                        <th className="text-right">Share</th>
+                        <th className="text-center">Bar</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {byVolume.filter((t) => t.share30d >= 0.1).map((tool, i) => (
+                        <tr key={tool.name}>
+                          <td>
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className="term-idx">[{String(i).padStart(2, '0')}]</span>
+                              <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tool.color }} />
+                              <span style={{ color: tool.color }}>{tool.name}</span>
+                            </span>
+                          </td>
+                          <td className="text-right text-[var(--foreground-muted)]">{tool.share30d.toFixed(1)}%</td>
+                          <td className="text-center">
+                            <span className="term-bar">
+                              <span className="term-bar-filled" style={{ color: tool.color }}>{renderBlockBar(tool.share30d)}</span>
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
               {/* Chart */}
-              <div className="mt-10">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
-                  Daily commit volume
+              <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
+                <div className="mb-1 flex items-baseline justify-between">
+                  <div className="term-label">{'// DAILY_COMMIT_VOLUME'}</div>
+                  <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">{'>'} {data.length} DAYS INDEXED</span>
                 </div>
                 <AICodeIndexChart data={data} configTimeSeries={configTimeSeries} agentPRTimeSeries={agentPRTimeSeries} />
               </div>
 
               {/* Market share over time */}
               <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
-                  Market share over time
+                <div className="mb-1 flex items-baseline justify-between">
+                  <div className="term-label">{'// MARKET_SHARE_OVER_TIME'}</div>
+                  <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">7D_SMOOTHED</span>
                 </div>
-                <p className="mb-2 text-xs text-[var(--foreground-subtle)]">
-                  Each tool&apos;s share of total AI-authored commits, 7d smoothed
-                </p>
                 <MarketShareChart data={data} />
               </div>
 
               {/* AI Agent Activity — PRs created by autonomous AI bots */}
               {agentPRData.length > 0 && (
                 <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
-                    AI Agent Activity
+                  <div className="mb-1 flex items-baseline justify-between">
+                    <div className="term-label">{'// AI_AGENT_ACTIVITY'}</div>
+                    <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">{'>'} {agentPRData.length} AGENTS TRACKED</span>
                   </div>
-                  <p className="mb-3 text-xs text-[var(--foreground-subtle)]">
-                    Pull requests created autonomously by AI agents — no human co-author
+                  <p className="mb-2 font-mono text-[9px] text-[var(--foreground-subtle)] tracking-wider">
+                    PULL_REQUESTS CREATED AUTONOMOUSLY — NO HUMAN CO-AUTHOR
                   </p>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {[...agentPRData].sort((a, b) => b.count - a.count).map((agent) => {
-                      const velocity = computeAdoptionVelocity(agentPRTimeSeries, agent.tool)
-                      return (
-                        <div
-                          key={agent.tool}
-                          className="rounded-md px-3 py-2.5"
-                          style={{
-                            backgroundColor: 'rgba(255,255,255,0.03)',
-                            border: '1px solid var(--border-subtle)',
-                          }}
-                        >
-                          <div className="text-[10px] uppercase tracking-wider text-[var(--foreground-muted)] mb-1">
-                            {agent.tool}
-                          </div>
-                          <div className="text-lg font-semibold text-[var(--foreground)]">
-                            {formatNum(agent.count)}
-                          </div>
-                          <div className="text-[10px] text-[var(--foreground-subtle)]">
-                            PRs / day
-                          </div>
-                          {velocity.weeklyGrowthPct !== null && (
-                            <div className="mt-1 text-[10px]" style={{
-                              color: velocity.weeklyGrowthPct > 0.5
-                                ? 'var(--score-high)'
-                                : velocity.weeklyGrowthPct < -0.5
-                                ? 'var(--error)'
-                                : 'var(--foreground-subtle)',
-                            }}>
-                              {formatPct(velocity.weeklyGrowthPct)} /wk
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Community Pulse — HN buzz per tool */}
-              {hnBuzzData.length > 0 && hnBuzzData.some((t) => t.mentions > 0) && (
-                <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
-                    Community pulse
-                  </div>
-                  <p className="mb-3 text-xs text-[var(--foreground-subtle)]">
-                    Hacker News stories mentioning each tool — last 7 days
-                  </p>
-                  <table className="w-full text-xs">
+                  <table className="term-table">
                     <thead>
-                      <tr className="text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border)' }}>
-                        <th className="px-2 py-1.5 text-left font-medium">Tool</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Stories</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Total points</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Avg engagement</th>
+                      <tr>
+                        <th className="text-left">Agent</th>
+                        <th className="text-right">PRs/day</th>
+                        <th className="text-right">Δ/wk</th>
+                        <th className="text-center">Volume</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {[...hnBuzzData]
-                        .filter((t) => t.mentions > 0)
-                        .sort((a, b) => b.points - a.points)
-                        .map((row) => (
-                          <tr key={row.tool} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                            <td className="px-2 py-1.5">
-                              <span className="inline-flex items-center gap-1.5" style={{ color: TOOL_COLORS[row.tool] ?? 'var(--foreground)' }}>
-                                <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: TOOL_COLORS[row.tool] ?? 'var(--foreground-subtle)' }} />
-                                {row.tool}
+                      {[...agentPRData].sort((a, b) => b.count - a.count).map((agent, i) => {
+                        const velocity = computeAdoptionVelocity(agentPRTimeSeries, agent.tool)
+                        const maxCount = Math.max(...agentPRData.map((a) => a.count))
+                        return (
+                          <tr key={agent.tool}>
+                            <td>
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="term-idx">[{String(i).padStart(2, '0')}]</span>
+                                <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: TOOL_COLORS[agent.tool] ?? 'var(--foreground-subtle)' }} />
+                                <span style={{ color: TOOL_COLORS[agent.tool] ?? 'var(--foreground)' }}>{agent.tool}</span>
                               </span>
                             </td>
-                            <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
+                            <td className="text-right font-bold text-[var(--foreground)]">
+                              {formatNum(agent.count)}
+                            </td>
+                            <td className="text-right" style={{
+                              color: velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct > 0.5
+                                ? 'var(--score-high)'
+                                : velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct < -0.5
+                                ? 'var(--error)'
+                                : 'var(--foreground-subtle)',
+                            }}>
+                              {velocity.weeklyGrowthPct !== null ? formatPct(velocity.weeklyGrowthPct) : '—'}
+                            </td>
+                            <td className="text-center">
+                              <span className="term-bar">
+                                <span className="term-bar-filled" style={{ color: TOOL_COLORS[agent.tool] ?? 'var(--accent)' }}>
+                                  {renderBlockBar(agent.count, maxCount)}
+                                </span>
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Community Pulse — unified buzz across HN, Reddit, GH Discussions */}
+              {buzzData.length > 0 && (
+                <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
+                  <div className="mb-1 flex items-baseline justify-between">
+                    <div className="term-label">{'// COMMUNITY_PULSE'}</div>
+                    <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">{'>'} LAST 7 DAYS</span>
+                  </div>
+                  <p className="mb-2 font-mono text-[9px] text-[var(--foreground-subtle)] tracking-wider">
+                    MENTIONS ACROSS HN, REDDIT, GH_DISCUSSIONS
+                  </p>
+                  <table className="term-table">
+                    <thead>
+                      <tr>
+                        <th className="text-left">Tool Node</th>
+                        <th className="text-right">Total</th>
+                        <th className="text-right hidden sm:table-cell">HN</th>
+                        <th className="text-right hidden sm:table-cell">Reddit</th>
+                        <th className="text-right hidden sm:table-cell">GH Disc.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...buzzData]
+                        .sort((a, b) => b.mentions - a.mentions)
+                        .map((row, i) => (
+                          <tr key={row.tool}>
+                            <td>
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="term-idx">[{String(i).padStart(2, '0')}]</span>
+                                <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: TOOL_COLORS[row.tool] ?? 'var(--foreground-subtle)' }} />
+                                <span style={{ color: TOOL_COLORS[row.tool] ?? 'var(--foreground)' }}>{row.tool}</span>
+                              </span>
+                            </td>
+                            <td className="text-right font-bold text-[var(--foreground)]">
                               {row.mentions}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
-                              {formatNum(row.points)}
+                            <td className="text-right text-[var(--foreground-muted)] hidden sm:table-cell">
+                              {row.hn}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
-                              {row.mentions > 0 ? Math.round(row.points / row.mentions) : 0} pts/story
+                            <td className="text-right text-[var(--foreground-muted)] hidden sm:table-cell">
+                              {row.reddit}
+                            </td>
+                            <td className="text-right text-[var(--foreground-muted)] hidden sm:table-cell">
+                              {row.ghDiscussions}
                             </td>
                           </tr>
                         ))}
@@ -766,39 +844,38 @@ export default async function AICodeIndexPage() {
 
               {/* Adoption — config files + SDK dependencies */}
               {hasAdoptionData && (
-                <div className="mt-10 grid grid-cols-1 lg:grid-cols-2" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
+                <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
                   {configData.length > 0 && (
-                    <div className="lg:pr-6" style={{ borderRight: configData.length > 0 && sdkData.length > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
-                      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
-                        Config file adoption
+                    <div>
+                      <div className="mb-1 flex items-baseline justify-between">
+                        <div className="term-label">{'// CONFIG_FILE_ADOPTION'}</div>
+                        <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">{'>'} {configData.length} FILES</span>
                       </div>
-                      <p className="mb-2 text-xs text-[var(--foreground-subtle)]">
-                        Repos with AI tool config files
-                      </p>
-                      <table className="w-full text-xs">
+                      <table className="term-table">
                         <thead>
-                          <tr className="text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border)' }}>
-                            <th className="px-2 py-1.5 text-left font-medium">Tool</th>
-                            <th className="px-2 py-1.5 text-right font-medium">Repos</th>
-                            <th className="px-2 py-1.5 text-right font-medium">Δ/wk</th>
+                          <tr>
+                            <th className="text-left">Tool Node</th>
+                            <th className="text-right">Repos</th>
+                            <th className="text-right">Δ/wk</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {[...configData].sort((a, b) => b.count - a.count).map((row) => {
+                          {[...configData].sort((a, b) => b.count - a.count).map((row, i) => {
                             const velocity = computeAdoptionVelocity(configTimeSeries, row.tool)
                             return (
-                              <tr key={row.tool} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                                <td className="px-2 py-1.5">
-                                  <span className="inline-flex items-center gap-1.5" style={{ color: TOOL_COLORS[row.tool] ?? 'var(--foreground)' }}>
+                              <tr key={row.tool}>
+                                <td>
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <span className="term-idx">[{String(i).padStart(2, '0')}]</span>
                                     <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: TOOL_COLORS[row.tool] ?? 'var(--foreground-subtle)' }} />
-                                    {row.tool}
-                                    <span className="text-[var(--foreground-subtle)] font-normal">({CONFIG_FILES[row.tool] ?? ''})</span>
+                                    <span style={{ color: TOOL_COLORS[row.tool] ?? 'var(--foreground)' }}>{row.tool}</span>
+                                    <span className="text-[var(--foreground-subtle)] text-[9px]">({CONFIG_FILES[row.tool] ?? ''})</span>
                                   </span>
                                 </td>
-                                <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
+                                <td className="text-right font-bold text-[var(--foreground)]">
                                   {formatNum(row.count)}
                                 </td>
-                                <td className="px-2 py-1.5 text-right" style={{
+                                <td className="text-right" style={{
                                   color: velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct > 0.5
                                     ? 'var(--score-high)'
                                     : velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct < -0.5
@@ -817,33 +894,34 @@ export default async function AICodeIndexPage() {
                     </div>
                   )}
                   {sdkData.length > 0 && (
-                    <div className={configData.length > 0 ? 'lg:pl-6 mt-4 lg:mt-0' : ''}>
-                      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
-                        SDK adoption
+                    <div>
+                      <div className="mb-1 flex items-baseline justify-between">
+                        <div className="term-label">{'// SDK_ADOPTION'}</div>
+                        <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">{'>'} {sdkData.length} SDKS</span>
                       </div>
-                      <p className="mb-2 text-xs text-[var(--foreground-subtle)]">
-                        Repos with AI SDK dependencies
-                      </p>
-                      <table className="w-full text-xs">
+                      <table className="term-table">
                         <thead>
-                          <tr className="text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border)' }}>
-                            <th className="px-2 py-1.5 text-left font-medium">SDK</th>
-                            <th className="px-2 py-1.5 text-right font-medium">Repos</th>
-                            <th className="px-2 py-1.5 text-right font-medium">Δ/wk</th>
+                          <tr>
+                            <th className="text-left">SDK</th>
+                            <th className="text-right">Repos</th>
+                            <th className="text-right">Δ/wk</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {[...sdkData].sort((a, b) => b.count - a.count).map((row) => {
+                          {[...sdkData].sort((a, b) => b.count - a.count).map((row, i) => {
                             const velocity = computeAdoptionVelocity(sdkTimeSeries, row.tool)
                             return (
-                              <tr key={row.tool} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                                <td className="px-2 py-1.5 text-[var(--foreground)]">
-                                  {row.tool}
+                              <tr key={row.tool}>
+                                <td>
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <span className="term-idx">[{String(i).padStart(2, '0')}]</span>
+                                    <span className="text-[var(--foreground)]">{row.tool}</span>
+                                  </span>
                                 </td>
-                                <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
+                                <td className="text-right font-bold text-[var(--foreground)]">
                                   {formatNum(row.count)}
                                 </td>
-                                <td className="px-2 py-1.5 text-right" style={{
+                                <td className="text-right" style={{
                                   color: velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct > 0.5
                                     ? 'var(--score-high)'
                                     : velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct < -0.5
@@ -866,80 +944,77 @@ export default async function AICodeIndexPage() {
 
               {/* Intelligence Brief — convergence alerts + context */}
               <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-                <div className="mb-3 flex items-baseline justify-between">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
-                    Intelligence brief
-                  </div>
-                  <div className="text-xs text-[var(--foreground-subtle)]">
+                <div className="mb-1 flex items-baseline justify-between">
+                  <div className="term-label">{'// INTELLIGENCE_BRIEF'}</div>
+                  <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">
                     API:{' '}
                     <Link href="/api/ai-code-index" className="text-[var(--foreground-muted)] transition-colors hover:text-[var(--accent)]">
                       /api/ai-code-index
                     </Link>
-                  </div>
+                  </span>
                 </div>
 
                 {/* Convergence alerts */}
                 {convergenceAlerts.length > 0 && (
-                  <div className="mb-4 space-y-2">
-                    {convergenceAlerts.map((alert) => {
-                      const levelColors = {
-                        red: { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.3)', badge: 'var(--badge-breakout)', label: 'BREAKOUT' },
-                        orange: { bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.3)', badge: 'var(--badge-hot)', label: 'HOT' },
-                        yellow: { bg: 'rgba(6,182,212,0.08)', border: 'rgba(6,182,212,0.25)', badge: 'var(--badge-active)', label: 'ACTIVE' },
-                      }
-                      const colors = levelColors[alert.level]
-                      return (
-                        <div
-                          key={alert.tool}
-                          className="rounded-md px-3 py-2"
-                          style={{
-                            backgroundColor: colors.bg,
-                            border: `1px solid ${colors.border}`,
-                          }}
-                        >
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span
-                              className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-                              style={{ backgroundColor: colors.badge, color: '#fff' }}
-                            >
-                              {colors.label}
-                            </span>
-                            <span className="text-xs font-semibold" style={{ color: TOOL_COLORS[alert.tool] ?? 'var(--foreground)' }}>
-                              {alert.tool}
-                            </span>
-                            <span className="text-[10px] text-[var(--foreground-subtle)]">
-                              {alert.signals.length} signals
-                            </span>
-                          </div>
-                          <div className="text-xs text-[var(--foreground-muted)] leading-snug">
-                            {alert.headline}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                  <table className="term-table mt-2 mb-4">
+                    <thead>
+                      <tr>
+                        <th className="text-left">Level</th>
+                        <th className="text-left">Tool Node</th>
+                        <th className="text-left">Signals</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {convergenceAlerts.map((alert) => {
+                        const levelConfig = {
+                          red: { label: '[CRITICAL]', labelColor: '#ef4444' },
+                          orange: { label: '[WARN]', labelColor: '#f59e0b' },
+                          yellow: { label: '[INFO]', labelColor: '#06b6d4' },
+                        }
+                        const config = levelConfig[alert.level]
+                        return (
+                          <tr key={alert.tool}>
+                            <td>
+                              <span className="font-bold" style={{ color: config.labelColor }}>
+                                {config.label}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="font-semibold" style={{ color: TOOL_COLORS[alert.tool] ?? 'var(--foreground)' }}>
+                                {alert.tool}
+                              </span>
+                            </td>
+                            <td className="text-[var(--foreground-muted)]">
+                              {alert.signals.join(', ')}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 )}
 
                 {/* Context notes */}
-                <div>
-                  {CONTEXT_NOTES.map((item, i) => (
-                    <div
-                      key={i}
-                      className="flex items-baseline gap-0 py-[3px]"
-                      style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                    >
-                      <span
-                        className="w-[72px] flex-shrink-0 text-xs font-medium"
-                        style={{ color: item.color }}
-                      >
-                        {item.tag}
-                      </span>
-                      <span className="text-xs text-[var(--foreground-muted)] leading-snug">
-                        {item.headline}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <table className="term-table">
+                  <thead>
+                    <tr>
+                      <th className="text-left">Tag</th>
+                      <th className="text-left">Context</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {CONTEXT_NOTES.map((item, i) => (
+                      <tr key={i}>
+                        <td className="font-medium whitespace-nowrap" style={{ color: item.color }}>
+                          {item.tag}
+                        </td>
+                        <td className="text-[var(--foreground-muted)] leading-snug">
+                          {item.headline}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               <div className="pb-8" />

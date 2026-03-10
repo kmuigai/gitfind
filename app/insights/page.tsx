@@ -99,8 +99,9 @@ export default async function InsightsPage() {
               </div>
 
               <h2 className="mt-4 font-mono text-xl font-bold text-[var(--foreground)] sm:text-2xl">
-                Rising This Week
+                RISING THIS WEEK
               </h2>
+              <div className="term-label mt-1">{'// WEEKLY_RANKING'}</div>
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--foreground-muted)]">
                 The 10 fastest-accelerating repos on GitHub right now, ranked by 7-day star velocity with week-over-week momentum.
               </p>
@@ -127,7 +128,7 @@ export default async function InsightsPage() {
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex flex-col items-end gap-0.5 sm:flex-row sm:items-center sm:gap-3 shrink-0">
                         <span className="font-mono text-xs text-[var(--score-high)]">
                           +{formatStars(repo.stars_7d)} stars
                         </span>
@@ -150,9 +151,9 @@ export default async function InsightsPage() {
       {/* Coming soon */}
       <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-7xl">
-          <h2 className="mb-4 font-mono text-sm font-medium text-[var(--foreground-muted)]">
-            Coming soon
-          </h2>
+          <div className="term-label mb-4">
+            {'// COMING_SOON'}
+          </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {

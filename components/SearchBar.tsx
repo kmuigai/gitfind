@@ -67,19 +67,16 @@ export default function SearchBar() {
     <div ref={containerRef} className="relative w-full max-w-xl">
       {/* Input */}
       <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--foreground-subtle)]">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-xs font-bold text-[var(--accent)] animate-pulse">
+          ❯
         </span>
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setIsOpen(true)}
-          placeholder="What's trending in AI, Rust, DevOps..."
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--background-elevated)] py-2.5 pl-9 pr-4 text-sm text-[var(--foreground)] placeholder:text-[var(--foreground-subtle)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30 transition-colors"
+          placeholder="SEARCH REPOS, TOOLS, CATEGORIES..."
+          className="term-input w-full"
           aria-label="Search repositories"
           aria-autocomplete="list"
         />
@@ -94,34 +91,39 @@ export default function SearchBar() {
 
       {/* Results dropdown */}
       {isOpen && results.length > 0 && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background-card)] shadow-xl">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden border border-[var(--border-subtle)] bg-[var(--background-card)]" style={{ borderRadius: '2px', boxShadow: 'inset 0 0 10px rgba(0,0,0,0.3)' }}>
+          <div className="px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+            {'>'} {results.length} result{results.length !== 1 ? 's' : ''} found
+          </div>
           <ul role="listbox" className="max-h-80 overflow-y-auto">
-            {results.map((repo) => (
+            {results.map((repo, i) => (
               <li key={repo.id} role="option" aria-selected={false}>
                 <Link
                   href={`/project/${repo.owner}/${repo.name}`}
                   onClick={() => setIsOpen(false)}
-                  className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-[var(--background-elevated)]"
+                  className="flex items-start gap-3 px-3 py-2 font-mono transition-colors hover:bg-[var(--accent)]/5"
+                  style={{ borderBottom: '1px solid var(--border-subtle)' }}
                 >
+                  <span className="term-idx shrink-0">[{String(i).padStart(2, '0')}]</span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium text-[var(--foreground)]">
+                      <span className="truncate text-[11px] text-[var(--foreground)]">
                         {repo.owner}/{repo.name}
                       </span>
                       {repo.enrichment && (
-                        <span className="shrink-0 font-mono text-xs text-[var(--accent)]">
+                        <span className="shrink-0 text-[11px] font-bold text-[var(--accent)]">
                           {repo.enrichment.early_signal_score}
                         </span>
                       )}
                     </div>
                     {repo.enrichment?.summary && (
-                      <p className="mt-0.5 truncate text-xs text-[var(--foreground-muted)]">
+                      <p className="mt-0.5 truncate text-[10px] text-[var(--foreground-muted)]">
                         {repo.enrichment.summary}
                       </p>
                     )}
                   </div>
                   {repo.language && (
-                    <span className="shrink-0 text-xs text-[var(--foreground-subtle)]">
+                    <span className="shrink-0 text-[10px] text-[var(--foreground-subtle)]">
                       {repo.language}
                     </span>
                   )}
@@ -129,11 +131,6 @@ export default function SearchBar() {
               </li>
             ))}
           </ul>
-          <div className="border-t border-[var(--border)] px-4 py-2">
-            <p className="text-xs text-[var(--foreground-subtle)]">
-              {results.length} result{results.length !== 1 ? 's' : ''} for &ldquo;{query}&rdquo;
-            </p>
-          </div>
         </div>
       )}
     </div>

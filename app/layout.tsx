@@ -112,13 +112,23 @@ export default function RootLayout({
             </div>
 
             {/* Right side */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <div className="hidden items-center gap-3 lg:flex">
+                <span className="sys-status">
+                  <span className="sys-status-dot" />
+                  SYS_OK
+                </span>
+                <span className="sys-status">
+                  <span className="sys-status-dot" style={{ background: 'var(--accent)', animation: 'none' }} />
+                  LIVE
+                </span>
+              </div>
               <ThemeToggle />
               <Link
                 href="/submit"
-                className="rounded-md border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                className="rounded-sm border border-[var(--border)] px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
               >
-                Submit a project
+                Submit
               </Link>
             </div>
           </nav>
