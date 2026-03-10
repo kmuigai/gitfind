@@ -757,6 +757,176 @@ export async function getSDKAdoptionTimeSeries(): Promise<AdoptionTimeSeriesEntr
   }))
 }
 
+// AI Agent PR data — latest counts per bot
+export async function getAgentPRData(): Promise<ConfigAdoptionRow[]> {
+  const { data: placeholder } = await supabase
+    .from('repos')
+    .select('id')
+    .eq('owner', '_gitfind')
+    .eq('name', '_bigquery_aggregate')
+    .maybeSingle()
+
+  if (!placeholder) return []
+  const placeholderId = (placeholder as unknown as { id: string }).id
+
+  const { data, error } = await supabase
+    .from('tool_contributions')
+    .select('tool_name, month, commit_count')
+    .eq('repo_id', placeholderId)
+    .like('tool_name', '%[pr]')
+    .order('month', { ascending: false })
+    .limit(100)
+
+  if (error || !data) return []
+
+  const typed = data as unknown as Array<{
+    tool_name: string
+    month: string
+    commit_count: number
+  }>
+
+  const latestByTool = new Map<string, { count: number; date: string }>()
+  for (const row of typed) {
+    const tool = row.tool_name.replace(' [pr]', '')
+    if (!latestByTool.has(tool)) {
+      latestByTool.set(tool, { count: row.commit_count, date: row.month })
+    }
+  }
+
+  return Array.from(latestByTool.entries()).map(([tool, { count, date }]) => ({
+    tool,
+    count,
+    date,
+  }))
+}
+
+// AI Agent PR time-series
+export async function getAgentPRTimeSeries(): Promise<AdoptionTimeSeriesEntry[]> {
+  const { data: placeholder } = await supabase
+    .from('repos')
+    .select('id')
+    .eq('owner', '_gitfind')
+    .eq('name', '_bigquery_aggregate')
+    .maybeSingle()
+
+  if (!placeholder) return []
+  const placeholderId = (placeholder as unknown as { id: string }).id
+
+  const { data, error } = await supabase
+    .from('tool_contributions')
+    .select('tool_name, month, commit_count')
+    .eq('repo_id', placeholderId)
+    .like('tool_name', '%[pr]')
+    .order('month', { ascending: true })
+    .limit(500)
+
+  if (error || !data) return []
+
+  const typed = data as unknown as Array<{
+    tool_name: string
+    month: string
+    commit_count: number
+  }>
+
+  return typed.map((row) => ({
+    tool: row.tool_name.replace(' [pr]', ''),
+    date: row.month,
+    count: row.commit_count,
+  }))
+}
+
+// Aggregate KPI — total repos with any AI tool config + total AI commits
+export async function getAggregateKPIs(): Promise<{ configAggregate: number | null; commitAggregate: number | null }> {
+  const { data: placeholder } = await supabase
+    .from('repos')
+    .select('id')
+    .eq('owner', '_gitfind')
+    .eq('name', '_bigquery_aggregate')
+    .maybeSingle()
+
+  if (!placeholder) return { configAggregate: null, commitAggregate: null }
+  const placeholderId = (placeholder as unknown as { id: string }).id
+
+  const { data, error } = await supabase
+    .from('tool_contributions')
+    .select('tool_name, commit_count')
+    .eq('repo_id', placeholderId)
+    .in('tool_name', ['All Tools [config-aggregate]', 'All Tools [commit-aggregate]'])
+    .order('month', { ascending: false })
+    .limit(10)
+
+  if (error || !data) return { configAggregate: null, commitAggregate: null }
+
+  const typed = data as unknown as Array<{
+    tool_name: string
+    commit_count: number
+  }>
+
+  let configAggregate: number | null = null
+  let commitAggregate: number | null = null
+
+  for (const row of typed) {
+    if (row.tool_name === 'All Tools [config-aggregate]' && configAggregate === null) {
+      configAggregate = row.commit_count
+    }
+    if (row.tool_name === 'All Tools [commit-aggregate]' && commitAggregate === null) {
+      commitAggregate = row.commit_count
+    }
+  }
+
+  return { configAggregate, commitAggregate }
+}
+
+// HN Buzz — latest mention counts and points per tool
+export async function getHNBuzzData(): Promise<Array<{ tool: string; mentions: number; points: number }>> {
+  const { data: placeholder } = await supabase
+    .from('repos')
+    .select('id')
+    .eq('owner', '_gitfind')
+    .eq('name', '_bigquery_aggregate')
+    .maybeSingle()
+
+  if (!placeholder) return []
+  const placeholderId = (placeholder as unknown as { id: string }).id
+
+  const { data, error } = await supabase
+    .from('tool_contributions')
+    .select('tool_name, month, commit_count')
+    .eq('repo_id', placeholderId)
+    .or('tool_name.like.%[hn-buzz],tool_name.like.%[hn-points]')
+    .order('month', { ascending: false })
+    .limit(200)
+
+  if (error || !data) return []
+
+  const typed = data as unknown as Array<{
+    tool_name: string
+    month: string
+    commit_count: number
+  }>
+
+  // Get latest entry per tool per type
+  const latestBuzz = new Map<string, number>()
+  const latestPoints = new Map<string, number>()
+
+  for (const row of typed) {
+    if (row.tool_name.endsWith('[hn-buzz]')) {
+      const tool = row.tool_name.replace(' [hn-buzz]', '')
+      if (!latestBuzz.has(tool)) latestBuzz.set(tool, row.commit_count)
+    } else if (row.tool_name.endsWith('[hn-points]')) {
+      const tool = row.tool_name.replace(' [hn-points]', '')
+      if (!latestPoints.has(tool)) latestPoints.set(tool, row.commit_count)
+    }
+  }
+
+  const tools = new Set([...latestBuzz.keys(), ...latestPoints.keys()])
+  return Array.from(tools).map((tool) => ({
+    tool,
+    mentions: latestBuzz.get(tool) ?? 0,
+    points: latestPoints.get(tool) ?? 0,
+  }))
+}
+
 // Fetch the latest package download snapshot for a repo
 export async function getPackageDownloads(repoId: string): Promise<PackageDownload | null> {
   const { data, error } = await supabase

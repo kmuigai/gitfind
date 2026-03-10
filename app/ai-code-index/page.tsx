@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getAICodeIndexData, getConfigAdoptionData, getSDKAdoptionData, getConfigAdoptionTimeSeries, getSDKAdoptionTimeSeries } from '@/lib/queries'
+import { getAICodeIndexData, getConfigAdoptionData, getSDKAdoptionData, getConfigAdoptionTimeSeries, getSDKAdoptionTimeSeries, getAgentPRData, getAgentPRTimeSeries, getAggregateKPIs, getHNBuzzData } from '@/lib/queries'
 import type { AdoptionTimeSeriesEntry } from '@/lib/queries'
 import AICodeIndexChart from '@/components/AICodeIndexChart'
 import MarketShareChart from '@/components/MarketShareChart'
@@ -35,6 +35,9 @@ const TOOL_COLORS: Record<string, string> = {
   'Gemini CLI': '#ef4444',
   'Devin': '#a855f7',
   'Codex': '#10b981',
+  'CodeRabbit': '#f97316',
+  'Sweep': '#ec4899',
+  'Windsurf': '#06b6d4',
 }
 
 const TOOL_SLUGS: Record<string, string> = {
@@ -314,11 +317,15 @@ export default async function AICodeIndexPage() {
   const lastDate = data.length > 0 ? data[data.length - 1].date : null
 
   // Adoption data — latest + time-series for velocity
-  const [configData, sdkData, configTimeSeries, sdkTimeSeries] = await Promise.all([
+  const [configData, sdkData, configTimeSeries, sdkTimeSeries, agentPRData, agentPRTimeSeries, aggregateKPIs, hnBuzzData] = await Promise.all([
     getConfigAdoptionData(),
     getSDKAdoptionData(),
     getConfigAdoptionTimeSeries(),
     getSDKAdoptionTimeSeries(),
+    getAgentPRData(),
+    getAgentPRTimeSeries(),
+    getAggregateKPIs(),
+    getHNBuzzData(),
   ])
   const hasAdoptionData = configData.length > 0 || sdkData.length > 0
 
@@ -358,7 +365,7 @@ export default async function AICodeIndexPage() {
             <>
               {/* Hero KPI bar — segmented dark strip */}
               <div
-                className="grid grid-cols-3 text-center"
+                className="grid grid-cols-2 sm:grid-cols-4 text-center"
                 style={{
                   backgroundColor: 'rgba(255,255,255,0.03)',
                   border: '1px solid var(--border-subtle)',
@@ -371,19 +378,26 @@ export default async function AICodeIndexPage() {
                     {formatNumExact(totalCommits)}
                   </div>
                 </div>
-                <div className="px-1.5 py-3 sm:px-4 sm:py-4" style={{ borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
+                <div className="px-1.5 py-3 sm:px-4 sm:py-4" style={{ borderLeft: '1px solid var(--border)' }}>
                   <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">30d avg / day</div>
                   <div className="text-base font-semibold text-[var(--foreground)] sm:text-2xl">
                     {formatNum(Math.round(totalCommits30d / 30))}
                   </div>
                 </div>
-                <div className="px-1.5 py-3 sm:px-4 sm:py-4">
+                <div className="px-1.5 py-3 sm:px-4 sm:py-4" style={{ borderLeft: '1px solid var(--border)' }}>
                   <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">30d change</div>
                   <div className="text-base font-semibold sm:text-2xl" style={{
                     color: overallTrend > 0 ? 'var(--score-high)' : overallTrend < 0 ? 'var(--error)' : 'var(--foreground)',
                   }}>
                     {formatPct(overallTrend)}
                   </div>
+                </div>
+                <div className="px-1.5 py-3 sm:px-4 sm:py-4" style={{ borderLeft: '1px solid var(--border)' }}>
+                  <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">AI Repos</div>
+                  <div className="text-base font-semibold text-[var(--foreground)] sm:text-2xl">
+                    {aggregateKPIs.configAggregate !== null ? formatNum(aggregateKPIs.configAggregate) : '—'}
+                  </div>
+                  <div className="text-[9px] text-[var(--foreground-subtle)] mt-0.5">AI config files detected</div>
                 </div>
               </div>
 
@@ -581,6 +595,100 @@ export default async function AICodeIndexPage() {
                 </p>
                 <MarketShareChart data={data} />
               </div>
+
+              {/* AI Agent Activity — PRs created by autonomous AI bots */}
+              {agentPRData.length > 0 && (
+                <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                    AI Agent Activity
+                  </div>
+                  <p className="mb-3 text-xs text-[var(--foreground-subtle)]">
+                    Pull requests created autonomously by AI agents — no human co-author
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {[...agentPRData].sort((a, b) => b.count - a.count).map((agent) => {
+                      const velocity = computeAdoptionVelocity(agentPRTimeSeries, agent.tool)
+                      return (
+                        <div
+                          key={agent.tool}
+                          className="rounded-md px-3 py-2.5"
+                          style={{
+                            backgroundColor: 'rgba(255,255,255,0.03)',
+                            border: '1px solid var(--border-subtle)',
+                          }}
+                        >
+                          <div className="text-[10px] uppercase tracking-wider text-[var(--foreground-muted)] mb-1">
+                            {agent.tool}
+                          </div>
+                          <div className="text-lg font-semibold text-[var(--foreground)]">
+                            {formatNum(agent.count)}
+                          </div>
+                          <div className="text-[10px] text-[var(--foreground-subtle)]">
+                            PRs / day
+                          </div>
+                          {velocity.weeklyGrowthPct !== null && (
+                            <div className="mt-1 text-[10px]" style={{
+                              color: velocity.weeklyGrowthPct > 0.5
+                                ? 'var(--score-high)'
+                                : velocity.weeklyGrowthPct < -0.5
+                                ? 'var(--error)'
+                                : 'var(--foreground-subtle)',
+                            }}>
+                              {formatPct(velocity.weeklyGrowthPct)} /wk
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Community Pulse — HN buzz per tool */}
+              {hnBuzzData.length > 0 && hnBuzzData.some((t) => t.mentions > 0) && (
+                <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                    Community pulse
+                  </div>
+                  <p className="mb-3 text-xs text-[var(--foreground-subtle)]">
+                    Hacker News stories mentioning each tool — last 7 days
+                  </p>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border)' }}>
+                        <th className="px-2 py-1.5 text-left font-medium">Tool</th>
+                        <th className="px-2 py-1.5 text-right font-medium">Stories</th>
+                        <th className="px-2 py-1.5 text-right font-medium">Total points</th>
+                        <th className="px-2 py-1.5 text-right font-medium">Avg engagement</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...hnBuzzData]
+                        .filter((t) => t.mentions > 0)
+                        .sort((a, b) => b.points - a.points)
+                        .map((row) => (
+                          <tr key={row.tool} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <td className="px-2 py-1.5">
+                              <span className="inline-flex items-center gap-1.5" style={{ color: TOOL_COLORS[row.tool] ?? 'var(--foreground)' }}>
+                                <span className="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: TOOL_COLORS[row.tool] ?? 'var(--foreground-subtle)' }} />
+                                {row.tool}
+                              </span>
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
+                              {row.mentions}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-[var(--foreground)]">
+                              {formatNum(row.points)}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-[var(--foreground-muted)]">
+                              {row.mentions > 0 ? Math.round(row.points / row.mentions) : 0} pts/story
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               {/* Adoption — config files + SDK dependencies */}
               {hasAdoptionData && (

@@ -25,11 +25,6 @@ const AGENTS = [
     slug: 'coderabbitai',
     startDate: '2025-10-08',
   },
-  {
-    name: 'Sweep',
-    slug: 'sweep-ai',
-    startDate: '2025-10-08',
-  },
 ] as const
 
 function log(msg: string): void {

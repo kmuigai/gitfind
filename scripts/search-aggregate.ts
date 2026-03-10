@@ -67,67 +67,76 @@ async function main(): Promise<void> {
     'User-Agent': 'GitFind/1.0',
   }
 
-  // ── 1. Aggregate config file count (OR query) ──
+  // ── 1. Aggregate config file count ──
+  // GitHub Code Search doesn't support OR with filename: qualifiers via REST API.
+  // Instead, query each config file individually and sum (includes overlap).
   log('Fetching aggregate config file count...')
-  const configQuery = [
+  const configQueries = [
     'filename:CLAUDE.md path:/',
     'filename:AGENTS.md path:/',
     'filename:.cursorrules',
     'filename:copilot-instructions.md path:.github',
     'filename:.windsurfrules',
     'filename:.aider.conf.yml',
-  ].join(' OR ')
+  ]
 
-  const configUrl = `https://api.github.com/search/code?q=${encodeURIComponent(configQuery)}&per_page=1`
+  let configTotal = 0
+  const seenTools = new Set<string>()
 
-  let configCount: number | null = null
-  let configSuccess = false
-  while (!configSuccess) {
-    const response = await fetch(configUrl, { headers })
+  for (const q of configQueries) {
+    const configUrl = `https://api.github.com/search/code?q=${encodeURIComponent(q)}&per_page=1`
 
-    if (response.status === 403) {
-      const remaining = response.headers.get('X-RateLimit-Remaining')
-      if (remaining === '0') {
-        const reset = response.headers.get('X-RateLimit-Reset')
-        const waitMs = reset ? parseInt(reset) * 1000 - Date.now() : 60000
-        log(`Rate limited. Waiting ${Math.ceil(waitMs / 1000)}s...`)
-        await new Promise((r) => setTimeout(r, Math.max(waitMs, 1000)))
+    let querySuccess = false
+    while (!querySuccess) {
+      const response = await fetch(configUrl, { headers })
+
+      if (response.status === 403) {
+        const remaining = response.headers.get('X-RateLimit-Remaining')
+        if (remaining === '0') {
+          const reset = response.headers.get('X-RateLimit-Reset')
+          const waitMs = reset ? parseInt(reset) * 1000 - Date.now() : 60000
+          log(`Rate limited. Waiting ${Math.ceil(waitMs / 1000)}s...`)
+          await new Promise((r) => setTimeout(r, Math.max(waitMs, 1000)))
+          continue
+        }
+      }
+
+      if (!response.ok) {
+        log(`  Error fetching ${q}: ${response.status} ${response.statusText}`)
+        querySuccess = true
         continue
       }
+
+      const data = (await response.json()) as { total_count: number; incomplete_results: boolean }
+      configTotal += data.total_count
+      seenTools.add(q)
+
+      if (data.incomplete_results) {
+        log(`  WARNING: incomplete results for ${q}`)
+      }
+
+      log(`  ${q}: ${data.total_count.toLocaleString()} repos`)
+      querySuccess = true
     }
 
-    if (!response.ok) {
-      log(`  Error fetching config aggregate: ${response.status} ${response.statusText}`)
-      configSuccess = true
-      continue
-    }
-
-    const data = (await response.json()) as { total_count: number; incomplete_results: boolean }
-    configCount = data.total_count
-
-    if (data.incomplete_results) {
-      log('  WARNING: incomplete results for config aggregate')
-    }
-
-    log(`  Config aggregate: ${configCount.toLocaleString()} repos`)
-    configSuccess = true
+    // 6.5s delay between code search requests (10 req/min)
+    await new Promise((r) => setTimeout(r, 6500))
   }
 
-  if (configCount !== null) {
+  log(`  Config aggregate (sum, may include overlap): ${configTotal.toLocaleString()} repos`)
+
+  if (seenTools.size > 0) {
     const { error } = await db.from('tool_contributions').upsert(
       {
         repo_id: repoId,
         tool_name: 'All Tools [config-aggregate]',
-        commit_count: configCount,
+        commit_count: configTotal,
         month: today,
       },
       { onConflict: 'repo_id,tool_name,month' }
     )
     if (error) log(`  ERROR upserting config aggregate: ${error.message}`)
   }
-
-  // 6.5s delay — code search and commit search share a combined budget
-  await new Promise((r) => setTimeout(r, 6500))
 
   // ── 2. Aggregate commit count (OR query for a single day) ──
   log(`Fetching aggregate commit count for ${commitDate}...`)
