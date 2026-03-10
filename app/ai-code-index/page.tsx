@@ -289,17 +289,88 @@ function formatDateShort(date: string): string {
   return `${MONTHS[parseInt(m, 10) - 1]} ${parseInt(d, 10)}`
 }
 
-// News feed — Bloomberg-style single-line headlines with source tags
-const NEWS_FEED: Array<{ tag: string; color: string; headline: string }> = [
+// Convergence detection — when multiple signals spike for the same tool
+interface ConvergenceAlert {
+  tool: string
+  level: 'red' | 'orange' | 'yellow'
+  signals: string[]
+  headline: string
+}
+
+function computeConvergenceAlerts(
+  stats: ReturnType<typeof computeToolStats>,
+  configTimeSeries: AdoptionTimeSeriesEntry[],
+  agentPRData: Array<{ tool: string; count: number; date: string }>,
+  hnBuzzData: Array<{ tool: string; mentions: number; points: number }>,
+): ConvergenceAlert[] {
+  const alerts: ConvergenceAlert[] = []
+
+  const AI_TOOLS = ['Claude Code', 'Cursor', 'GitHub Copilot', 'Aider', 'Gemini CLI', 'Devin', 'Codex']
+
+  for (const tool of AI_TOOLS) {
+    const signals: string[] = []
+
+    // Signal 1: Commit volume trending up (30d)
+    const stat = stats.find((s) => s.name === tool)
+    if (stat && stat.trendPct > 10) {
+      signals.push(`commits ${formatPct(stat.trendPct)} (30d)`)
+    }
+
+    // Signal 2: WoW acceleration
+    if (stat && stat.wowPct > 15) {
+      signals.push(`WoW ${formatPct(stat.wowPct)}`)
+    }
+
+    // Signal 3: Config adoption growing
+    const configVelocity = computeAdoptionVelocity(configTimeSeries, tool)
+    if (configVelocity.weeklyGrowthPct !== null && configVelocity.weeklyGrowthPct > 5) {
+      signals.push(`config files ${formatPct(configVelocity.weeklyGrowthPct)}/wk`)
+    }
+
+    // Signal 4: High agent PR volume (>100/day)
+    const agentData = agentPRData.find((a) => a.tool === tool)
+    if (agentData && agentData.count > 100) {
+      signals.push(`${formatNum(agentData.count)} agent PRs/day`)
+    }
+
+    // Signal 5: HN buzz (>5 stories in 7 days)
+    const hnData = hnBuzzData.find((h) => h.tool === tool)
+    if (hnData && hnData.mentions >= 5) {
+      signals.push(`${hnData.mentions} HN stories (7d)`)
+    }
+
+    // Signal 6: Market share dominance (>50%)
+    if (stat && stat.share30d > 50) {
+      signals.push(`${stat.share30d.toFixed(0)}% market share`)
+    }
+
+    if (signals.length >= 4) {
+      const level = signals.length >= 5 ? 'red' : 'orange'
+      alerts.push({
+        tool,
+        level,
+        signals,
+        headline: `${signals.length} converging signals — ${signals.slice(0, 3).join(', ')}`,
+      })
+    } else if (signals.length === 3) {
+      alerts.push({
+        tool,
+        level: 'yellow',
+        signals,
+        headline: `${signals.join(', ')}`,
+      })
+    }
+  }
+
+  return alerts.sort((a, b) => b.signals.length - a.signals.length)
+}
+
+// Static context notes for the news feed
+const CONTEXT_NOTES: Array<{ tag: string; color: string; headline: string }> = [
   { tag: 'CURSOR', color: TOOL_COLORS['Cursor'], headline: 'Cursor 2.4 silently enables Co-Authored-By for all users — Jan spike is attribution, not usage growth' },
-  { tag: 'CURSOR', color: TOOL_COLORS['Cursor'], headline: 'Before Jan 2026 Cursor had zero trackable commits despite being one of the most popular AI editors' },
   { tag: 'CLAUDE', color: TOOL_COLORS['Claude Code'], headline: 'Claude Code accounts for 90%+ of all tracked AI commits — only tool with attribution on by default since day one' },
-  { tag: 'CLAUDE', color: TOOL_COLORS['Claude Code'], headline: 'Web launch in Oct 2025 removed CLI-only barrier — daily commits accelerated through Q4' },
-  { tag: 'CLAUDE', color: TOOL_COLORS['Claude Code'], headline: 'Claude Code GA in May 2025 is the single largest inflection point on the chart' },
-  { tag: 'COPILOT', color: TOOL_COLORS['GitHub Copilot'], headline: 'Copilot coding agent (copilot-swe-agent[bot]) went GA Sep 2025 but barely registers — most usage is inline completions' },
-  { tag: 'GEMINI', color: TOOL_COLORS['Gemini CLI'], headline: 'Google open-sourced Gemini CLI Jun 2025 with free tier (1k req/day) — steady growth since launch' },
+  { tag: 'COPILOT', color: TOOL_COLORS['GitHub Copilot'], headline: 'Copilot coding agent (copilot-swe-agent[bot]) went GA Sep 2025 but barely registers in commits — most usage is inline completions' },
   { tag: 'CODEX', color: TOOL_COLORS['Codex'], headline: 'Codex CLI open-sourced Apr 2025 but attribution is opt-in — chart understates real usage' },
-  { tag: 'DEVIN', color: TOOL_COLORS['Devin'], headline: 'Devin price dropped from $500/mo to $20/mo in Apr 2025 — commit volume didn\'t follow' },
   { tag: 'AIDER', color: TOOL_COLORS['Aider'], headline: 'Aider enabled Co-Authored-By Nov 2024 — longest attribution history in the index, steady baseline' },
 ]
 
@@ -328,6 +399,9 @@ export default async function AICodeIndexPage() {
     getHNBuzzData(),
   ])
   const hasAdoptionData = configData.length > 0 || sdkData.length > 0
+
+  // Convergence alerts
+  const convergenceAlerts = computeConvergenceAlerts(stats, configTimeSeries, agentPRData, hnBuzzData)
 
   // Composite scores
   const compositeScores = computeCompositeScores(stats, data)
@@ -790,11 +864,11 @@ export default async function AICodeIndexPage() {
                 </div>
               )}
 
-              {/* News feed */}
+              {/* Intelligence Brief — convergence alerts + context */}
               <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-                <div className="mb-2 flex items-baseline justify-between">
+                <div className="mb-3 flex items-baseline justify-between">
                   <div className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
-                    News
+                    Intelligence brief
                   </div>
                   <div className="text-xs text-[var(--foreground-subtle)]">
                     API:{' '}
@@ -803,8 +877,52 @@ export default async function AICodeIndexPage() {
                     </Link>
                   </div>
                 </div>
+
+                {/* Convergence alerts */}
+                {convergenceAlerts.length > 0 && (
+                  <div className="mb-4 space-y-2">
+                    {convergenceAlerts.map((alert) => {
+                      const levelColors = {
+                        red: { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.3)', badge: '#ef4444', label: 'CONVERGENCE' },
+                        orange: { bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.3)', badge: '#f97316', label: 'CONVERGENCE' },
+                        yellow: { bg: 'rgba(234,179,8,0.06)', border: 'rgba(234,179,8,0.2)', badge: '#eab308', label: 'WATCH' },
+                      }
+                      const colors = levelColors[alert.level]
+                      return (
+                        <div
+                          key={alert.tool}
+                          className="rounded-md px-3 py-2"
+                          style={{
+                            backgroundColor: colors.bg,
+                            border: `1px solid ${colors.border}`,
+                          }}
+                        >
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span
+                              className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                              style={{ backgroundColor: colors.badge, color: '#fff' }}
+                            >
+                              {colors.label}
+                            </span>
+                            <span className="text-xs font-semibold" style={{ color: TOOL_COLORS[alert.tool] ?? 'var(--foreground)' }}>
+                              {alert.tool}
+                            </span>
+                            <span className="text-[10px] text-[var(--foreground-subtle)]">
+                              {alert.signals.length} signals
+                            </span>
+                          </div>
+                          <div className="text-xs text-[var(--foreground-muted)] leading-snug">
+                            {alert.headline}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Context notes */}
                 <div>
-                  {NEWS_FEED.map((item, i) => (
+                  {CONTEXT_NOTES.map((item, i) => (
                     <div
                       key={i}
                       className="flex items-baseline gap-0 py-[3px]"
