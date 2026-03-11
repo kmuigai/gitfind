@@ -282,10 +282,10 @@ function computeCompositeScores(
   return composites.sort((a, b) => b.score - a.score)
 }
 
-function renderBlockBar(value: number, max: number = 100): string {
+function renderBlockBar(value: number, max: number = 100, blocks: number = 20): string {
   const pct = Math.max(0, Math.min(1, value / max))
-  const filled = Math.round(pct * 8)
-  return '█'.repeat(filled) + '░'.repeat(8 - filled)
+  const filled = Math.round(pct * blocks)
+  return '█'.repeat(filled) + '░'.repeat(blocks - filled)
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -453,48 +453,41 @@ export default async function AICodeIndexPage() {
 
           {data.length >= 2 ? (
             <>
-              {/* Hero KPI bar — segmented dark strip */}
-              <div
-                className="grid grid-cols-2 sm:grid-cols-4 text-center"
-                style={{
-                  backgroundColor: 'rgba(255,255,255,0.03)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: '6px',
-                }}
-              >
-                <div className="px-1.5 py-3 sm:px-4 sm:py-4">
-                  <div className="term-label mb-1">TOTAL_COMMITS</div>
-                  <div className="text-base font-semibold text-[var(--foreground)] sm:text-2xl">
+              {/* Hero KPI cards — 4-col grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="terminal-panel">
+                  <div className="term-label mb-2">TOTAL_COMMITS</div>
+                  <div className="text-xl font-bold text-[var(--foreground)] glow-accent sm:text-2xl">
                     {formatNumExact(totalCommits)}
                   </div>
                 </div>
-                <div className="px-1.5 py-3 sm:px-4 sm:py-4" style={{ borderLeft: '1px solid var(--border)' }}>
-                  <div className="term-label mb-1">30D_AVG/DAY</div>
-                  <div className="text-base font-semibold text-[var(--foreground)] sm:text-2xl">
+                <div className="terminal-panel">
+                  <div className="term-label mb-2">30D_AVG/DAY</div>
+                  <div className="text-xl font-bold text-[var(--foreground)] glow-accent sm:text-2xl">
                     {formatNum(Math.round(totalCommits30d / 30))}
                   </div>
-                  <div className="text-[9px] sm:text-[10px] mt-0.5" style={{
+                  <div className="text-[9px] sm:text-[10px] mt-1" style={{
                     color: overallWoW > 0.5 ? 'var(--score-high)' : overallWoW < -0.5 ? 'var(--error)' : 'var(--foreground-subtle)',
                   }}>
                     <span className={`status-dot ${overallWoW > 0.5 ? 'status-dot--positive' : overallWoW < -0.5 ? 'status-dot--negative' : 'status-dot--flat'}`} />
                     {formatPct(overallWoW)} WoW
                   </div>
                 </div>
-                <div className="px-1.5 py-3 sm:px-4 sm:py-4" style={{ borderLeft: '1px solid var(--border)' }}>
-                  <div className="term-label mb-1">30D_CHANGE</div>
-                  <div className="text-base font-semibold sm:text-2xl" style={{
+                <div className="terminal-panel">
+                  <div className="term-label mb-2">30D_CHANGE</div>
+                  <div className="text-xl font-bold sm:text-2xl" style={{
                     color: overallTrend > 0 ? 'var(--score-high)' : overallTrend < 0 ? 'var(--error)' : 'var(--foreground)',
                   }}>
                     <span className={`status-dot ${overallTrend > 5 ? 'status-dot--positive' : overallTrend < -5 ? 'status-dot--negative' : 'status-dot--flat'}`} />
                     {formatPct(overallTrend)}
                   </div>
                 </div>
-                <div className="px-1.5 py-3 sm:px-4 sm:py-4" style={{ borderLeft: '1px solid var(--border)' }}>
-                  <div className="term-label mb-1">AI_REPOS</div>
-                  <div className="text-base font-semibold text-[var(--foreground)] sm:text-2xl">
+                <div className="terminal-panel">
+                  <div className="term-label mb-2">AI_REPOS</div>
+                  <div className="text-xl font-bold text-[var(--foreground)] glow-accent sm:text-2xl">
                     {aggregateKPIs.configAggregate !== null ? formatNum(aggregateKPIs.configAggregate) : '—'}
                   </div>
-                  <div className="text-[9px] sm:text-[10px] mt-0.5" style={{
+                  <div className="text-[9px] sm:text-[10px] mt-1" style={{
                     color: (aggregateKPIs.configAggregateWoW ?? 0) > 0.5 ? 'var(--score-high)' : (aggregateKPIs.configAggregateWoW ?? 0) < -0.5 ? 'var(--error)' : 'var(--foreground-subtle)',
                   }}>
                     <span className={`status-dot ${(aggregateKPIs.configAggregateWoW ?? 0) > 0.5 ? 'status-dot--positive' : (aggregateKPIs.configAggregateWoW ?? 0) < -0.5 ? 'status-dot--negative' : 'status-dot--flat'}`} />
@@ -504,13 +497,13 @@ export default async function AICodeIndexPage() {
               </div>
 
               {/* Full-width commit volume table with Score column */}
-              <div className="mt-8">
-                <div className="mb-1 flex items-baseline justify-between">
+              <div className="mt-8 terminal-panel">
+                <div className="mb-3 flex items-baseline justify-between">
                   <div className="term-label">
                     {'// COMMIT_VOLUME'}
                   </div>
                   <span className="font-mono text-[9px] text-[var(--foreground-subtle)] uppercase tracking-widest">
-                    {'>'} {byVolume.length} nodes indexed
+                    LIVE_FEED · {byVolume.length} NODES
                   </span>
                 </div>
                 <div className="overflow-x-auto">
@@ -593,18 +586,18 @@ export default async function AICodeIndexPage() {
                     </tbody>
                   </table>
                 </div>
-                <p className="mt-1.5 font-mono text-[9px] text-[var(--foreground-subtle)] tracking-wider">
+                <p className="mt-3 font-mono text-[9px] text-[var(--foreground-subtle)] tracking-wider">
                   SCORE = VOLUME (35%) · MOMENTUM (25%) · ACCELERATION (20%) · CONSISTENCY (20%)
                 </p>
               </div>
 
-              {/* Metric strip — 3 tables in a horizontal band */}
-              <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Metric strip — 3 panels in a horizontal band */}
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* Momentum */}
-                <div>
-                  <div className="mb-1 flex items-baseline justify-between">
+                <div className="terminal-panel">
+                  <div className="mb-3 flex items-baseline justify-between">
                     <div className="term-label">{'// MOMENTUM_30D'}</div>
-                    <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">{'>'} {byMomentum.length} NODES</span>
+                    <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">TREND</span>
                   </div>
                   <table className="term-table">
                     <thead>
@@ -635,8 +628,8 @@ export default async function AICodeIndexPage() {
                 </div>
 
                 {/* Doubling time */}
-                <div>
-                  <div className="mb-1 flex items-baseline justify-between">
+                <div className="terminal-panel">
+                  <div className="mb-3 flex items-baseline justify-between">
                     <div className="term-label">{'// DOUBLING_TIME'}</div>
                     <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">DAYS_TO_2X</span>
                   </div>
@@ -679,9 +672,10 @@ export default async function AICodeIndexPage() {
                 </div>
 
                 {/* Market share */}
-                <div>
-                  <div className="mb-1 flex items-baseline justify-between">
+                <div className="terminal-panel">
+                  <div className="mb-3 flex items-baseline justify-between">
                     <div className="term-label">{'// MARKET_SHARE_30D'}</div>
+                    <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">SHARE</span>
                   </div>
                   <table className="term-table">
                     <thead>
@@ -704,7 +698,7 @@ export default async function AICodeIndexPage() {
                           <td className="text-right text-[var(--foreground-muted)]">{tool.share30d.toFixed(1)}%</td>
                           <td className="text-center">
                             <span className="term-bar">
-                              <span className="term-bar-filled" style={{ color: tool.color }}>{renderBlockBar(tool.share30d)}</span>
+                              <span className="term-bar-filled" style={{ color: tool.color }}>{renderBlockBar(tool.share30d, 100, 10)}</span>
                             </span>
                           </td>
                         </tr>
@@ -715,17 +709,17 @@ export default async function AICodeIndexPage() {
               </div>
 
               {/* Chart */}
-              <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-                <div className="mb-1 flex items-baseline justify-between">
+              <div className="mt-6 terminal-panel">
+                <div className="mb-3 flex items-baseline justify-between">
                   <div className="term-label">{'// DAILY_COMMIT_VOLUME'}</div>
-                  <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">{'>'} {data.length} DAYS INDEXED</span>
+                  <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">TIME_SERIES · {data.length} DAYS</span>
                 </div>
                 <AICodeIndexChart data={data} configTimeSeries={configTimeSeries} agentPRTimeSeries={agentPRTimeSeries} />
               </div>
 
               {/* Market share over time */}
-              <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-                <div className="mb-1 flex items-baseline justify-between">
+              <div className="mt-6 terminal-panel">
+                <div className="mb-3 flex items-baseline justify-between">
                   <div className="term-label">{'// MARKET_SHARE_OVER_TIME'}</div>
                   <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">7D_SMOOTHED</span>
                 </div>
@@ -734,10 +728,10 @@ export default async function AICodeIndexPage() {
 
               {/* AI Agent Activity — PRs created by autonomous AI bots */}
               {agentPRData.length > 0 && (
-                <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-                  <div className="mb-1 flex items-baseline justify-between">
+                <div className="mt-6 terminal-panel">
+                  <div className="mb-3 flex items-baseline justify-between">
                     <div className="term-label">{'// AI_AGENT_ACTIVITY'}</div>
-                    <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">{'>'} {agentPRData.length} AGENTS TRACKED</span>
+                    <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">AUTONOMOUS · {agentPRData.length} AGENTS</span>
                   </div>
                   <p className="mb-2 font-mono text-[9px] text-[var(--foreground-subtle)] tracking-wider">
                     PULL_REQUESTS CREATED AUTONOMOUSLY — NO HUMAN CO-AUTHOR
@@ -779,7 +773,7 @@ export default async function AICodeIndexPage() {
                             <td className="text-center">
                               <span className="term-bar">
                                 <span className="term-bar-filled" style={{ color: TOOL_COLORS[agent.tool] ?? 'var(--accent)' }}>
-                                  {renderBlockBar(agent.count, maxCount)}
+                                  {renderBlockBar(agent.count, maxCount, 12)}
                                 </span>
                               </span>
                             </td>
@@ -793,10 +787,10 @@ export default async function AICodeIndexPage() {
 
               {/* Community Pulse — unified buzz across HN, Reddit, GH Discussions */}
               {buzzData.length > 0 && (
-                <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-                  <div className="mb-1 flex items-baseline justify-between">
+                <div className="mt-6 terminal-panel">
+                  <div className="mb-3 flex items-baseline justify-between">
                     <div className="term-label">{'// COMMUNITY_PULSE'}</div>
-                    <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">{'>'} LAST 7 DAYS</span>
+                    <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">7D_WINDOW</span>
                   </div>
                   <p className="mb-2 font-mono text-[9px] text-[var(--foreground-subtle)] tracking-wider">
                     MENTIONS ACROSS HN, REDDIT, GH_DISCUSSIONS
@@ -844,12 +838,12 @@ export default async function AICodeIndexPage() {
 
               {/* Adoption — config files + SDK dependencies */}
               {hasAdoptionData && (
-                <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
+                <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-3">
                   {configData.length > 0 && (
-                    <div>
-                      <div className="mb-1 flex items-baseline justify-between">
+                    <div className="terminal-panel">
+                      <div className="mb-3 flex items-baseline justify-between">
                         <div className="term-label">{'// CONFIG_FILE_ADOPTION'}</div>
-                        <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">{'>'} {configData.length} FILES</span>
+                        <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">REPO_COUNT</span>
                       </div>
                       <table className="term-table">
                         <thead>
@@ -894,10 +888,10 @@ export default async function AICodeIndexPage() {
                     </div>
                   )}
                   {sdkData.length > 0 && (
-                    <div>
-                      <div className="mb-1 flex items-baseline justify-between">
+                    <div className="terminal-panel">
+                      <div className="mb-3 flex items-baseline justify-between">
                         <div className="term-label">{'// SDK_ADOPTION'}</div>
-                        <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">{'>'} {sdkData.length} SDKS</span>
+                        <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">DEPENDENCIES</span>
                       </div>
                       <table className="term-table">
                         <thead>
@@ -943,14 +937,11 @@ export default async function AICodeIndexPage() {
               )}
 
               {/* Intelligence Brief — convergence alerts + context */}
-              <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-                <div className="mb-1 flex items-baseline justify-between">
+              <div className="mt-6 terminal-panel">
+                <div className="mb-3 flex items-baseline justify-between">
                   <div className="term-label">{'// INTELLIGENCE_BRIEF'}</div>
                   <span className="font-mono text-[9px] text-[var(--foreground-subtle)] tracking-widest">
-                    API:{' '}
-                    <Link href="/api/ai-code-index" className="text-[var(--foreground-muted)] transition-colors hover:text-[var(--accent)]">
-                      /api/ai-code-index
-                    </Link>
+                    ANALYSIS
                   </span>
                 </div>
 
