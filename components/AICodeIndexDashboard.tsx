@@ -508,14 +508,14 @@ export default function AICodeIndexDashboard({
         style={{ background: '#0a0a0f', borderBottom: '1px solid #1e1e2e' }}
       >
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 text-[#6c6af6]">
+          <div className="hidden md:flex items-center gap-2 text-[#6c6af6]">
             <span style={{ fontSize: 10 }}>⚡</span>
             <span>SYS_STATUS: OPTIMAL</span>
           </div>
           <div className="flex items-center gap-2 text-[#67e8f9]">
             <span>NODES: {String(liveNodeCount).padStart(2, '0')}/{String(liveNodeCount).padStart(2, '0')} LIVE</span>
           </div>
-          <div className="flex items-center gap-2 text-[#fde68a]">
+          <div className="hidden md:flex items-center gap-2 text-[#fde68a]">
             <span>LOAD: {loadDisplay}</span>
           </div>
           <div className="text-[#555] hidden md:block">
@@ -561,8 +561,8 @@ export default function AICodeIndexDashboard({
                 <img src={`https://github.com/${repo.owner}.png?size=40`} alt="" width={16} height={16} className="rounded-full" />
                 <span className="text-[#67e8f9]">▸ {repo.owner}/{repo.name}</span>
                 <span className="text-[#86efac]">+{formatNum(repo.stars_7d)} ⭐</span>
-                <span className="text-[#86efac]">+{repo.pct_increase > 999 ? 'NEW' : `${repo.pct_increase}%`}</span>
-                {repo.pct_increase >= 200 && <span className="text-[#fde68a] font-bold">HOT</span>}
+                <span className="text-[#86efac] hidden md:inline">+{repo.pct_increase > 999 ? 'NEW' : `${repo.pct_increase}%`}</span>
+                {repo.pct_increase >= 200 && <span className="text-[#fde68a] font-bold hidden md:inline">HOT</span>}
                 <span className="text-[#555] ml-4">·</span>
               </Link>
             ))}
@@ -582,14 +582,14 @@ export default function AICodeIndexDashboard({
               <table className="w-full text-left text-[11px] border-collapse">
                 <thead>
                   <tr className="text-[#555] border-b uppercase" style={{ borderColor: '#1e1e2e' }}>
-                    <th className="pb-2 font-normal">NODE</th>
+                    <th className="pb-2 font-normal hidden md:table-cell">NODE</th>
                     <th className="pb-2 font-normal">TOOL_NAME</th>
                     <th className="pb-2 font-normal text-right">LATEST</th>
-                    <th className="pb-2 font-normal text-right">AVG/DAY</th>
-                    <th className="pb-2 font-normal text-right">30D_VOL</th>
+                    <th className="pb-2 font-normal text-right hidden md:table-cell">AVG/DAY</th>
+                    <th className="pb-2 font-normal text-right hidden md:table-cell">30D_VOL</th>
                     <th className="pb-2 font-normal text-right">WoW%</th>
                     <th className="pb-2 font-normal text-right">SHARE</th>
-                    <th className="pb-2 font-normal text-center">SCORE</th>
+                    <th className="pb-2 font-normal text-center hidden md:table-cell">SCORE</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y" style={{ borderColor: '#1e1e2e' }}>
@@ -605,8 +605,8 @@ export default function AICodeIndexDashboard({
                         onClick={() => setHighlightedTool(prev => prev === tool.name ? null : tool.name)}
                         style={{ borderColor: '#1e1e2e' }}
                       >
-                        <td className="py-2 text-[#555]">[{String(i).padStart(2, '0')}]</td>
-                        <td className="py-2 font-bold group-hover:underline" style={{ color: tool.color }}>
+                        <td className="py-3 md:py-2 text-[#555] hidden md:table-cell">[{String(i).padStart(2, '0')}]</td>
+                        <td className="py-3 md:py-2 font-bold group-hover:underline" style={{ color: tool.color }}>
                           {TOOL_SLUGS[tool.name] ? (
                             <Link
                               href={`/ai-code-index/compare/${TOOL_SLUGS[tool.name]}-vs-${TOOL_SLUGS[byVolume.find((t) => t.name !== tool.name)?.name ?? 'cursor']}`}
@@ -617,21 +617,21 @@ export default function AICodeIndexDashboard({
                             </Link>
                           ) : tool.name}
                         </td>
-                        <td className={`py-2 text-right tabular-nums ${flash === 'green' ? 'flash-green' : flash === 'red' ? 'flash-red' : ''}`}>
+                        <td className={`py-3 md:py-2 text-right tabular-nums ${flash === 'green' ? 'flash-green' : flash === 'red' ? 'flash-red' : ''}`}>
                           {formatNum(latestVal)}
                         </td>
-                        <td className="py-2 text-right tabular-nums text-[#555]">{formatNum(Math.round(tool.avg30d))}</td>
-                        <td className="py-2 text-right tabular-nums">{formatNum(Math.round(tool.avg30d * 30))}</td>
-                        <td className={`py-2 text-right tabular-nums ${tool.wowPct > 3 ? 'text-[#86efac]' : tool.wowPct < -3 ? 'text-[#ef5350]' : 'text-[#555]'}`}>
+                        <td className="py-3 md:py-2 text-right tabular-nums text-[#555] hidden md:table-cell">{formatNum(Math.round(tool.avg30d))}</td>
+                        <td className="py-3 md:py-2 text-right tabular-nums hidden md:table-cell">{formatNum(Math.round(tool.avg30d * 30))}</td>
+                        <td className={`py-3 md:py-2 text-right tabular-nums ${tool.wowPct > 3 ? 'text-[#86efac]' : tool.wowPct < -3 ? 'text-[#ef5350]' : 'text-[#555]'}`}>
                           {formatPct(tool.wowPct)}
                           <span className="ml-0.5 text-[9px]">
                             {tool.acceleration === 'accel' ? '▲' : tool.acceleration === 'decel' ? '▼' : ''}
                           </span>
                         </td>
-                        <td className="py-2 text-right tabular-nums text-[#67e8f9]">
+                        <td className="py-3 md:py-2 text-right tabular-nums text-[#67e8f9]">
                           {tool.share30d >= 0.1 ? `${tool.share30d.toFixed(1)}%` : '<0.1%'}
                         </td>
-                        <td className="py-2 text-center">
+                        <td className="py-3 md:py-2 text-center hidden md:table-cell">
                           {score && (
                             <span className="text-[9px] px-1 py-0.5 rounded" style={{
                               background: score.score >= 65 ? 'rgba(134,239,172,0.1)' : score.score >= 40 ? 'rgba(168,85,247,0.1)' : 'rgba(85,85,85,0.1)',
@@ -919,7 +919,7 @@ export default function AICodeIndexDashboard({
 
       {/* COMMAND BAR */}
       <footer
-        className="h-10 flex items-center px-4 z-50 fixed bottom-0 left-0 right-0"
+        className="h-10 hidden md:flex items-center px-4 z-50 fixed bottom-0 left-0 right-0"
         style={{ background: '#0a0a0f', borderTop: '1px solid #1e1e2e' }}
       >
         <div className="text-[#6c6af6] mr-3 font-bold">❯</div>
