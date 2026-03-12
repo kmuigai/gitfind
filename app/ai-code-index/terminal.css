@@ -1,0 +1,98 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+/* Scoped to .terminal-dashboard — does not affect other pages */
+
+.terminal-dashboard .terminal-panel {
+  background: #0e0e16;
+  border: 1px solid #1e1e2e;
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-dashboard .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid #1e1e2e;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.terminal-dashboard .panel-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #c8c8c8;
+}
+
+.terminal-dashboard .panel-tag {
+  font-size: 9px;
+  padding: 2px 6px;
+  border: 1px solid #1e1e2e;
+  color: #555;
+  border-radius: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.terminal-dashboard .panel-tag:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.terminal-dashboard .terminal-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.terminal-dashboard .terminal-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.terminal-dashboard .terminal-scrollbar::-webkit-scrollbar-thumb {
+  background: #1e1e2e;
+  border-radius: 99px;
+}
+
+.terminal-dashboard .terminal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Flash animations for number flicker */
+.terminal-dashboard .flash-green {
+  animation: td-flash-green 1s ease-out;
+}
+
+@keyframes td-flash-green {
+  0% { color: #86efac; text-shadow: 0 0 10px #86efac; }
+  100% { color: inherit; text-shadow: none; }
+}
+
+.terminal-dashboard .flash-red {
+  animation: td-flash-red 1s ease-out;
+}
+
+@keyframes td-flash-red {
+  0% { color: #ef5350; text-shadow: 0 0 10px #ef5350; }
+  100% { color: inherit; text-shadow: none; }
+}
+
+/* Ticker scroll — scoped to page */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.terminal-dashboard .ticker-content:hover {
+  animation-play-state: paused;
+}
+
+/* Fade in for log entries */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
