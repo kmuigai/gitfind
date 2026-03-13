@@ -1,10 +1,10 @@
 // Fetch daily AI coding tool commit counts using GitHub Search API
-// Tracks 7 tools: Claude Code, Cursor, GitHub Copilot, Aider, Gemini CLI, Devin, Codex
+// Tracks 10 tools: Claude Code, Cursor, GitHub Copilot, Aider, Gemini CLI, Devin, Codex, Junie, Amazon Q, Cody
 //
 // Run: npx tsx scripts/search-commits.ts
 //
 // Note: GitHub Search API has a 30 requests/min rate limit.
-// Each tool × day = 1 request. 7 tools × 1 day = 7 requests for nightly runs.
+// Each tool × day = 1 request. 10 tools × 1 day = 10 requests for nightly runs.
 
 import { config } from 'dotenv'
 config({ path: '.env.local' })
@@ -44,6 +44,21 @@ const TOOLS = [
     name: 'Codex',
     query: (date: string) => `"Co-authored-by: Codex" committer-date:${date}`,
     startDate: '2025-10-08',
+  },
+  {
+    name: 'Junie',
+    query: (date: string) => `"Co-authored-by: Junie" committer-date:${date}`,
+    startDate: '2026-03-05',
+  },
+  {
+    name: 'Amazon Q',
+    query: (date: string) => `"amazon-q-developer" committer-date:${date}`,
+    startDate: '2026-03-05',
+  },
+  {
+    name: 'Cody',
+    query: (date: string) => `"Co-authored-by: Cody" committer-date:${date}`,
+    startDate: '2026-03-05',
   },
 ] as const
 
