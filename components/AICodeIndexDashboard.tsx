@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import Link from 'next/link'
+
 import AICodeIndexChart from '@/components/AICodeIndexChart'
 import MarketShareChart from '@/components/MarketShareChart'
 
@@ -86,15 +86,6 @@ const TOOL_COLORS: Record<string, string> = {
   'Windsurf': '#06b6d4',
 }
 
-const TOOL_SLUGS: Record<string, string> = {
-  'Claude Code': 'claude-code',
-  'Cursor': 'cursor',
-  'GitHub Copilot': 'copilot',
-  'Aider': 'aider',
-  'Gemini CLI': 'gemini-cli',
-  'Devin': 'devin',
-  'Codex': 'codex',
-}
 
 const CONFIG_FILES: Record<string, string> = {
   'AGENTS.md': 'Claude Code + Codex',
@@ -511,16 +502,8 @@ export default function AICodeIndexDashboard({
                         style={{ borderColor: '#1e1e2e' }}
                       >
                         <td className="py-3 md:py-2 text-[#555] hidden md:table-cell">[{String(i).padStart(2, '0')}]</td>
-                        <td className="py-3 md:py-2 font-bold group-hover:underline" style={{ color: tool.color }}>
-                          {TOOL_SLUGS[tool.name] ? (
-                            <Link
-                              href={`/ai-code-index/compare/${TOOL_SLUGS[tool.name]}-vs-${TOOL_SLUGS[byVolume.find((t) => t.name !== tool.name)?.name ?? 'cursor']}`}
-                              className="hover:brightness-125"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {tool.name}
-                            </Link>
-                          ) : tool.name}
+                        <td className="py-3 md:py-2 font-bold" style={{ color: tool.color }}>
+                          {tool.name}
                         </td>
                         <td className={`py-3 md:py-2 text-right tabular-nums ${flash === 'green' ? 'flash-green' : flash === 'red' ? 'flash-red' : ''}`}>
                           {formatNum(latestVal)}
@@ -869,7 +852,6 @@ export default function AICodeIndexDashboard({
               {[
                 { cmd: 'filter [tool]', desc: 'Filter dashboard by tool name' },
                 { cmd: 'reset', desc: 'Clear all filters and highlights' },
-                { cmd: 'compare [t1] [t2]', desc: 'Open comparison page' },
                 { cmd: 'help', desc: 'Show full documentation' },
               ].map(item => (
                 <div key={item.cmd} className="flex justify-between items-center p-2 hover:bg-white/5 rounded cursor-pointer">
