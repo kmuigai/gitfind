@@ -51,7 +51,7 @@ function ScoreBadge({ score }: { score: number }) {
         : 'text-[var(--badge-active)] border-[var(--badge-active)]/30 bg-[var(--badge-active)]/10'
 
   return (
-    <span className={`inline-flex flex-col items-center rounded-full border px-2 py-0.5 ${color}`}>
+    <span className={`inline-flex flex-col items-center rounded-[3px] border px-2 py-0.5 ${color}`}>
       <span className="font-mono text-xs font-bold leading-tight">{score}</span>
       <span className="text-[9px] font-medium leading-tight opacity-80">{tier}</span>
     </span>
@@ -64,7 +64,7 @@ function RepoRow({ repo }: { repo: BreakoutRepo }) {
   const color = thresholdColor(repo.threshold)
 
   return (
-    <article className="group rounded-lg border border-[var(--border)] bg-[var(--background-card)] p-5 transition-all hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)]">
+    <article className="group rounded-sm border border-[var(--border)] bg-[var(--background-card)] p-5 transition-colors hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)]">
       <div className="flex items-start gap-4">
         {/* Threshold badge */}
         <div className="shrink-0 pt-1">
@@ -101,7 +101,7 @@ function RepoRow({ repo }: { repo: BreakoutRepo }) {
           </div>
 
           {repo.enrichment?.why_it_matters && (
-            <div className="mt-3 rounded-md bg-[var(--accent-subtle)] px-3 py-2">
+            <div className="mt-3 bg-[var(--accent-subtle)] px-3 py-2">
               <p className="text-xs leading-relaxed text-[var(--foreground-muted)]">
                 <span className="font-mono font-medium text-[var(--accent)]">{'// why it matters '}</span>
                 {repo.enrichment.why_it_matters}
@@ -201,7 +201,7 @@ export default async function BreakoutReposPage() {
 
       {/* Header */}
       <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-[1400px]">
           <nav className="mb-6 flex items-center gap-2 font-mono text-xs text-[var(--foreground-subtle)]">
             <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
               GitFind
@@ -215,7 +215,7 @@ export default async function BreakoutReposPage() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <span className="rounded-full border border-[var(--accent)]/30 bg-[var(--accent)]/5 px-2.5 py-0.5 font-mono text-[10px] font-medium text-[var(--accent)]">
+            <span className="rounded-[3px] border border-[var(--accent)]/30 bg-[var(--accent)]/5 px-2.5 py-0.5 font-mono text-[10px] font-medium text-[var(--accent)]">
               MONTHLY
             </span>
             <span className="font-mono text-[10px] text-[var(--foreground-subtle)]">
@@ -224,7 +224,7 @@ export default async function BreakoutReposPage() {
           </div>
 
           <h1 className="mt-4 font-mono text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-            Breakout Repos
+            <span className="text-[var(--accent)]">{'// '}</span>BREAKOUT REPOS
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--foreground-muted)]">
             Projects that crossed major star milestones in the last 30 days — from unknown to 1k, from 1k to 10k, and beyond. These are the repos that just hit escape velocity.
@@ -233,7 +233,7 @@ export default async function BreakoutReposPage() {
           {/* Summary KPIs */}
           {repos.length > 0 && (
             <div
-              className="mt-6 grid grid-cols-3 rounded-lg border border-[var(--border-subtle)]"
+              className="mt-6 grid grid-cols-3 rounded-sm border border-[var(--border-subtle)]"
               style={{ background: 'rgba(255,255,255,0.03)' }}
             >
               <div className="px-4 py-3 text-center border-r border-[var(--border-subtle)]">
@@ -267,7 +267,7 @@ export default async function BreakoutReposPage() {
 
       {/* Rankings */}
       <section className="px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-[1400px]">
           {repos.length > 0 ? (
             <div className="space-y-4">
               {repos.map((repo) => (
@@ -275,7 +275,7 @@ export default async function BreakoutReposPage() {
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-[var(--border)] py-16 text-center">
+            <div className="border border-dashed border-[var(--border)] py-16 text-center">
               <p className="text-sm text-[var(--foreground-muted)]">
                 No breakout repos detected in the last 30 days.
               </p>
@@ -289,7 +289,7 @@ export default async function BreakoutReposPage() {
 
       {/* Methodology */}
       <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-[1400px]">
           <div className="term-label mb-2">
             {'// METHODOLOGY'}
           </div>

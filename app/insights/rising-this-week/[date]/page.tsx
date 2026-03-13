@@ -91,7 +91,7 @@ function ScoreBadge({ score }: { score: number }) {
         : 'text-[var(--badge-active)] border-[var(--badge-active)]/30 bg-[var(--badge-active)]/10'
 
   return (
-    <span className={`inline-flex flex-col items-center rounded-full border px-2 py-0.5 ${color}`}>
+    <span className={`inline-flex flex-col items-center rounded-[3px] border px-2 py-0.5 ${color}`}>
       <span className="font-mono text-xs font-bold leading-tight">{score}</span>
       <span className="text-[9px] font-medium leading-tight opacity-80">{tier}</span>
     </span>
@@ -103,7 +103,7 @@ function RepoRow({ repo, rank }: { repo: RisingRepo; rank: number }) {
   const accel = formatAcceleration(repo.stars_7d, repo.stars_7d_prev)
 
   return (
-    <article className="group rounded-lg border border-[var(--border)] bg-[var(--background-card)] p-5 transition-all hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)]">
+    <article className="group rounded-sm border border-[var(--border)] bg-[var(--background-card)] p-5 transition-colors hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)]">
       <div className="flex items-start gap-4">
         <span className="font-mono text-2xl font-bold text-[var(--foreground-subtle)] w-8 text-right shrink-0 pt-1">
           {rank}
@@ -128,7 +128,7 @@ function RepoRow({ repo, rank }: { repo: RisingRepo; rank: number }) {
           </div>
 
           {repo.enrichment?.why_it_matters && (
-            <div className="mt-3 rounded-md bg-[var(--accent-subtle)] px-3 py-2">
+            <div className="mt-3 bg-[var(--accent-subtle)] px-3 py-2">
               <p className="text-xs leading-relaxed text-[var(--foreground-muted)]">
                 <span className="font-mono font-medium text-[var(--accent)]">{'// why it matters '}</span>
                 {repo.enrichment.why_it_matters}
@@ -248,7 +248,7 @@ export default async function RisingThisWeekDatePage({ params }: Props) {
 
       {/* Header */}
       <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-[1400px]">
           <nav className="mb-6 flex items-center gap-2 font-mono text-xs text-[var(--foreground-subtle)]">
             <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
               GitFind
@@ -263,7 +263,7 @@ export default async function RisingThisWeekDatePage({ params }: Props) {
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="rounded-full border border-[var(--score-high)]/30 bg-[var(--score-high)]/5 px-2.5 py-0.5 font-mono text-[10px] font-medium text-[var(--score-high)]">
+              <span className="rounded-[3px] border border-[var(--score-high)]/30 bg-[var(--score-high)]/5 px-2.5 py-0.5 font-mono text-[10px] font-medium text-[var(--score-high)]">
                 WEEKLY
               </span>
               <span className="font-mono text-[10px] text-[var(--foreground-subtle)]">
@@ -274,14 +274,14 @@ export default async function RisingThisWeekDatePage({ params }: Props) {
             <div className="flex items-center gap-2">
               <Link
                 href={`/insights/rising-this-week/${prevWeek}`}
-                className="rounded-md border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)]/40 hover:text-[var(--foreground)]"
+                className="rounded-sm border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)]/40 hover:text-[var(--foreground)]"
               >
                 ← Prev
               </Link>
               {!isCurrentWeek && (
                 <Link
                   href={`/insights/rising-this-week/${nextWeek}`}
-                  className="rounded-md border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)]/40 hover:text-[var(--foreground)]"
+                  className="rounded-sm border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)]/40 hover:text-[var(--foreground)]"
                 >
                   Next →
                 </Link>
@@ -290,7 +290,7 @@ export default async function RisingThisWeekDatePage({ params }: Props) {
           </div>
 
           <h1 className="mt-4 font-mono text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-            Rising This Week
+            <span className="text-[var(--accent)]">{'// '}</span>RISING THIS WEEK
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--foreground-muted)]">
             The {repos.length} fastest-accelerating repos on GitHub for the week of {weekLabel}. Ranked by 7-day star velocity, filtered to projects with enriched context.
@@ -299,7 +299,7 @@ export default async function RisingThisWeekDatePage({ params }: Props) {
           {/* Summary KPIs */}
           {repos.length > 0 && (
             <div
-              className="mt-6 grid grid-cols-3 rounded-lg border border-[var(--border-subtle)]"
+              className="mt-6 grid grid-cols-3 rounded-sm border border-[var(--border-subtle)]"
               style={{ background: 'rgba(255,255,255,0.03)' }}
             >
               <div className="px-4 py-3 text-center border-r border-[var(--border-subtle)]">
@@ -336,7 +336,7 @@ export default async function RisingThisWeekDatePage({ params }: Props) {
 
       {/* Rankings */}
       <section className="px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-[1400px]">
           {repos.length > 0 ? (
             <div className="space-y-4">
               {repos.map((repo, i) => (
@@ -344,7 +344,7 @@ export default async function RisingThisWeekDatePage({ params }: Props) {
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-[var(--border)] py-16 text-center">
+            <div className="border border-dashed border-[var(--border)] py-16 text-center">
               <p className="text-sm text-[var(--foreground-muted)]">
                 No snapshot data available for this week.
               </p>
@@ -364,7 +364,7 @@ export default async function RisingThisWeekDatePage({ params }: Props) {
 
       {/* Methodology */}
       <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-[1400px]">
           <h2 className="font-mono text-sm font-medium text-[var(--foreground-muted)]">
             Methodology
           </h2>

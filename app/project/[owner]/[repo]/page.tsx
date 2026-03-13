@@ -73,7 +73,7 @@ function parseBreakdown(raw: unknown): ScoreBreakdownData | null {
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
+    <div className="rounded-sm border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
       <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--foreground-muted)]">{label}</div>
       <div className="mt-1 font-mono text-lg font-semibold text-[var(--foreground)]">{value}</div>
     </div>
@@ -134,7 +134,7 @@ export default async function ProjectPage({ params }: Props) {
       />
       {/* Header */}
       <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-[1400px]">
           {/* Breadcrumb */}
           <nav className="mb-6 flex items-center gap-2 font-mono text-xs text-[var(--foreground-subtle)]">
             <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
@@ -172,7 +172,7 @@ export default async function ProjectPage({ params }: Props) {
               href={project.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              className="flex items-center gap-2 rounded-sm border border-[var(--border)] px-4 py-2 text-sm text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
             >
               View on GitHub
               <span aria-hidden="true">↗</span>
@@ -183,7 +183,7 @@ export default async function ProjectPage({ params }: Props) {
 
       {/* Main content */}
       <section className="px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-[1400px]">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Left column — summaries */}
             <div className="space-y-6 lg:col-span-2">
@@ -199,7 +199,7 @@ export default async function ProjectPage({ params }: Props) {
               )}
 
               {enrichment?.why_it_matters && (
-                <div className="rounded-lg border border-[var(--accent)]/20 bg-[var(--accent-subtle)] p-5">
+                <div className="rounded-sm border border-[var(--accent)]/20 bg-[var(--accent-subtle)] p-5">
                   <h2 className="mb-2 font-mono text-xs font-medium uppercase tracking-wider text-[var(--accent)]">
                     Why it matters
                   </h2>
@@ -210,7 +210,7 @@ export default async function ProjectPage({ params }: Props) {
               )}
 
               {enrichment?.trend_narrative && (
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] p-5">
+                <div className="rounded-sm border border-[var(--border)] bg-[var(--background-card)] p-5">
                   <h2 className="mb-2 font-mono text-xs font-medium uppercase tracking-wider text-[var(--foreground-muted)]">
                     Why it&apos;s trending
                   </h2>
@@ -224,7 +224,7 @@ export default async function ProjectPage({ params }: Props) {
             {/* Right column — score and stats */}
             <div className="space-y-4">
               {/* Score */}
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] p-5">
+              <div className="rounded-sm border border-[var(--border)] bg-[var(--background-card)] p-5">
                 <ScoreBreakdown score={score} breakdown={parseBreakdown(enrichment?.score_breakdown)} />
               </div>
 
@@ -251,7 +251,7 @@ export default async function ProjectPage({ params }: Props) {
 
               {/* Category */}
               {enrichment?.category && (
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
+                <div className="rounded-sm border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
                   <div className="text-xs text-[var(--foreground-muted)]">Category</div>
                   <Link
                     href={`/category/${enrichment.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}
@@ -274,7 +274,7 @@ export default async function ProjectPage({ params }: Props) {
       {/* Related projects */}
       {relatedProjects.length > 0 && (
         <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
-          <div className="mx-auto max-w-4xl">
+          <div className="mx-auto max-w-[1400px]">
             <h2 className="mb-4 font-mono text-xs font-medium uppercase tracking-wider text-[var(--foreground-muted)]">
               Related projects
             </h2>

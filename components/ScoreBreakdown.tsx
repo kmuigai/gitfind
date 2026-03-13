@@ -82,9 +82,9 @@ export default function ScoreBreakdown({ score, breakdown }: ScoreBreakdownProps
                     {value} <span className="opacity-50">({weight})</span>
                   </span>
                 </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--background-elevated)]">
+                <div className="h-1.5 w-full overflow-hidden bg-[var(--background-elevated)]">
                   <div
-                    className={`h-full rounded-full transition-all duration-300 ${barColor}`}
+                    className={`h-full transition-all duration-300 ${barColor}`}
                     style={{ width: `${value}%` }}
                   />
                 </div>

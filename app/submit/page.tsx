@@ -27,14 +27,14 @@ export default function SubmitPage() {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="font-mono text-2xl font-bold text-[var(--foreground)] sm:text-3xl">Submit a project</h1>
+          <h1 className="font-mono text-2xl font-bold text-[var(--foreground)] sm:text-3xl"><span className="text-[var(--accent)]">{'// '}</span>SUBMIT A PROJECT</h1>
           <p className="mt-2 text-sm leading-relaxed text-[var(--foreground-muted)]">
             Know a GitHub project that deserves more attention?
           </p>
         </div>
 
         {/* Criteria box */}
-        <div className="mb-8 rounded-lg border border-[var(--border)] bg-[var(--background-card)] p-5">
+        <div className="mb-8 rounded-sm border border-[var(--border)] bg-[var(--background-card)] p-5">
           <h2 className="mb-3 font-mono text-sm font-semibold text-[var(--foreground)]">How submissions work</h2>
           <ul className="space-y-2 text-sm text-[var(--foreground-muted)]">
             <li className="flex items-start gap-2">

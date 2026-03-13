@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { getAICodeIndexData, getConfigAdoptionData, getSDKAdoptionData, getConfigAdoptionTimeSeries, getSDKAdoptionTimeSeries, getAgentPRData, getAgentPRTimeSeries, getCommunityBuzzData, getTickerRepos } from '@/lib/queries'
+import { getAICodeIndexData, getConfigAdoptionData, getSDKAdoptionData, getConfigAdoptionTimeSeries, getSDKAdoptionTimeSeries, getAgentPRData, getAgentPRTimeSeries, getCommunityBuzzData } from '@/lib/queries'
 import AICodeIndexDashboard from '@/components/AICodeIndexDashboard'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import './terminal.css'
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 export const revalidate = 3600
 
 export default async function AICodeIndexPage() {
-  const [chartData, configData, sdkData, configTimeSeries, sdkTimeSeries, agentPRData, agentPRTimeSeries, buzzData, tickerRepos] = await Promise.all([
+  const [chartData, configData, sdkData, configTimeSeries, sdkTimeSeries, agentPRData, agentPRTimeSeries, buzzData] = await Promise.all([
     getAICodeIndexData(),
     getConfigAdoptionData(),
     getSDKAdoptionData(),
@@ -35,7 +35,6 @@ export default async function AICodeIndexPage() {
     getAgentPRData(),
     getAgentPRTimeSeries(),
     getCommunityBuzzData(),
-    getTickerRepos(15),
   ])
 
   return (
@@ -49,7 +48,6 @@ export default async function AICodeIndexPage() {
         agentPRData={agentPRData}
         agentPRTimeSeries={agentPRTimeSeries}
         buzzData={buzzData}
-        tickerRepos={tickerRepos}
       />
       <NewsletterSignup />
     </>

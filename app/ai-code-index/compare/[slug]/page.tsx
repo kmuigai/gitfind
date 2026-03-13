@@ -258,7 +258,7 @@ export default async function ComparePage({ params }: Props) {
 
       {/* Header */}
       <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-[1400px]">
           <nav className="mb-6 flex items-center gap-2 font-mono text-xs text-[var(--foreground-subtle)]">
             <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
               GitFind
@@ -284,11 +284,11 @@ export default async function ComparePage({ params }: Props) {
 
       {/* Chart */}
       <section className="px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-[1400px]">
           {data.length >= 2 ? (
             <AICodeIndexChart data={data} />
           ) : (
-            <div className="rounded-lg border border-dashed border-[var(--border)] py-16 text-center">
+            <div className="border border-dashed border-[var(--border)] py-16 text-center">
               <p className="text-sm text-[var(--foreground-muted)]">Not enough data to display a chart yet.</p>
             </div>
           )}
@@ -297,7 +297,7 @@ export default async function ComparePage({ params }: Props) {
 
       {/* Stats comparison */}
       <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-[1400px]">
           <h2 className="mb-6 font-mono text-xs font-medium uppercase tracking-wider text-[var(--foreground-muted)]">
             By the numbers
           </h2>
@@ -314,7 +314,7 @@ export default async function ComparePage({ params }: Props) {
 
             {/* Total commits */}
             {[statsA, statsB].map((stats, i) => (
-              <div key={`total-${i}`} className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
+              <div key={`total-${i}`} className="rounded-sm border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
                 <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--foreground-muted)]">Total commits</div>
                 <div className="mt-1 font-mono text-lg font-semibold text-[var(--foreground)]">{formatNumber(stats.totalCommits)}</div>
               </div>
@@ -322,7 +322,7 @@ export default async function ComparePage({ params }: Props) {
 
             {/* Avg daily (30d) */}
             {[statsA, statsB].map((stats, i) => (
-              <div key={`avg-${i}`} className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
+              <div key={`avg-${i}`} className="rounded-sm border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
                 <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--foreground-muted)]">Avg daily (30d)</div>
                 <div className="mt-1 font-mono text-lg font-semibold text-[var(--foreground)]">{formatNumber(stats.avg30d)}</div>
               </div>
@@ -330,7 +330,7 @@ export default async function ComparePage({ params }: Props) {
 
             {/* Peak day */}
             {[statsA, statsB].map((stats, i) => (
-              <div key={`peak-${i}`} className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
+              <div key={`peak-${i}`} className="rounded-sm border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
                 <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--foreground-muted)]">Peak day</div>
                 <div className="mt-1 font-mono text-lg font-semibold text-[var(--foreground)]">{formatNumber(stats.peakDay.count)}</div>
                 {stats.peakDay.date && (
@@ -341,7 +341,7 @@ export default async function ComparePage({ params }: Props) {
 
             {/* Trend */}
             {[statsA, statsB].map((stats, i) => (
-              <div key={`trend-${i}`} className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
+              <div key={`trend-${i}`} className="rounded-sm border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
                 <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--foreground-muted)]">30d trend</div>
                 <div className={`mt-1 font-mono text-lg font-semibold ${trendColor(stats.trend)}`}>
                   {trendIcon(stats.trend)} {stats.trendPct > 0 ? '+' : ''}{stats.trendPct}%
@@ -351,7 +351,7 @@ export default async function ComparePage({ params }: Props) {
           </div>
 
           {/* Verdict */}
-          <div className="mt-8 rounded-lg border border-[var(--accent)]/20 bg-[var(--accent-subtle)] p-5">
+          <div className="mt-8 rounded-sm border border-[var(--accent)]/20 bg-[var(--accent-subtle)] p-5">
             <h3 className="mb-2 font-mono text-xs font-medium uppercase tracking-wider text-[var(--accent)]">
               What the data says
             </h3>
@@ -365,7 +365,7 @@ export default async function ComparePage({ params }: Props) {
       {/* Other comparisons */}
       {otherComparisons.length > 0 && (
         <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
-          <div className="mx-auto max-w-4xl">
+          <div className="mx-auto max-w-[1400px]">
             <h2 className="mb-4 font-mono text-xs font-medium uppercase tracking-wider text-[var(--foreground-muted)]">
               More comparisons
             </h2>
@@ -374,7 +374,7 @@ export default async function ComparePage({ params }: Props) {
                 <Link
                   key={comp.slug}
                   href={`/ai-code-index/compare/${comp.slug}`}
-                  className="rounded-md border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                  className="rounded-sm border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
                 >
                   {comp.label}
                 </Link>

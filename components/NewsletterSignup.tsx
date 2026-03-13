@@ -77,7 +77,7 @@ export default function NewsletterSignup() {
               type="submit"
               disabled={status === 'loading' || !email.trim()}
               className="shrink-0 border border-[var(--accent)] bg-[var(--accent)] px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ borderRadius: '2px', boxShadow: '0 0 12px rgba(108,106,246,0.2)' }}
+              style={{ boxShadow: '0 0 12px rgba(108,106,246,0.2)' }}
             >
               {status === 'loading' ? 'EXEC...' : 'SUBSCRIBE'}
             </button>

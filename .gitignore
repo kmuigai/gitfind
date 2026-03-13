@@ -49,3 +49,8 @@ bq-results-*.csv
 
 # unused local fonts (loaded from Google Fonts CDN)
 public/fonts/
+
+# planning docs and previews
+GTM_PLAYBOOK.md
+PLAN-*.md
+digest-preview.html

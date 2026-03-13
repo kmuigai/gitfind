@@ -29,7 +29,7 @@ export default function TrendingTabs() {
             const qs = params.toString()
             router.push(qs ? `/?${qs}` : '/', { scroll: false })
           }}
-          className={`rounded-md border px-3 py-1 text-xs transition-colors ${
+          className={`rounded-sm border px-3 py-1 text-xs transition-colors ${
             active === tab.key
               ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]'
               : 'border-[var(--border)] text-[var(--foreground-subtle)]'

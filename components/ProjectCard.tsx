@@ -17,7 +17,7 @@ function ScoreBadge({ score }: { score: number }) {
 
   return (
     <span
-      className={`inline-flex flex-col items-center rounded-full border px-2.5 py-1 ${color}`}
+      className={`inline-flex flex-col items-center rounded-[3px] border px-2.5 py-1 ${color}`}
     >
       <span className="font-mono text-sm font-bold leading-tight">{score}</span>
       <span className="text-[10px] font-medium leading-tight opacity-80">{tier}</span>
@@ -62,7 +62,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   const score = enrichment?.early_signal_score ?? 0
 
   return (
-    <article className="group relative flex h-full flex-col gap-3 rounded-lg border border-[var(--border)] border-l-2 border-l-transparent bg-[var(--background-card)] p-5 transition-all duration-200 hover:border-[var(--accent)]/40 hover:border-l-[var(--accent)] hover:bg-[var(--background-elevated)]">
+    <article className="group relative flex h-full flex-col gap-3 overflow-hidden rounded-sm border border-[var(--border)] border-l-2 border-l-transparent bg-[var(--background-card)] p-5 transition-colors hover:border-[var(--border)] hover:border-l-[var(--accent)] hover:bg-[var(--background-elevated)]">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -86,7 +86,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
 
       {/* Why it matters */}
       {enrichment?.why_it_matters && (
-        <div className="rounded-md bg-[var(--accent-subtle)] px-3 py-2">
+        <div className="border-l-2 border-l-[var(--accent)] pl-3 py-1">
           <p className="text-xs leading-relaxed text-[var(--foreground-muted)]">
             <span className="font-mono font-medium text-[var(--accent)]">{'// why it matters '}</span>
             {enrichment.why_it_matters}
@@ -126,16 +126,16 @@ export default function ProjectCard({ project }: ProjectCardProps) {
       {/* Full-card click → detail page */}
       <Link
         href={`/project/${project.owner}/${project.name}`}
-        className="absolute inset-0 rounded-lg"
+        className="absolute inset-0"
         aria-label={`View ${project.owner}/${project.name} details`}
         tabIndex={-1}
       />
       {/* Footer links */}
-      <div className="relative z-10 flex items-center justify-between">
+      <div className="relative z-10 flex items-center justify-between gap-2 min-w-0">
         {enrichment?.category ? (
           <Link
             href={`/category/${enrichment.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}
-            className="text-xs text-[var(--foreground-subtle)] transition-colors hover:text-[var(--accent)]"
+            className="truncate text-xs text-[var(--foreground-subtle)] transition-colors hover:text-[var(--accent)]"
           >
             {enrichment.category}
           </Link>
@@ -146,7 +146,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           href={project.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-[var(--foreground-subtle)] transition-colors hover:text-[var(--foreground)]"
+          className="shrink-0 text-xs text-[var(--foreground-subtle)] transition-colors hover:text-[var(--foreground)]"
         >
           GitHub ↗
         </a>

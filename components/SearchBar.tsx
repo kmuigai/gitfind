@@ -91,7 +91,7 @@ export default function SearchBar() {
 
       {/* Results dropdown */}
       {isOpen && results.length > 0 && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden border border-[var(--border-subtle)] bg-[var(--background-card)]" style={{ borderRadius: '2px', boxShadow: 'inset 0 0 10px rgba(0,0,0,0.3)' }}>
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden border border-[var(--border-subtle)] bg-[var(--background-card)]" style={{ boxShadow: 'inset 0 0 10px rgba(0,0,0,0.3)' }}>
           <div className="px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
             {'>'} {results.length} result{results.length !== 1 ? 's' : ''} found
           </div>

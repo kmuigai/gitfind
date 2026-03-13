@@ -53,7 +53,7 @@ export default function SubmitForm() {
   return (
     <>
       {status === 'success' && response ? (
-        <div className="rounded-lg border border-[var(--score-high)]/30 bg-[var(--score-high)]/5 p-6">
+        <div className="rounded-sm border border-[var(--score-high)]/30 bg-[var(--score-high)]/5 p-6">
           <h2 className="text-base font-semibold text-[var(--score-high)]">
             {response.auto_approved ? 'Auto-approved' : 'Submission received'}
           </h2>
@@ -84,7 +84,7 @@ export default function SubmitForm() {
               placeholder="https://github.com/owner/repository"
               required
               disabled={status === 'loading'}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background-elevated)] px-4 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--foreground-subtle)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30 disabled:opacity-50 transition-colors"
+              className="w-full rounded-sm border border-[var(--border)] bg-[var(--background-elevated)] px-4 py-2.5 font-mono text-sm text-[var(--foreground)] placeholder:text-[var(--foreground-subtle)] focus:border-[var(--accent)] focus:outline-none disabled:opacity-50 transition-colors"
             />
           </div>
 
@@ -100,7 +100,7 @@ export default function SubmitForm() {
               placeholder="you@company.com"
               required
               disabled={status === 'loading'}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background-elevated)] px-4 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--foreground-subtle)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30 disabled:opacity-50 transition-colors"
+              className="w-full rounded-sm border border-[var(--border)] bg-[var(--background-elevated)] px-4 py-2.5 font-mono text-sm text-[var(--foreground)] placeholder:text-[var(--foreground-subtle)] focus:border-[var(--accent)] focus:outline-none disabled:opacity-50 transition-colors"
             />
           </div>
 
@@ -115,12 +115,12 @@ export default function SubmitForm() {
               placeholder="Tell us what makes this project interesting for builders, founders, or investors..."
               rows={3}
               disabled={status === 'loading'}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background-elevated)] px-4 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--foreground-subtle)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30 disabled:opacity-50 resize-none transition-colors"
+              className="w-full rounded-sm border border-[var(--border)] bg-[var(--background-elevated)] px-4 py-2.5 font-mono text-sm text-[var(--foreground)] placeholder:text-[var(--foreground-subtle)] focus:border-[var(--accent)] focus:outline-none disabled:opacity-50 resize-none transition-colors"
             />
           </div>
 
           {status === 'error' && response?.error && (
-            <div className="rounded-lg border border-[var(--error)]/20 bg-[var(--error)]/5 px-4 py-3">
+            <div className="rounded-sm border border-[var(--error)]/20 bg-[var(--error)]/5 px-4 py-3">
               <p className="text-sm text-[var(--error)]">{response.error}</p>
             </div>
           )}
@@ -128,7 +128,7 @@ export default function SubmitForm() {
           <button
             type="submit"
             disabled={status === 'loading' || !repoUrl.trim() || !email.trim()}
-            className="w-full rounded-lg bg-[var(--accent)] py-2.5 text-sm font-medium text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-sm bg-[var(--accent)] py-2.5 font-mono text-sm font-medium uppercase tracking-wider text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {status === 'loading' ? 'Scoring repository...' : 'Submit project'}
           </button>

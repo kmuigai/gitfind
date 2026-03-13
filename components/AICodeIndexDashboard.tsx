@@ -19,16 +19,6 @@ interface ConfigAdoptionRow {
   date: string
 }
 
-interface TickerRepo {
-  owner: string
-  name: string
-  stars: number
-  stars_7d: number
-  pct_increase: number
-  summary: string | null
-  category: string | null
-}
-
 interface LogEntry {
   timestamp: string
   level: 'INFO' | 'SIGNAL' | 'ALERT'
@@ -79,7 +69,6 @@ export interface AICodeIndexDashboardProps {
   agentPRData: ConfigAdoptionRow[]
   agentPRTimeSeries: AdoptionTimeSeriesEntry[]
   buzzData: Array<{ tool: string; mentions: number; hn: number; reddit: number; ghDiscussions: number }>
-  tickerRepos: TickerRepo[]
 }
 
 // --- Constants ---
@@ -140,12 +129,7 @@ function formatPct(n: number): string {
   return `${sign}${n.toFixed(1)}%`
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-function formatDateShort(date: string): string {
-  const [, m, d] = date.split('-')
-  return `${MONTHS[parseInt(m, 10) - 1]} ${parseInt(d, 10)}`
-}
 
 // --- Compute functions ---
 
@@ -350,16 +334,13 @@ export default function AICodeIndexDashboard({
   agentPRData,
   agentPRTimeSeries,
   buzzData,
-  tickerRepos,
 }: AICodeIndexDashboardProps) {
-  const [time, setTime] = useState(new Date())
   const [highlightedTool, setHighlightedTool] = useState<string | null>(null)
   const [filterQuery, setFilterQuery] = useState('')
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [flashStates, setFlashStates] = useState<Record<string, 'green' | 'red' | null>>({})
   const [latestOverrides, setLatestOverrides] = useState<Record<string, number>>({})
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
-  const [loadDisplay, setLoadDisplay] = useState('0.42 0.38 0.45')
   const logRef = useRef<HTMLDivElement>(null)
 
   // Computed data
@@ -368,7 +349,6 @@ export default function AICodeIndexDashboard({
   const convergenceAlerts = useMemo(() => computeConvergenceAlerts(stats, configTimeSeries, agentPRData, buzzData), [stats, configTimeSeries, agentPRData, buzzData])
 
 
-  const lastDate = chartData.length > 0 ? chartData[chartData.length - 1].date : null
   const byVolume = useMemo(() => [...stats].sort((a, b) => b.avg30d - a.avg30d), [stats])
   const byMomentum = useMemo(() => [...stats].filter((t) => t.avg30d > 0).sort((a, b) => b.trendPct - a.trendPct), [stats])
 
@@ -378,12 +358,6 @@ export default function AICodeIndexDashboard({
     return byVolume.filter(t => t.name.toLowerCase().includes(filterQuery.toLowerCase()))
   }, [byVolume, filterQuery])
 
-  // Live clock + randomize load display after mount
-  useEffect(() => {
-    setLoadDisplay(`0.${Math.floor(Math.random() * 9)}2 0.${Math.floor(Math.random() * 9)}8 0.${Math.floor(Math.random() * 9)}5`)
-    const timer = setInterval(() => setTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
 
   // Intelligence brief log feed
   useEffect(() => {
@@ -479,7 +453,6 @@ export default function AICodeIndexDashboard({
   }, [])
 
   const liveNodeCount = stats.length
-  const tickerItems = useMemo(() => [...tickerRepos, ...tickerRepos], [tickerRepos])
 
   if (chartData.length < 2) {
     return (
@@ -502,74 +475,6 @@ export default function AICodeIndexDashboard({
         fontVariantNumeric: 'tabular-nums',
       }}
     >
-      {/* STATUS BAR */}
-      <header
-        className="h-8 flex items-center px-4 justify-between text-[10px] uppercase tracking-widest sticky top-0 z-50"
-        style={{ background: '#0a0a0f', borderBottom: '1px solid #1e1e2e' }}
-      >
-        <div className="flex items-center gap-6">
-          <div className="hidden md:flex items-center gap-2 text-[#6c6af6]">
-            <span style={{ fontSize: 10 }}>⚡</span>
-            <span>SYS_STATUS: OPTIMAL</span>
-          </div>
-          <div className="flex items-center gap-2 text-[#67e8f9]">
-            <span>NODES: {String(liveNodeCount).padStart(2, '0')}/{String(liveNodeCount).padStart(2, '0')} LIVE</span>
-          </div>
-          <div className="hidden md:flex items-center gap-2 text-[#fde68a]">
-            <span>LOAD: {loadDisplay}</span>
-          </div>
-          <div className="text-[#555] hidden md:block">
-            {lastDate && `UPDATED: ${formatDateShort(lastDate).toUpperCase()}`}
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <nav className="hidden md:flex items-center gap-3 text-[#555]">
-            <Link href="/" className="hover:text-[#6c6af6] transition-colors">HOME</Link>
-            <span>/</span>
-            <span className="text-[#c8c8c8]">AI_CODE_INDEX</span>
-          </nav>
-          <div className="text-[#c8c8c8] tabular-nums">
-            {time.toLocaleTimeString('en-GB', { hour12: false })}
-          </div>
-        </div>
-      </header>
-
-      {/* GIT FEED TICKER */}
-      {tickerRepos.length > 0 && (
-        <div
-          className="h-8 flex items-center overflow-hidden whitespace-nowrap relative"
-          style={{ background: '#0a0a0f', borderBottom: '1px solid #1e1e2e' }}
-        >
-          <div
-            className="px-4 h-full flex items-center text-[#555] text-[10px] z-10 shrink-0"
-            style={{ background: '#0a0a0f', borderRight: '1px solid #1e1e2e' }}
-          >
-            {'// GIT_FEED ▸'}
-          </div>
-          <div
-            className="inline-block pl-4"
-            style={{
-              animation: `ticker-scroll ${tickerRepos.length * 5}s linear infinite`,
-            }}
-          >
-            {tickerItems.map((repo, i) => (
-              <Link
-                key={`${repo.owner}/${repo.name}-${i}`}
-                href={`/project/${repo.owner}/${repo.name}`}
-                className="inline-flex items-center gap-2 mr-8 text-[10px] hover:opacity-80 transition-opacity"
-              >
-                <img src={`https://github.com/${repo.owner}.png?size=40`} alt="" width={16} height={16} className="rounded-full" />
-                <span className="text-[#67e8f9]">▸ {repo.owner}/{repo.name}</span>
-                <span className="text-[#86efac]">+{formatNum(repo.stars_7d)} ⭐</span>
-                <span className="text-[#86efac] hidden md:inline">+{repo.pct_increase > 999 ? 'NEW' : `${repo.pct_increase}%`}</span>
-                {repo.pct_increase >= 200 && <span className="text-[#fde68a] font-bold hidden md:inline">HOT</span>}
-                <span className="text-[#555] ml-4">·</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* MAIN GRID */}
       <main className="flex-1 p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-[1800px] mx-auto w-full">
 
@@ -701,28 +606,33 @@ export default function AICodeIndexDashboard({
               <table className="w-full text-left text-[10px] border-collapse">
                 <thead>
                   <tr className="text-[#555] border-b uppercase" style={{ borderColor: '#1e1e2e' }}>
-                    <th className="pb-1 font-normal">FILE</th>
-                    <th className="pb-1 font-normal text-right">REPOS</th>
-                    <th className="pb-1 font-normal text-right">Δ/WK</th>
-                    <th className="pb-1 font-normal">BAR</th>
+                    <th className="pb-2 font-normal">FILE</th>
+                    <th className="pb-2 font-normal text-right">REPOS</th>
+                    <th className="pb-2 font-normal text-right whitespace-nowrap">Δ/WK</th>
+                    <th className="pb-2 font-normal pl-3">BAR</th>
+                    <th className="pb-2 font-normal text-right">SHARE</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y" style={{ borderColor: '#1e1e2e' }}>
                   {[...configData].sort((a, b) => b.count - a.count).map(row => {
                     const velocity = computeAdoptionVelocity(configTimeSeries, row.tool)
                     const maxCount = Math.max(...configData.map(c => c.count))
+                    const percent = maxCount > 0 ? (row.count / maxCount) * 100 : 0
                     return (
                       <tr key={row.tool} className="hover:bg-white/5">
-                        <td className="py-2 font-bold text-[#67e8f9]">{CONFIG_FILES[row.tool] ?? row.tool}</td>
-                        <td className="py-2 text-right tabular-nums">{formatNum(row.count)}</td>
-                        <td className="py-2 text-right" style={{
+                        <td className="py-3 font-bold text-[#67e8f9] text-[10px] md:text-[10px]">{CONFIG_FILES[row.tool] ?? row.tool}</td>
+                        <td className="py-3 text-right tabular-nums">{formatNum(row.count)}</td>
+                        <td className="py-3 text-right tabular-nums whitespace-nowrap" style={{
                           color: velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct > 0.5 ? '#86efac' : '#555',
                         }}>
                           {velocity.weeklyGrowthPct !== null ? formatPct(velocity.weeklyGrowthPct) : '—'}
                         </td>
-                        <td className="py-2 w-24">
-                          <ProgressBar percent={maxCount > 0 ? (row.count / maxCount) * 100 : 0} colorClass="bg-[#67e8f9]" />
+                        <td className="py-3 pl-3 w-20 md:w-28">
+                          <div className="h-2 bg-white/5 rounded-sm overflow-hidden" style={{ minWidth: 6 }}>
+                            <div className="h-full bg-[#67e8f9] transition-all duration-1000" style={{ width: `${Math.max(4, Math.min(100, percent))}%` }} />
+                          </div>
                         </td>
+                        <td className="py-3 text-right text-[10px] text-[#555] tabular-nums w-10">{Math.round(percent)}%</td>
                       </tr>
                     )
                   })}

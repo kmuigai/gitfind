@@ -38,7 +38,7 @@ export default function ThemeToggle() {
   return (
     <div
       className={[
-        'flex w-16 h-8 p-1 rounded-md cursor-pointer transition-all duration-300',
+        'flex w-16 h-8 p-1 rounded-sm cursor-pointer transition-colors duration-150',
         isDark
           ? 'bg-[var(--background)] border border-[var(--border)]'
           : 'bg-[var(--background)] border border-[var(--border)]',

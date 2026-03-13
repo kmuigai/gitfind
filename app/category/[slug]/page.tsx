@@ -98,7 +98,7 @@ export default async function CategoryPage({ params }: Props) {
     <div>
       {/* Header */}
       <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-[1400px]">
           {/* Breadcrumb */}
           <nav className="mb-6 flex items-center gap-2 font-mono text-xs text-[var(--foreground-subtle)]">
             <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
@@ -110,7 +110,7 @@ export default async function CategoryPage({ params }: Props) {
 
           <div>
             <h1 className="font-mono text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-              {category.name}
+              <span className="text-[var(--accent)]">{'// '}</span>{category.name.toUpperCase()}
             </h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--foreground-muted)]">
                 {category.description}
@@ -124,20 +124,20 @@ export default async function CategoryPage({ params }: Props) {
 
       {/* Projects grid */}
       <section className="px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-[1400px]">
           {projects.length > 0 ? (
             <>
               <div className="mb-4 text-xs text-[var(--foreground-subtle)]">
                 {projects.length} project{projects.length !== 1 ? 's' : ''} in this category
               </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {projects.map((project) => (
                   <ProjectCard key={project.id} project={project} />
                 ))}
               </div>
             </>
           ) : (
-            <div className="rounded-lg border border-dashed border-[var(--border)] py-16 text-center">
+            <div className="border border-dashed border-[var(--border)] py-16 text-center">
               <p className="text-sm text-[var(--foreground-muted)]">
                 No {category.name} projects yet.
               </p>
@@ -151,7 +151,7 @@ export default async function CategoryPage({ params }: Props) {
 
       {/* Other categories */}
       <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-[1400px]">
           <h2 className="mb-4 font-mono text-sm font-medium text-[var(--foreground-muted)]">
             Other categories
           </h2>
@@ -160,7 +160,7 @@ export default async function CategoryPage({ params }: Props) {
               <Link
                 key={cat.slug}
                 href={`/category/${cat.slug}`}
-                className="rounded-md border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)] hover:text-[var(--foreground)]"
+                className="rounded-sm border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)] hover:text-[var(--foreground)]"
               >
                 {cat.name}
               </Link>

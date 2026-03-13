@@ -63,7 +63,7 @@ export default async function InsightsPage() {
 
       {/* Header */}
       <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-[1400px]">
           <nav className="mb-6 flex items-center gap-2 font-mono text-xs text-[var(--foreground-subtle)]">
             <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
               GitFind
@@ -73,7 +73,7 @@ export default async function InsightsPage() {
           </nav>
 
           <h1 className="font-mono text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-            Insights
+            <span className="text-[var(--accent)]">{'// '}</span>INSIGHTS
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--foreground-muted)]">
             Data-driven intelligence from every public GitHub repo. Weekly rankings, breakout signals, and trend analysis — so you see what&apos;s moving before everyone else.
@@ -83,14 +83,14 @@ export default async function InsightsPage() {
 
       {/* Featured: Rising This Week */}
       <section className="px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-[1400px]">
           <Link
             href={`/insights/rising-this-week/${weekDate}`}
-            className="group block rounded-lg border border-[var(--border)] bg-[var(--background-card)] transition-all hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)]"
+            className="group block rounded-sm border border-[var(--border)] bg-[var(--background-card)] transition-colors hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)]"
           >
             <div className="p-6 sm:p-8">
               <div className="flex items-center gap-3">
-                <span className="rounded-full border border-[var(--score-high)]/30 bg-[var(--score-high)]/5 px-2.5 py-0.5 font-mono text-[10px] font-medium text-[var(--score-high)]">
+                <span className="rounded-[3px] border border-[var(--score-high)]/30 bg-[var(--score-high)]/5 px-2.5 py-0.5 font-mono text-[10px] font-medium text-[var(--score-high)]">
                   WEEKLY
                 </span>
                 <span className="font-mono text-[10px] text-[var(--foreground-subtle)]">
@@ -112,7 +112,7 @@ export default async function InsightsPage() {
                   {rising.map((repo, i) => (
                     <div
                       key={repo.id}
-                      className="flex items-center gap-4 rounded-md bg-[rgba(255,255,255,0.03)] px-4 py-3"
+                      className="flex items-center gap-4 bg-[rgba(255,255,255,0.03)] px-4 py-3"
                     >
                       <span className="font-mono text-lg font-bold text-[var(--foreground-subtle)] w-6 text-right">
                         {i + 1}
@@ -150,11 +150,11 @@ export default async function InsightsPage() {
 
       {/* Coming soon */}
       <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-[1400px]">
           <div className="term-label mb-4">
             {'// COMING_SOON'}
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
                 title: 'Breakout Repos',
@@ -171,7 +171,7 @@ export default async function InsightsPage() {
             ].map((item) => (
               <div
                 key={item.title}
-                className="rounded-lg border border-dashed border-[var(--border)] p-5"
+                className="border border-dashed border-[var(--border)] p-5"
               >
                 <h3 className="font-mono text-sm font-medium text-[var(--foreground)]">
                   {item.title}
