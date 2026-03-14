@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { getAICodeIndexData, getConfigAdoptionData, getSDKAdoptionData, getConfigAdoptionTimeSeries, getSDKAdoptionTimeSeries, getAgentPRData, getAgentPRTimeSeries, getCommunityBuzzData } from '@/lib/queries'
 import AICodeIndexDashboard from '@/components/AICodeIndexDashboard'
-import NewsletterSignup from '@/components/NewsletterSignup'
+
 import './terminal.css'
 
 export const metadata: Metadata = {
@@ -49,7 +49,6 @@ export default async function AICodeIndexPage() {
         agentPRTimeSeries={agentPRTimeSeries}
         buzzData={buzzData}
       />
-      <NewsletterSignup />
     </>
   )
 }

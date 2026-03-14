@@ -445,6 +445,13 @@ export default function AICodeIndexDashboard({
 
   const liveNodeCount = stats.length
 
+  const lastSyncLabel = useMemo(() => {
+    const now = new Date()
+    const sync = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 5, 0))
+    if (sync > now) sync.setUTCDate(sync.getUTCDate() - 1)
+    return sync.toISOString().replace('T', ' ').slice(0, 16) + ' UTC'
+  }, [])
+
   if (chartData.length < 2) {
     return (
       <div className="py-16 text-center" style={{ borderTop: '1px solid #1e1e2e' }}>
@@ -827,12 +834,18 @@ export default function AICodeIndexDashboard({
             }
           }}
         />
-        <div className="flex items-center gap-4 text-[9px] text-[#555] uppercase ml-4">
+        <div className="flex items-center gap-4 text-[9px] text-[#555] uppercase tracking-wider ml-4">
+          <div className="hidden lg:flex items-center gap-1.5">
+            <span className="sys-status-dot" style={{ width: 5, height: 5 }} />
+            <span className="text-[#6c6af6]">SYS_OK</span>
+          </div>
+          <span className="hidden lg:inline text-[#1e1e2e]">·</span>
+          <span className="hidden lg:inline">LAST_SYNC: {lastSyncLabel}</span>
+          <span className="hidden lg:inline text-[#1e1e2e]">·</span>
+          <span className="hidden sm:inline">TOOLS: {liveNodeCount}</span>
+          <span className="hidden sm:inline text-[#1e1e2e]">·</span>
           <div className="flex items-center gap-1 cursor-pointer hover:text-[#6c6af6]" onClick={() => setIsCommandPaletteOpen(true)}>
             <span>⌘K: KEYS</span>
-          </div>
-          <div className="hidden sm:flex items-center gap-1">
-            <span>NODES: {liveNodeCount}</span>
           </div>
         </div>
       </footer>
