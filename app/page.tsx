@@ -5,7 +5,9 @@ import HeroAnimation from '@/components/HeroAnimation'
 import ProjectCard from '@/components/ProjectCard'
 import SearchBar from '@/components/SearchBar'
 import NewsletterSignup from '@/components/NewsletterSignup'
-import ClaudeCodeChart from '@/components/ClaudeCodeChart'
+import dynamic from 'next/dynamic'
+
+const ClaudeCodeChart = dynamic(() => import('@/components/ClaudeCodeChart'), { ssr: false })
 import TrendingTabs from '@/components/TrendingTabs'
 import { Suspense } from 'react'
 export const metadata: Metadata = {

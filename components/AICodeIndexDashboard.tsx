@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 
-import AICodeIndexChart from '@/components/AICodeIndexChart'
-import MarketShareChart from '@/components/MarketShareChart'
+const AICodeIndexChart = dynamic(() => import('@/components/AICodeIndexChart'), { ssr: false })
+const MarketShareChart = dynamic(() => import('@/components/MarketShareChart'), { ssr: false })
 import { TOOL_COLORS } from '@/lib/colors'
 
 // --- Types ---
