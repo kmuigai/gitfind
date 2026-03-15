@@ -468,7 +468,7 @@ export default function AICodeIndexDashboard({
       <main className="flex-1 p-4 pb-14 grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-[1800px] mx-auto w-full">
 
         {/* LEFT COLUMN (8/12) */}
-        <div className="lg:col-span-8 space-y-4">
+        <div className="lg:col-span-8 flex flex-col gap-4">
 
           {/* COMMIT VOLUME INDEX */}
           <Panel title="COMMIT_VOLUME_INDEX" tag="LIVE_FEED">
@@ -629,7 +629,7 @@ export default function AICodeIndexDashboard({
         </div>
 
         {/* RIGHT COLUMN (4/12) */}
-        <div className="lg:col-span-4 space-y-4">
+        <div className="lg:col-span-4 flex flex-col gap-4">
 
           {/* MARKET SHARE 30D - Visual bars */}
           <Panel title="MARKET_SHARE_30D" tag="VISUAL_MAP">
@@ -777,7 +777,7 @@ export default function AICodeIndexDashboard({
 
           {/* SDK ADOPTION */}
           {sdkData.length > 0 && (
-            <Panel title="SDK_ADOPTION" tag="INFRA">
+            <Panel title="SDK_ADOPTION" tag="INFRA" className="flex-1">
               <table className="w-full text-[10px] border-collapse">
                 <thead>
                   <tr className="text-[var(--foreground-subtle)] border-b text-left uppercase" style={{ borderColor: 'var(--border)' }}>
