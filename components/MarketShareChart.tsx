@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { TOOL_COLORS } from '@/lib/colors'
 import {
   AreaChart,
   Area,
@@ -15,15 +16,7 @@ interface MarketShareChartProps {
   data: Array<{ date: string; [tool: string]: number | string }>
 }
 
-const TOOL_COLORS: Record<string, string> = {
-  'Claude Code': '#6c6af6',
-  'Cursor': '#f59e0b',
-  'GitHub Copilot': '#3b82f6',
-  'Aider': '#22c55e',
-  'Gemini CLI': '#ef4444',
-  'Devin': '#a855f7',
-  'Codex': '#10b981',
-}
+// TOOL_COLORS imported from @/lib/colors
 
 const TOOL_KEYS = Object.keys(TOOL_COLORS)
 

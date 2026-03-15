@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 
 import AICodeIndexChart from '@/components/AICodeIndexChart'
 import MarketShareChart from '@/components/MarketShareChart'
+import { TOOL_COLORS } from '@/lib/colors'
 
 // --- Types ---
 
@@ -73,18 +74,7 @@ export interface AICodeIndexDashboardProps {
 
 // --- Constants ---
 
-const TOOL_COLORS: Record<string, string> = {
-  'Claude Code': '#6c6af6',
-  'Cursor': '#67e8f9',
-  'GitHub Copilot': '#3b82f6',
-  'Aider': '#86efac',
-  'Gemini CLI': '#fde68a',
-  'Devin': '#a78bfa',
-  'Codex': '#f9a8d4',
-  'CodeRabbit': '#f97316',
-  'Sweep': '#ec4899',
-  'Windsurf': '#06b6d4',
-}
+// TOOL_COLORS imported from @/lib/colors
 
 
 const CONFIG_FILES: Record<string, string> = {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback, type MouseEvent } from 'react'
 import { track } from '@vercel/analytics'
+import { TOOL_COLORS } from '@/lib/colors'
 import {
   LineChart,
   Line,
@@ -24,15 +25,7 @@ interface AICodeIndexChartProps {
   agentPRTimeSeries?: TimeSeriesEntry[]
 }
 
-const TOOL_COLORS: Record<string, string> = {
-  'Claude Code': '#6c6af6',
-  'Cursor': '#f59e0b',
-  'GitHub Copilot': '#3b82f6',
-  'Aider': '#22c55e',
-  'Gemini CLI': '#ef4444',
-  'Devin': '#a855f7',
-  'Codex': '#10b981',
-}
+// TOOL_COLORS imported from @/lib/colors
 
 const TOOL_KEYS = Object.keys(TOOL_COLORS)
 
@@ -40,8 +33,6 @@ const TOOL_KEYS = Object.keys(TOOL_COLORS)
 const LAYER_COLORS: Record<string, string> = {
   ...TOOL_COLORS,
   'AGENTS.md': '#8b5cf6',
-  'Windsurf': '#06b6d4',
-  'CodeRabbit': '#f97316',
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
