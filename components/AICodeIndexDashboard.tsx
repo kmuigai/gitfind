@@ -284,11 +284,11 @@ function Panel({ title, tag, children, className = '' }: {
   )
 }
 
-function ProgressBar({ percent, colorClass = 'bg-[var(--accent)]' }: { percent: number; colorClass?: string }) {
+function ProgressBar({ percent, color }: { percent: number; color?: string }) {
   return (
     <div className="flex items-center gap-2 w-full">
       <div className="flex-1 h-2 bg-[var(--foreground)]/5 rounded-sm overflow-hidden">
-        <div className={`h-full ${colorClass} transition-all duration-1000`} style={{ width: `${Math.min(100, percent)}%` }} />
+        <div className="h-full transition-all duration-1000" style={{ width: `${Math.min(100, percent)}%`, backgroundColor: color ?? 'var(--accent)' }} />
       </div>
       <div className="text-[10px] text-[var(--foreground-subtle)] w-8 text-right">{Math.round(percent)}%</div>
     </div>
@@ -643,7 +643,7 @@ export default function AICodeIndexDashboard({
                     <span className="font-bold" style={{ color: tool.color }}>{tool.name}</span>
                     <span className="text-[var(--badge-active)]">{tool.share30d.toFixed(1)}%</span>
                   </div>
-                  <ProgressBar percent={tool.share30d} colorClass={`bg-[${tool.color}]`} />
+                  <ProgressBar percent={tool.share30d} color={tool.color} />
                 </div>
               ))}
             </div>
