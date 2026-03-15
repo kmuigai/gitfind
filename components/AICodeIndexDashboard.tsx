@@ -465,7 +465,7 @@ export default function AICodeIndexDashboard({
       }}
     >
       {/* MAIN GRID */}
-      <main className="flex-1 p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-[1800px] mx-auto w-full">
+      <main className="flex-1 p-4 pb-14 grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-[1800px] mx-auto w-full">
 
         {/* LEFT COLUMN (8/12) */}
         <div className="lg:col-span-8 space-y-4">
