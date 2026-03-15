@@ -272,7 +272,7 @@ function Panel({ title, tag, children, className = '' }: {
     <div className={`terminal-panel ${className}`}>
       <div className="panel-header">
         <div className="panel-title">
-          <span className="text-[#555]">{'//'}</span> {title}
+          <span className="text-[var(--foreground-subtle)]">{'//'}</span> {title}
         </div>
         <div className="panel-tag">{tag}</div>
       </div>
@@ -283,18 +283,18 @@ function Panel({ title, tag, children, className = '' }: {
   )
 }
 
-function ProgressBar({ percent, colorClass = 'bg-[#6c6af6]' }: { percent: number; colorClass?: string }) {
+function ProgressBar({ percent, colorClass = 'bg-[var(--accent)]' }: { percent: number; colorClass?: string }) {
   return (
     <div className="flex items-center gap-2 w-full">
       <div className="flex-1 h-2 bg-white/5 rounded-sm overflow-hidden">
         <div className={`h-full ${colorClass} transition-all duration-1000`} style={{ width: `${Math.min(100, percent)}%` }} />
       </div>
-      <div className="text-[10px] text-[#555] w-8 text-right">{Math.round(percent)}%</div>
+      <div className="text-[10px] text-[var(--foreground-subtle)] w-8 text-right">{Math.round(percent)}%</div>
     </div>
   )
 }
 
-function AsciiBar({ percent, colorClass = 'text-[#6c6af6]' }: { percent: number; colorClass?: string }) {
+function AsciiBar({ percent, colorClass = 'text-[var(--accent)]' }: { percent: number; colorClass?: string }) {
   const total = 10
   const filled = Math.round((percent / 100) * total)
   return (
@@ -444,9 +444,9 @@ export default function AICodeIndexDashboard({
 
   if (chartData.length < 2) {
     return (
-      <div className="py-16 text-center" style={{ borderTop: '1px solid #1e1e2e' }}>
-        <p className="text-xs text-[#555]">
-          No data — run <code className="text-[#6c6af6]">npx tsx scripts/search-commits.ts</code> to start collecting.
+      <div className="py-16 text-center" style={{ borderTop: '1px solid var(--border)' }}>
+        <p className="text-xs text-[var(--foreground-subtle)]">
+          No data — run <code className="text-[var(--accent)]">npx tsx scripts/search-commits.ts</code> to start collecting.
         </p>
       </div>
     )
@@ -458,8 +458,8 @@ export default function AICodeIndexDashboard({
       data-theme="dark"
       style={{
         fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, monospace',
-        background: '#0a0a0f',
-        color: '#c8c8c8',
+        background: 'var(--background)',
+        color: 'var(--foreground)',
         fontVariantNumeric: 'tabular-nums',
       }}
     >
@@ -474,7 +474,7 @@ export default function AICodeIndexDashboard({
             <div className="overflow-x-auto terminal-scrollbar">
               <table className="w-full text-left text-[11px] border-collapse">
                 <thead>
-                  <tr className="text-[#555] border-b uppercase" style={{ borderColor: '#1e1e2e' }}>
+                  <tr className="text-[var(--foreground-subtle)] border-b uppercase" style={{ borderColor: 'var(--border)' }}>
                     <th className="pb-2 font-normal hidden md:table-cell">NODE</th>
                     <th className="pb-2 font-normal">TOOL_NAME</th>
                     <th className="pb-2 font-normal text-right">LATEST</th>
@@ -485,7 +485,7 @@ export default function AICodeIndexDashboard({
                     <th className="pb-2 font-normal text-center hidden md:table-cell">SCORE</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ borderColor: '#1e1e2e' }}>
+                <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
                   {filteredByVolume.map((tool, i) => {
                     const score = compositeScores.find((s) => s.name === tool.name)
                     const latestVal = latestOverrides[tool.name] ?? tool.latestDaily
@@ -494,33 +494,33 @@ export default function AICodeIndexDashboard({
                     return (
                       <tr
                         key={tool.name}
-                        className={`group cursor-pointer transition-colors ${isHighlighted ? 'bg-[#6c6af6]/10' : 'hover:bg-white/5'}`}
+                        className={`group cursor-pointer transition-colors ${isHighlighted ? 'bg-[var(--accent)]/10' : 'hover:bg-white/5'}`}
                         onClick={() => setHighlightedTool(prev => prev === tool.name ? null : tool.name)}
-                        style={{ borderColor: '#1e1e2e' }}
+                        style={{ borderColor: 'var(--border)' }}
                       >
-                        <td className="py-3 md:py-2 text-[#555] hidden md:table-cell">[{String(i).padStart(2, '0')}]</td>
+                        <td className="py-3 md:py-2 text-[var(--foreground-subtle)] hidden md:table-cell">[{String(i).padStart(2, '0')}]</td>
                         <td className="py-3 md:py-2 font-bold" style={{ color: tool.color }}>
                           {tool.name}
                         </td>
                         <td className={`py-3 md:py-2 text-right tabular-nums ${flash === 'green' ? 'flash-green' : flash === 'red' ? 'flash-red' : ''}`}>
                           {formatNum(latestVal)}
                         </td>
-                        <td className="py-3 md:py-2 text-right tabular-nums text-[#555] hidden md:table-cell">{formatNum(Math.round(tool.avg30d))}</td>
+                        <td className="py-3 md:py-2 text-right tabular-nums text-[var(--foreground-subtle)] hidden md:table-cell">{formatNum(Math.round(tool.avg30d))}</td>
                         <td className="py-3 md:py-2 text-right tabular-nums hidden md:table-cell">{formatNum(Math.round(tool.avg30d * 30))}</td>
-                        <td className={`py-3 md:py-2 text-right tabular-nums ${tool.wowPct > 3 ? 'text-[#86efac]' : tool.wowPct < -3 ? 'text-[#ef5350]' : 'text-[#555]'}`}>
+                        <td className={`py-3 md:py-2 text-right tabular-nums ${tool.wowPct > 3 ? 'text-[var(--score-high)]' : tool.wowPct < -3 ? 'text-[var(--error)]' : 'text-[var(--foreground-subtle)]'}`}>
                           {formatPct(tool.wowPct)}
                           <span className="ml-0.5 text-[9px]">
                             {tool.acceleration === 'accel' ? '▲' : tool.acceleration === 'decel' ? '▼' : ''}
                           </span>
                         </td>
-                        <td className="py-3 md:py-2 text-right tabular-nums text-[#67e8f9]">
+                        <td className="py-3 md:py-2 text-right tabular-nums text-[var(--badge-active)]">
                           {tool.share30d >= 0.1 ? `${tool.share30d.toFixed(1)}%` : '<0.1%'}
                         </td>
                         <td className="py-3 md:py-2 text-center hidden md:table-cell">
                           {score && (
                             <span className="text-[9px] px-1 py-0.5 rounded" style={{
-                              background: score.score >= 65 ? 'rgba(134,239,172,0.1)' : score.score >= 40 ? 'rgba(168,85,247,0.1)' : 'rgba(85,85,85,0.1)',
-                              color: score.score >= 65 ? '#86efac' : score.score >= 40 ? '#6c6af6' : '#555',
+                              background: score.score >= 65 ? 'color-mix(in srgb, var(--score-high) 10%, transparent)' : score.score >= 40 ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'color-mix(in srgb, var(--foreground-subtle) 10%, transparent)',
+                              color: score.score >= 65 ? 'var(--score-high)' : score.score >= 40 ? 'var(--accent)' : 'var(--foreground-subtle)',
                             }}>
                               {score.score.toFixed(0)}
                             </span>
@@ -532,7 +532,7 @@ export default function AICodeIndexDashboard({
                 </tbody>
               </table>
             </div>
-            <p className="mt-3 text-[9px] text-[#555] tracking-wider uppercase">
+            <p className="mt-3 text-[9px] text-[var(--foreground-subtle)] tracking-wider uppercase">
               SCORE = VOLUME (35%) · MOMENTUM (25%) · ACCELERATION (20%) · CONSISTENCY (20%)
             </p>
           </Panel>
@@ -545,35 +545,35 @@ export default function AICodeIndexDashboard({
           {/* 2-COL: AGENT ACTIVITY + CONFIG ADOPTION */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Panel title="AI_AGENT_ACTIVITY" tag="AUTONOMOUS">
-              <div className="text-[9px] text-[#555] mb-2 uppercase italic">PULL_REQUESTS CREATED AUTONOMOUSLY — NO HUMAN CO-AUTHOR</div>
+              <div className="text-[9px] text-[var(--foreground-subtle)] mb-2 uppercase italic">PULL_REQUESTS CREATED AUTONOMOUSLY — NO HUMAN CO-AUTHOR</div>
               <table className="w-full text-[10px] border-collapse">
                 <thead>
-                  <tr className="text-[#555] border-b text-left uppercase" style={{ borderColor: '#1e1e2e' }}>
+                  <tr className="text-[var(--foreground-subtle)] border-b text-left uppercase" style={{ borderColor: 'var(--border)' }}>
                     <th className="pb-1 font-normal">AGENT</th>
                     <th className="pb-1 font-normal text-right">PRs/DAY</th>
                     <th className="pb-1 font-normal text-right">Δ/WK</th>
                     <th className="pb-1 font-normal text-center">STATUS</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ borderColor: '#1e1e2e' }}>
+                <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
                   {[...agentPRData].sort((a, b) => b.count - a.count).map(agent => {
                     const velocity = computeAdoptionVelocity(agentPRTimeSeries, agent.tool)
                     return (
                       <tr
                         key={agent.tool}
-                        className={`cursor-pointer transition-colors ${highlightedTool === agent.tool ? 'bg-[#6c6af6]/10' : 'hover:bg-white/5'}`}
+                        className={`cursor-pointer transition-colors ${highlightedTool === agent.tool ? 'bg-[var(--accent)]/10' : 'hover:bg-white/5'}`}
                         onClick={() => setHighlightedTool(prev => prev === agent.tool ? null : agent.tool)}
                       >
-                        <td className="py-2 font-bold" style={{ color: TOOL_COLORS[agent.tool] ?? '#c8c8c8' }}>{agent.tool}</td>
+                        <td className="py-2 font-bold" style={{ color: TOOL_COLORS[agent.tool] ?? 'var(--foreground)' }}>{agent.tool}</td>
                         <td className="py-2 text-right tabular-nums">{formatNum(agent.count)}</td>
                         <td className="py-2 text-right" style={{
-                          color: velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct > 0.5 ? '#86efac'
-                            : velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct < -0.5 ? '#ef5350' : '#555',
+                          color: velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct > 0.5 ? 'var(--score-high)'
+                            : velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct < -0.5 ? 'var(--error)' : 'var(--foreground-subtle)',
                         }}>
                           {velocity.weeklyGrowthPct !== null ? formatPct(velocity.weeklyGrowthPct) : '—'}
                         </td>
                         <td className="py-2 text-center">
-                          <span className="text-[8px] px-1 rounded bg-[#6c6af6]/10 text-[#6c6af6]">ACTIVE</span>
+                          <span className="text-[8px] px-1 rounded bg-[var(--accent)]/10 text-[var(--accent)]">ACTIVE</span>
                         </td>
                       </tr>
                     )
@@ -585,7 +585,7 @@ export default function AICodeIndexDashboard({
             <Panel title="CONFIG_FILE_ADOPTION" tag="ECOSYSTEM">
               <table className="w-full text-left text-[10px] border-collapse">
                 <thead>
-                  <tr className="text-[#555] border-b uppercase" style={{ borderColor: '#1e1e2e' }}>
+                  <tr className="text-[var(--foreground-subtle)] border-b uppercase" style={{ borderColor: 'var(--border)' }}>
                     <th className="pb-2 font-normal">FILE</th>
                     <th className="pb-2 font-normal text-right">REPOS</th>
                     <th className="pb-2 font-normal text-right whitespace-nowrap">Δ/WK</th>
@@ -593,26 +593,26 @@ export default function AICodeIndexDashboard({
                     <th className="pb-2 font-normal text-right">SHARE</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ borderColor: '#1e1e2e' }}>
+                <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
                   {[...configData].sort((a, b) => b.count - a.count).map(row => {
                     const velocity = computeAdoptionVelocity(configTimeSeries, row.tool)
                     const maxCount = Math.max(...configData.map(c => c.count))
                     const percent = maxCount > 0 ? (row.count / maxCount) * 100 : 0
                     return (
                       <tr key={row.tool} className="hover:bg-white/5">
-                        <td className="py-3 font-bold text-[#67e8f9] text-[10px] md:text-[10px]">{CONFIG_FILES[row.tool] ?? row.tool}</td>
+                        <td className="py-3 font-bold text-[var(--badge-active)] text-[10px] md:text-[10px]">{CONFIG_FILES[row.tool] ?? row.tool}</td>
                         <td className="py-3 text-right tabular-nums">{formatNum(row.count)}</td>
                         <td className="py-3 text-right tabular-nums whitespace-nowrap" style={{
-                          color: velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct > 0.5 ? '#86efac' : '#555',
+                          color: velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct > 0.5 ? 'var(--score-high)' : 'var(--foreground-subtle)',
                         }}>
                           {velocity.weeklyGrowthPct !== null ? formatPct(velocity.weeklyGrowthPct) : '—'}
                         </td>
                         <td className="py-3 pl-3 w-20 md:w-28">
                           <div className="h-2 bg-white/5 rounded-sm overflow-hidden" style={{ minWidth: 6 }}>
-                            <div className="h-full bg-[#67e8f9] transition-all duration-1000" style={{ width: `${Math.max(4, Math.min(100, percent))}%` }} />
+                            <div className="h-full bg-[var(--badge-active)] transition-all duration-1000" style={{ width: `${Math.max(4, Math.min(100, percent))}%` }} />
                           </div>
                         </td>
-                        <td className="py-3 text-right text-[10px] text-[#555] tabular-nums w-10">{Math.round(percent)}%</td>
+                        <td className="py-3 text-right text-[10px] text-[var(--foreground-subtle)] tabular-nums w-10">{Math.round(percent)}%</td>
                       </tr>
                     )
                   })}
@@ -641,7 +641,7 @@ export default function AICodeIndexDashboard({
                 >
                   <div className="flex justify-between text-[10px]">
                     <span className="font-bold" style={{ color: tool.color }}>{tool.name}</span>
-                    <span className="text-[#67e8f9]">{tool.share30d.toFixed(1)}%</span>
+                    <span className="text-[var(--badge-active)]">{tool.share30d.toFixed(1)}%</span>
                   </div>
                   <ProgressBar percent={tool.share30d} colorClass={`bg-[${tool.color}]`} />
                 </div>
@@ -653,29 +653,29 @@ export default function AICodeIndexDashboard({
           <Panel title="MOMENTUM_30D" tag="RANKED">
             <table className="w-full text-[10px] border-collapse">
               <thead>
-                <tr className="text-[#555] border-b text-left uppercase" style={{ borderColor: '#1e1e2e' }}>
+                <tr className="text-[var(--foreground-subtle)] border-b text-left uppercase" style={{ borderColor: 'var(--border)' }}>
                   <th className="pb-1 font-normal">RANK</th>
                   <th className="pb-1 font-normal">TOOL</th>
                   <th className="pb-1 font-normal text-right">30D_CHANGE</th>
                   <th className="pb-1 font-normal text-center">TREND_BAR</th>
                 </tr>
               </thead>
-              <tbody className="divide-y" style={{ borderColor: '#1e1e2e' }}>
+              <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
                 {byMomentum.map((tool, i) => (
                   <tr
                     key={tool.name}
-                    className={`cursor-pointer transition-colors ${highlightedTool === tool.name ? 'bg-[#6c6af6]/10' : 'hover:bg-white/5'}`}
+                    className={`cursor-pointer transition-colors ${highlightedTool === tool.name ? 'bg-[var(--accent)]/10' : 'hover:bg-white/5'}`}
                     onClick={() => setHighlightedTool(prev => prev === tool.name ? null : tool.name)}
                   >
-                    <td className="py-1.5 text-[#555]">#{i + 1}</td>
+                    <td className="py-1.5 text-[var(--foreground-subtle)]">#{i + 1}</td>
                     <td className="py-1.5 font-bold" style={{ color: tool.color }}>{tool.name}</td>
-                    <td className={`py-1.5 text-right ${tool.trendPct > 0 ? 'text-[#86efac]' : 'text-[#ef5350]'}`}>
+                    <td className={`py-1.5 text-right ${tool.trendPct > 0 ? 'text-[var(--score-high)]' : 'text-[var(--error)]'}`}>
                       {formatPct(tool.trendPct)}
                     </td>
                     <td className="py-1.5 text-center">
                       <AsciiBar
                         percent={Math.min(100, Math.abs(tool.trendPct) / 3)}
-                        colorClass={tool.trendPct > 0 ? 'text-[#6c6af6]' : 'text-[#ef5350]'}
+                        colorClass={tool.trendPct > 0 ? 'text-[var(--accent)]' : 'text-[var(--error)]'}
                       />
                     </td>
                   </tr>
@@ -689,12 +689,12 @@ export default function AICodeIndexDashboard({
             <div ref={logRef} className="flex-1 overflow-y-auto terminal-scrollbar space-y-1 text-[9px]">
               {logs.map((log, i) => (
                 <div key={i} className="flex gap-2" style={{ animation: i === 0 ? 'fade-in 0.5s ease-out' : undefined }}>
-                  <span className="text-[#555]">[{log.timestamp}]</span>
+                  <span className="text-[var(--foreground-subtle)]">[{log.timestamp}]</span>
                   <span className="font-bold" style={{
-                    color: log.level === 'SIGNAL' ? '#67e8f9' : log.level === 'ALERT' ? '#ef5350' : '#6c6af6',
+                    color: log.level === 'SIGNAL' ? 'var(--badge-active)' : log.level === 'ALERT' ? 'var(--error)' : 'var(--accent)',
                   }}>{log.level}</span>
-                  <span className="text-[#555]">[{log.tag}]</span>
-                  <span className="text-[#c8c8c8]">{log.message}</span>
+                  <span className="text-[var(--foreground-subtle)]">[{log.tag}]</span>
+                  <span className="text-[var(--foreground)]">{log.message}</span>
                 </div>
               ))}
             </div>
@@ -704,13 +704,13 @@ export default function AICodeIndexDashboard({
           <Panel title="DOUBLING_TIME" tag="VELOCITY">
             <table className="w-full text-[10px] border-collapse">
               <thead>
-                <tr className="text-[#555] border-b text-left uppercase" style={{ borderColor: '#1e1e2e' }}>
+                <tr className="text-[var(--foreground-subtle)] border-b text-left uppercase" style={{ borderColor: 'var(--border)' }}>
                   <th className="pb-1 font-normal">TOOL</th>
                   <th className="pb-1 font-normal text-right">DAYS_TO_2X</th>
                   <th className="pb-1 font-normal text-center">STATUS</th>
                 </tr>
               </thead>
-              <tbody className="divide-y" style={{ borderColor: '#1e1e2e' }}>
+              <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
                 {[...stats]
                   .filter(t => t.doublingDays !== null && t.avg30d > 0)
                   .sort((a, b) => (a.doublingDays ?? Infinity) - (b.doublingDays ?? Infinity))
@@ -719,13 +719,13 @@ export default function AICodeIndexDashboard({
                     return (
                       <tr
                         key={tool.name}
-                        className={`cursor-pointer transition-colors ${highlightedTool === tool.name ? 'bg-[#6c6af6]/10' : 'hover:bg-white/5'}`}
+                        className={`cursor-pointer transition-colors ${highlightedTool === tool.name ? 'bg-[var(--accent)]/10' : 'hover:bg-white/5'}`}
                         onClick={() => setHighlightedTool(prev => prev === tool.name ? null : tool.name)}
                       >
                         <td className="py-2 font-bold" style={{ color: tool.color }}>{tool.name}</td>
-                        <td className="py-2 text-right text-[#6c6af6]">{tool.doublingDays}d</td>
+                        <td className="py-2 text-right text-[var(--accent)]">{tool.doublingDays}d</td>
                         <td className="py-2 text-center">
-                          <span className={`text-[8px] px-1 rounded ${status === 'FAST' ? 'bg-[#86efac]/10 text-[#86efac]' : status === 'STEADY' ? 'bg-[#67e8f9]/10 text-[#67e8f9]' : 'bg-[#fde68a]/10 text-[#fde68a]'}`}>
+                          <span className={`text-[8px] px-1 rounded ${status === 'FAST' ? 'bg-[var(--score-high)]/10 text-[var(--score-high)]' : status === 'STEADY' ? 'bg-[var(--badge-active)]/10 text-[var(--badge-active)]' : 'bg-[var(--score-mid)]/10 text-[var(--score-mid)]'}`}>
                             {status}
                           </span>
                         </td>
@@ -734,7 +734,7 @@ export default function AICodeIndexDashboard({
                   })}
                 {stats.filter(t => t.doublingDays === null && t.avg30d > 0).length > 0 && (
                   <tr>
-                    <td colSpan={3} className="py-1.5 text-[9px] text-[#555]">
+                    <td colSpan={3} className="py-1.5 text-[9px] text-[var(--foreground-subtle)]">
                       {stats.filter(t => t.doublingDays === null && t.avg30d > 0).map(t => t.name).join(', ')} — flat/declining
                     </td>
                   </tr>
@@ -746,27 +746,27 @@ export default function AICodeIndexDashboard({
           {/* COMMUNITY PULSE */}
           {buzzData.length > 0 && (
             <Panel title="COMMUNITY_PULSE" tag="SIGNAL">
-              <div className="text-[9px] text-[#555] mb-2 uppercase italic">MENTIONS ACROSS HN · REDDIT · GH_DISCUSSIONS — LAST 7 DAYS</div>
+              <div className="text-[9px] text-[var(--foreground-subtle)] mb-2 uppercase italic">MENTIONS ACROSS HN · REDDIT · GH_DISCUSSIONS — LAST 7 DAYS</div>
               <table className="w-full text-[10px] border-collapse">
                 <thead>
-                  <tr className="text-[#555] border-b text-left uppercase" style={{ borderColor: '#1e1e2e' }}>
+                  <tr className="text-[var(--foreground-subtle)] border-b text-left uppercase" style={{ borderColor: 'var(--border)' }}>
                     <th className="pb-1 font-normal">TOOL</th>
                     <th className="pb-1 font-normal text-right">TOTAL</th>
                     <th className="pb-1 font-normal text-right">HN</th>
                     <th className="pb-1 font-normal text-right">REDDIT</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ borderColor: '#1e1e2e' }}>
+                <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
                   {[...buzzData].sort((a, b) => b.mentions - a.mentions).map(c => (
                     <tr
                       key={c.tool}
-                      className={`cursor-pointer transition-colors ${highlightedTool === c.tool ? 'bg-[#6c6af6]/10' : 'hover:bg-white/5'}`}
+                      className={`cursor-pointer transition-colors ${highlightedTool === c.tool ? 'bg-[var(--accent)]/10' : 'hover:bg-white/5'}`}
                       onClick={() => setHighlightedTool(prev => prev === c.tool ? null : c.tool)}
                     >
-                      <td className="py-2 font-bold" style={{ color: TOOL_COLORS[c.tool] ?? '#c8c8c8' }}>{c.tool}</td>
-                      <td className="py-2 text-right font-bold text-[#6c6af6]">{c.mentions}</td>
-                      <td className="py-2 text-right text-[#555]">{c.hn}</td>
-                      <td className="py-2 text-right text-[#555]">{c.reddit}</td>
+                      <td className="py-2 font-bold" style={{ color: TOOL_COLORS[c.tool] ?? 'var(--foreground)' }}>{c.tool}</td>
+                      <td className="py-2 text-right font-bold text-[var(--accent)]">{c.mentions}</td>
+                      <td className="py-2 text-right text-[var(--foreground-subtle)]">{c.hn}</td>
+                      <td className="py-2 text-right text-[var(--foreground-subtle)]">{c.reddit}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -779,13 +779,13 @@ export default function AICodeIndexDashboard({
             <Panel title="SDK_ADOPTION" tag="INFRA">
               <table className="w-full text-[10px] border-collapse">
                 <thead>
-                  <tr className="text-[#555] border-b text-left uppercase" style={{ borderColor: '#1e1e2e' }}>
+                  <tr className="text-[var(--foreground-subtle)] border-b text-left uppercase" style={{ borderColor: 'var(--border)' }}>
                     <th className="pb-1 font-normal">SDK</th>
                     <th className="pb-1 font-normal text-right">REPOS</th>
                     <th className="pb-1 font-normal text-right">Δ/WK</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ borderColor: '#1e1e2e' }}>
+                <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
                   {[...sdkData].sort((a, b) => b.count - a.count).map(row => {
                     const velocity = computeAdoptionVelocity(sdkTimeSeries, row.tool)
                     return (
@@ -793,7 +793,7 @@ export default function AICodeIndexDashboard({
                         <td className="py-2 font-bold">{row.tool}</td>
                         <td className="py-2 text-right tabular-nums">{formatNum(row.count)}</td>
                         <td className="py-2 text-right" style={{
-                          color: velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct > 0.5 ? '#86efac' : '#555',
+                          color: velocity.weeklyGrowthPct !== null && velocity.weeklyGrowthPct > 0.5 ? 'var(--score-high)' : 'var(--foreground-subtle)',
                         }}>
                           {velocity.weeklyGrowthPct !== null ? formatPct(velocity.weeklyGrowthPct) : '—'}
                         </td>
@@ -810,13 +810,13 @@ export default function AICodeIndexDashboard({
       {/* COMMAND BAR */}
       <footer
         className="h-10 hidden md:flex items-center px-4 z-50 fixed bottom-0 left-0 right-0"
-        style={{ background: '#0a0a0f', borderTop: '1px solid #1e1e2e' }}
+        style={{ background: 'var(--background)', borderTop: '1px solid var(--border)' }}
       >
-        <div className="text-[#6c6af6] mr-3 font-bold">❯</div>
+        <div className="text-[var(--accent)] mr-3 font-bold">❯</div>
         <input
           type="text"
           placeholder='ENTER COMMAND (e.g. "filter cursor", "reset")...'
-          className="bg-transparent border-none outline-none flex-1 text-[#c8c8c8] text-[11px] placeholder:text-[#555] uppercase tracking-wider"
+          className="bg-transparent border-none outline-none flex-1 text-[var(--foreground)] text-[11px] placeholder:text-[var(--foreground-subtle)] uppercase tracking-wider"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               handleCommand(e.currentTarget.value)
@@ -824,17 +824,17 @@ export default function AICodeIndexDashboard({
             }
           }}
         />
-        <div className="flex items-center gap-4 text-[9px] text-[#555] uppercase tracking-wider ml-4">
+        <div className="flex items-center gap-4 text-[9px] text-[var(--foreground-subtle)] uppercase tracking-wider ml-4">
           <div className="hidden lg:flex items-center gap-1.5">
             <span className="sys-status-dot" style={{ width: 5, height: 5 }} />
-            <span className="text-[#6c6af6]">SYS_OK</span>
+            <span className="text-[var(--accent)]">SYS_OK</span>
           </div>
-          <span className="hidden lg:inline text-[#1e1e2e]">·</span>
+          <span className="hidden lg:inline text-[var(--border)]">·</span>
           <span className="hidden lg:inline">LAST_SYNC: {lastSyncLabel}</span>
-          <span className="hidden lg:inline text-[#1e1e2e]">·</span>
+          <span className="hidden lg:inline text-[var(--border)]">·</span>
           <span className="hidden sm:inline">TOOLS: {liveNodeCount}</span>
-          <span className="hidden sm:inline text-[#1e1e2e]">·</span>
-          <div className="flex items-center gap-1 cursor-pointer hover:text-[#6c6af6]" onClick={() => setIsCommandPaletteOpen(true)}>
+          <span className="hidden sm:inline text-[var(--border)]">·</span>
+          <div className="flex items-center gap-1 cursor-pointer hover:text-[var(--accent)]" onClick={() => setIsCommandPaletteOpen(true)}>
             <span>⌘K: KEYS</span>
           </div>
         </div>
@@ -858,8 +858,8 @@ export default function AICodeIndexDashboard({
                 { cmd: 'help', desc: 'Show full documentation' },
               ].map(item => (
                 <div key={item.cmd} className="flex justify-between items-center p-2 hover:bg-white/5 rounded cursor-pointer">
-                  <span className="text-[#6c6af6] font-bold text-[11px]">{item.cmd}</span>
-                  <span className="text-[#555] text-[10px]">{item.desc}</span>
+                  <span className="text-[var(--accent)] font-bold text-[11px]">{item.cmd}</span>
+                  <span className="text-[var(--foreground-subtle)] text-[10px]">{item.desc}</span>
                 </div>
               ))}
             </div>

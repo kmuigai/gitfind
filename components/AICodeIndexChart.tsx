@@ -334,16 +334,22 @@ export default function AICodeIndexChart({ data, configTimeSeries, agentPRTimeSe
       const ctx = canvas.getContext('2d')!
       ctx.scale(scale, scale)
 
+      // Read theme colors from computed styles
+      const rootStyles = getComputedStyle(document.documentElement)
+      const bgColor = rootStyles.getPropertyValue('--background').trim() || '#0a0a0f'
+      const fgColor = rootStyles.getPropertyValue('--foreground').trim() || '#e8e8f0'
+      const mutedColor = rootStyles.getPropertyValue('--foreground-muted').trim() || '#8a8aaa'
+
       // Background
-      ctx.fillStyle = '#0a0a0a'
+      ctx.fillStyle = bgColor
       ctx.fillRect(0, 0, canvasW, canvasH)
 
       // Watermark header
       ctx.font = '600 14px ui-monospace, monospace'
-      ctx.fillStyle = '#e4e4e7'
+      ctx.fillStyle = fgColor
       ctx.fillText('AI Code Index', pad, pad + 14)
       ctx.font = '14px ui-monospace, monospace'
-      ctx.fillStyle = '#a1a1aa'
+      ctx.fillStyle = mutedColor
       const tagline = 'gitfind.ai'
       ctx.fillText(tagline, canvasW - pad - ctx.measureText(tagline).width, pad + 14)
 
@@ -370,7 +376,7 @@ export default function AICodeIndexChart({ data, configTimeSeries, agentPRTimeSe
         ctx.beginPath()
         ctx.arc(legendX + 4, legendY + 4, 4, 0, Math.PI * 2)
         ctx.fill()
-        ctx.fillStyle = '#a1a1aa'
+        ctx.fillStyle = mutedColor
         ctx.fillText(tool, legendX + 14, legendY + 8)
         legendX += 14 + ctx.measureText(tool).width + 24
       }
@@ -477,9 +483,9 @@ export default function AICodeIndexChart({ data, configTimeSeries, agentPRTimeSe
                     style={{
                       fontFamily: MONO,
                       borderRadius: '6px',
-                      border: isActive ? '1px solid #22c55e' : '1px solid var(--border)',
-                      background: isActive ? 'rgba(34,197,94,0.15)' : 'transparent',
-                      color: isActive ? '#22c55e' : 'var(--foreground-subtle)',
+                      border: isActive ? '1px solid var(--score-high)' : '1px solid var(--border)',
+                      background: isActive ? 'color-mix(in srgb, var(--score-high) 15%, transparent)' : 'transparent',
+                      color: isActive ? 'var(--score-high)' : 'var(--foreground-subtle)',
                     }}
                   >
                     {LAYER_LABELS[layer]}
@@ -626,7 +632,7 @@ export default function AICodeIndexChart({ data, configTimeSeries, agentPRTimeSe
       {configLayerData && configLayerData.rows.length > 0 && (
         <div className="mt-6" style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem' }}>
           <div className="mb-2 flex items-center gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#22c55e]">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--score-high)]">
               Layer
             </span>
             <span className="text-xs text-[var(--foreground-muted)]" style={{ fontFamily: MONO }}>
@@ -716,7 +722,7 @@ export default function AICodeIndexChart({ data, configTimeSeries, agentPRTimeSe
       {agentPRLayerData && agentPRLayerData.rows.length > 0 && (
         <div className="mt-6" style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem' }}>
           <div className="mb-2 flex items-center gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#22c55e]">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--score-high)]">
               Layer
             </span>
             <span className="text-xs text-[var(--foreground-muted)]" style={{ fontFamily: MONO }}>

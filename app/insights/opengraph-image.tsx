@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 
 export const runtime = 'edge'
-export const alt = 'GitFind — GitHub, Translated'
+export const alt = 'Insights — GitFind'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
@@ -29,11 +29,17 @@ export default function Image() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <span style={{ color: '#e8e8f0', fontSize: '56px', fontWeight: 700, lineHeight: 1.1 }}>
-              GitHub, Translated
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ color: '#6c6af6', fontSize: '24px' }}>{'//'}</span>
+              <span style={{ color: '#6c6af6', fontSize: '24px', letterSpacing: '0.15em' }}>
+                INSIGHTS
+              </span>
+            </div>
+            <span style={{ color: '#e8e8f0', fontSize: '48px', fontWeight: 700, lineHeight: 1.1 }}>
+              Weekly rankings &{'\n'}breakout signals
             </span>
-            <span style={{ color: '#7a7a9a', fontSize: '26px', lineHeight: 1.4, maxWidth: '800px' }}>
-              Discover the fastest-growing open source projects, ranked and explained in plain English.
+            <span style={{ color: '#7a7a9a', fontSize: '24px', lineHeight: 1.4, maxWidth: '800px' }}>
+              Trend analysis from every public GitHub repo. What moved, why it matters, and what to watch next.
             </span>
           </div>
         </div>
@@ -44,9 +50,9 @@ export default function Image() {
             <span style={{ color: '#6c6af6' }}>SYS_OK</span>
           </div>
           <span style={{ color: '#1e1e2e' }}>·</span>
-          <span style={{ color: '#555' }}>5K+ REPOS TRACKED</span>
+          <span style={{ color: '#555' }}>PUBLISHED WEEKLY</span>
           <span style={{ color: '#1e1e2e' }}>·</span>
-          <span style={{ color: '#555' }}>UPDATED DAILY</span>
+          <span style={{ color: '#555' }}>DATA-DRIVEN</span>
         </div>
       </div>
     ),

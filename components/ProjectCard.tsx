@@ -128,7 +128,6 @@ export default function ProjectCard({ project }: ProjectCardProps) {
         href={`/project/${project.owner}/${project.name}`}
         className="absolute inset-0"
         aria-label={`View ${project.owner}/${project.name} details`}
-        tabIndex={-1}
       />
       {/* Footer links */}
       <div className="relative z-10 flex items-center justify-between gap-2 min-w-0">
