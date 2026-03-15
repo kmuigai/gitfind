@@ -3,8 +3,8 @@
 /* Scoped to .terminal-dashboard — does not affect other pages */
 
 .terminal-dashboard .terminal-panel {
-  background: #0e0e16;
-  border: 1px solid #1e1e2e;
+  background: var(--background-card);
+  border: 1px solid var(--border);
   position: relative;
   overflow: hidden;
   display: flex;
@@ -16,8 +16,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 12px;
-  border-bottom: 1px solid #1e1e2e;
-  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
 }
 
 .terminal-dashboard .panel-title {
@@ -28,14 +28,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #c8c8c8;
+  color: var(--foreground);
 }
 
 .terminal-dashboard .panel-tag {
   font-size: 9px;
   padding: 2px 6px;
-  border: 1px solid #1e1e2e;
-  color: #555;
+  border: 1px solid var(--border);
+  color: var(--foreground-subtle);
   border-radius: 2px;
   text-transform: uppercase;
   cursor: pointer;
@@ -43,7 +43,7 @@
 }
 
 .terminal-dashboard .panel-tag:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
 }
 
 .terminal-dashboard .terminal-scrollbar::-webkit-scrollbar {
@@ -52,16 +52,16 @@
 }
 
 .terminal-dashboard .terminal-scrollbar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
 }
 
 .terminal-dashboard .terminal-scrollbar::-webkit-scrollbar-thumb {
-  background: #1e1e2e;
+  background: var(--border);
   border-radius: 99px;
 }
 
 .terminal-dashboard .terminal-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: var(--foreground-subtle);
 }
 
 /* Flash animations for number flicker */
@@ -70,7 +70,7 @@
 }
 
 @keyframes td-flash-green {
-  0% { color: #86efac; text-shadow: 0 0 10px #86efac; }
+  0% { color: var(--score-high); text-shadow: 0 0 10px var(--score-high); }
   100% { color: inherit; text-shadow: none; }
 }
 
@@ -79,7 +79,7 @@
 }
 
 @keyframes td-flash-red {
-  0% { color: #ef5350; text-shadow: 0 0 10px #ef5350; }
+  0% { color: var(--error); text-shadow: 0 0 10px var(--error); }
   100% { color: inherit; text-shadow: none; }
 }
 

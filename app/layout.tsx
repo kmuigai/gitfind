@@ -59,13 +59,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){var s=localStorage.getItem('gitfind-theme');document.documentElement.setAttribute('data-theme',(s==='light'||s==='dark')?s:'dark');})();`,
-          }}
-        />
         <link rel="alternate" type="application/rss+xml" title="GitFind Insights" href="/insights/feed.xml" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>

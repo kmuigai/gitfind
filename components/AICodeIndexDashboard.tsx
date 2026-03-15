@@ -287,7 +287,7 @@ function Panel({ title, tag, children, className = '' }: {
 function ProgressBar({ percent, colorClass = 'bg-[var(--accent)]' }: { percent: number; colorClass?: string }) {
   return (
     <div className="flex items-center gap-2 w-full">
-      <div className="flex-1 h-2 bg-white/5 rounded-sm overflow-hidden">
+      <div className="flex-1 h-2 bg-[var(--foreground)]/5 rounded-sm overflow-hidden">
         <div className={`h-full ${colorClass} transition-all duration-1000`} style={{ width: `${Math.min(100, percent)}%` }} />
       </div>
       <div className="text-[10px] text-[var(--foreground-subtle)] w-8 text-right">{Math.round(percent)}%</div>
@@ -456,7 +456,6 @@ export default function AICodeIndexDashboard({
   return (
     <div
       className="terminal-dashboard min-h-screen flex flex-col"
-      data-theme="dark"
       style={{
         fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, monospace',
         background: 'var(--background)',
@@ -495,7 +494,7 @@ export default function AICodeIndexDashboard({
                     return (
                       <tr
                         key={tool.name}
-                        className={`group cursor-pointer transition-colors ${isHighlighted ? 'bg-[var(--accent)]/10' : 'hover:bg-white/5'}`}
+                        className={`group cursor-pointer transition-colors ${isHighlighted ? 'bg-[var(--accent)]/10' : 'hover:bg-[var(--foreground)]/5'}`}
                         onClick={() => setHighlightedTool(prev => prev === tool.name ? null : tool.name)}
                         style={{ borderColor: 'var(--border)' }}
                       >
@@ -562,7 +561,7 @@ export default function AICodeIndexDashboard({
                     return (
                       <tr
                         key={agent.tool}
-                        className={`cursor-pointer transition-colors ${highlightedTool === agent.tool ? 'bg-[var(--accent)]/10' : 'hover:bg-white/5'}`}
+                        className={`cursor-pointer transition-colors ${highlightedTool === agent.tool ? 'bg-[var(--accent)]/10' : 'hover:bg-[var(--foreground)]/5'}`}
                         onClick={() => setHighlightedTool(prev => prev === agent.tool ? null : agent.tool)}
                       >
                         <td className="py-2 font-bold" style={{ color: TOOL_COLORS[agent.tool] ?? 'var(--foreground)' }}>{agent.tool}</td>
@@ -600,7 +599,7 @@ export default function AICodeIndexDashboard({
                     const maxCount = Math.max(...configData.map(c => c.count))
                     const percent = maxCount > 0 ? (row.count / maxCount) * 100 : 0
                     return (
-                      <tr key={row.tool} className="hover:bg-white/5">
+                      <tr key={row.tool} className="hover:bg-[var(--foreground)]/5">
                         <td className="py-3 font-bold text-[var(--badge-active)] text-[10px] md:text-[10px]">{CONFIG_FILES[row.tool] ?? row.tool}</td>
                         <td className="py-3 text-right tabular-nums">{formatNum(row.count)}</td>
                         <td className="py-3 text-right tabular-nums whitespace-nowrap" style={{
@@ -609,7 +608,7 @@ export default function AICodeIndexDashboard({
                           {velocity.weeklyGrowthPct !== null ? formatPct(velocity.weeklyGrowthPct) : '—'}
                         </td>
                         <td className="py-3 pl-3 w-20 md:w-28">
-                          <div className="h-2 bg-white/5 rounded-sm overflow-hidden" style={{ minWidth: 6 }}>
+                          <div className="h-2 bg-[var(--foreground)]/5 rounded-sm overflow-hidden" style={{ minWidth: 6 }}>
                             <div className="h-full bg-[var(--badge-active)] transition-all duration-1000" style={{ width: `${Math.max(4, Math.min(100, percent))}%` }} />
                           </div>
                         </td>
@@ -665,7 +664,7 @@ export default function AICodeIndexDashboard({
                 {byMomentum.map((tool, i) => (
                   <tr
                     key={tool.name}
-                    className={`cursor-pointer transition-colors ${highlightedTool === tool.name ? 'bg-[var(--accent)]/10' : 'hover:bg-white/5'}`}
+                    className={`cursor-pointer transition-colors ${highlightedTool === tool.name ? 'bg-[var(--accent)]/10' : 'hover:bg-[var(--foreground)]/5'}`}
                     onClick={() => setHighlightedTool(prev => prev === tool.name ? null : tool.name)}
                   >
                     <td className="py-1.5 text-[var(--foreground-subtle)]">#{i + 1}</td>
@@ -720,7 +719,7 @@ export default function AICodeIndexDashboard({
                     return (
                       <tr
                         key={tool.name}
-                        className={`cursor-pointer transition-colors ${highlightedTool === tool.name ? 'bg-[var(--accent)]/10' : 'hover:bg-white/5'}`}
+                        className={`cursor-pointer transition-colors ${highlightedTool === tool.name ? 'bg-[var(--accent)]/10' : 'hover:bg-[var(--foreground)]/5'}`}
                         onClick={() => setHighlightedTool(prev => prev === tool.name ? null : tool.name)}
                       >
                         <td className="py-2 font-bold" style={{ color: tool.color }}>{tool.name}</td>
@@ -761,7 +760,7 @@ export default function AICodeIndexDashboard({
                   {[...buzzData].sort((a, b) => b.mentions - a.mentions).map(c => (
                     <tr
                       key={c.tool}
-                      className={`cursor-pointer transition-colors ${highlightedTool === c.tool ? 'bg-[var(--accent)]/10' : 'hover:bg-white/5'}`}
+                      className={`cursor-pointer transition-colors ${highlightedTool === c.tool ? 'bg-[var(--accent)]/10' : 'hover:bg-[var(--foreground)]/5'}`}
                       onClick={() => setHighlightedTool(prev => prev === c.tool ? null : c.tool)}
                     >
                       <td className="py-2 font-bold" style={{ color: TOOL_COLORS[c.tool] ?? 'var(--foreground)' }}>{c.tool}</td>
@@ -790,7 +789,7 @@ export default function AICodeIndexDashboard({
                   {[...sdkData].sort((a, b) => b.count - a.count).map(row => {
                     const velocity = computeAdoptionVelocity(sdkTimeSeries, row.tool)
                     return (
-                      <tr key={row.tool} className="hover:bg-white/5">
+                      <tr key={row.tool} className="hover:bg-[var(--foreground)]/5">
                         <td className="py-2 font-bold">{row.tool}</td>
                         <td className="py-2 text-right tabular-nums">{formatNum(row.count)}</td>
                         <td className="py-2 text-right" style={{
@@ -859,7 +858,7 @@ export default function AICodeIndexDashboard({
                 { cmd: 'reset', desc: 'Clear all filters and highlights' },
                 { cmd: 'help', desc: 'Show full documentation' },
               ].map(item => (
-                <div key={item.cmd} className="flex justify-between items-center p-2 hover:bg-white/5 rounded cursor-pointer">
+                <div key={item.cmd} className="flex justify-between items-center p-2 hover:bg-[var(--foreground)]/5 rounded cursor-pointer">
                   <span className="text-[var(--accent)] font-bold text-[11px]">{item.cmd}</span>
                   <span className="text-[var(--foreground-subtle)] text-[10px]">{item.desc}</span>
                 </div>

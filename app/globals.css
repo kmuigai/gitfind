@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
-:root,
-[data-theme="dark"] {
+:root {
   --term-input-bg: rgba(0,0,0,0.3);
   --term-input-shadow: inset 0 0 10px rgba(0,0,0,0.4);
   --terminal-panel-bg: rgba(255,255,255,0.02);
@@ -25,33 +24,6 @@
   --badge-active: #06b6d4;
   --chart-line: #6c6af6;
   --error: #ef4444;
-  --on-accent: #ffffff;
-}
-
-[data-theme="light"] {
-  --term-input-bg: var(--background-card);
-  --term-input-shadow: inset 0 0 6px rgba(0,0,0,0.06);
-  --terminal-panel-bg: rgba(0,0,0,0.02);
-  --accent-text-glow: none;
-  --background: #f5f4ef;
-  --background-elevated: #eceae4;
-  --background-card: #e8e6e0;
-  --border: #cccac0;
-  --border-subtle: #d8d6ce;
-  --foreground: #1c1c2e;
-  --foreground-muted: #4e4e72;
-  --foreground-subtle: #9090a8;
-  --accent: #5553d4;
-  --accent-hover: #4442c0;
-  --accent-subtle: #eeeeff;
-  --score-high: #16a34a;
-  --score-mid: #d97706;
-  --score-low: #6b7280;
-  --badge-breakout: #b91c1c;
-  --badge-hot: #b45309;
-  --badge-active: #0e7490;
-  --chart-line: #5553d4;
-  --error: #dc2626;
   --on-accent: #ffffff;
 }
 
@@ -262,12 +234,8 @@ body {
 }
 
 /* Accent glow */
-:root,
-[data-theme="dark"] {
+:root {
   --accent-glow: 0 0 12px rgba(108,106,246,0.25);
-}
-[data-theme="light"] {
-  --accent-glow: 0 0 8px rgba(85,83,212,0.15);
 }
 
 /* Pulsing status dot for KPIs */

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import ThemeToggle from './ThemeToggle'
 
 const NAV_LINKS = [
   { label: 'HOME', href: '/' },
@@ -104,7 +103,6 @@ export default function TerminalNav() {
             <span className="sys-status-dot" style={{ width: 5, height: 5, background: 'var(--score-high)', animation: 'none' }} />
             <span>LIVE</span>
           </div>
-          <ThemeToggle />
           <span className="hidden sm:inline tabular-nums text-[var(--foreground-muted)]">{time}</span>
           <span className="hidden sm:inline h-4" style={{ width: 1, background: 'var(--border)' }} />
           <Link
