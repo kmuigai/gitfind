@@ -95,15 +95,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
       )}
 
       {/* Stats footer */}
-      <StatsRow
-        tooltipText={[
-          project.language,
-          `${formatStars(project.stars)} stars`,
-          `${formatStars(project.forks)} forks`,
-          project.contributors > 0 ? `${project.contributors} contributors` : '',
-          project.downloads_7d != null && project.downloads_7d > 0 ? `${formatStars(project.downloads_7d)} dl/wk` : '',
-        ].filter(Boolean).join(' · ')}
-      >
+      <StatsRow>
         <LanguageDot language={project.language} />
         <span className="shrink-0 font-mono text-xs text-[var(--foreground-muted)]">
           {formatStars(project.stars)} stars

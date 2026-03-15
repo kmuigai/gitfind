@@ -807,16 +807,16 @@ export default function AICodeIndexDashboard({
         </div>
       </main>
 
-      {/* COMMAND BAR */}
+      {/* COMMAND BAR — full on desktop, status-only on mobile */}
       <footer
-        className="h-10 hidden md:flex items-center px-4 z-50 fixed bottom-0 left-0 right-0"
+        className="h-10 flex items-center px-4 z-50 fixed bottom-0 left-0 right-0"
         style={{ background: 'var(--background)', borderTop: '1px solid var(--border)' }}
       >
         <div className="text-[var(--accent)] mr-3 font-bold">❯</div>
         <input
           type="text"
           placeholder='ENTER COMMAND (e.g. "filter cursor", "reset")...'
-          className="bg-transparent border-none outline-none flex-1 text-[var(--foreground)] text-[11px] placeholder:text-[var(--foreground-subtle)] uppercase tracking-wider"
+          className="hidden md:block bg-transparent border-none outline-none flex-1 text-[var(--foreground)] text-[11px] placeholder:text-[var(--foreground-subtle)] uppercase tracking-wider"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               handleCommand(e.currentTarget.value)
@@ -824,6 +824,7 @@ export default function AICodeIndexDashboard({
             }
           }}
         />
+        <span className="md:hidden flex-1 text-[9px] text-[var(--foreground-subtle)] uppercase tracking-wider">GITFIND.AI</span>
         <div className="flex items-center gap-4 text-[9px] text-[var(--foreground-subtle)] uppercase tracking-wider ml-4">
           <div className="hidden lg:flex items-center gap-1.5">
             <span className="sys-status-dot" style={{ width: 5, height: 5 }} />

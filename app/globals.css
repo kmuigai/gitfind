@@ -224,7 +224,13 @@ body {
   animation: status-pulse 2s ease infinite;
 }
 
-/* Scrollbar styling */
+/* Scrollbar styling — Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--background);
+}
+
+/* Scrollbar styling — Chrome/Safari/Edge */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

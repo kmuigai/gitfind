@@ -40,7 +40,7 @@ export default function NewsletterSignup() {
   }
 
   return (
-    <section className="border-t border-[var(--border)] py-10">
+    <section className="border-t border-[var(--border)] py-8 sm:py-12">
       <div className="mx-auto max-w-xl px-4 sm:px-6">
         <div className="term-label mb-3">{'// SUBSCRIBE'}</div>
         <p className="font-mono text-xs text-[var(--foreground-muted)] leading-relaxed">
@@ -85,7 +85,7 @@ export default function NewsletterSignup() {
         )}
 
         {status === 'error' && (
-          <div className="mt-2 font-mono text-[11px]">
+          <div className="mt-2 font-mono text-[11px]" role="alert">
             <span className="font-bold text-[var(--error)]">[ERR]</span>
             {' '}
             <span className="text-[var(--foreground-muted)]">{errorMessage}</span>

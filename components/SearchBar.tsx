@@ -22,7 +22,9 @@ export default function SearchBar() {
   const [results, setResults] = useState<SearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
   const containerRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
 
   const debouncedQuery = useDebounce(query, 300)
 
@@ -40,6 +42,7 @@ export default function SearchBar() {
         const data = (await res.json()) as SearchResult[]
         setResults(data)
         setIsOpen(data.length > 0)
+        setActiveIndex(-1)
       }
     } catch {
       setResults([])
@@ -63,6 +66,42 @@ export default function SearchBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Scroll active item into view
+  useEffect(() => {
+    if (activeIndex < 0 || !listRef.current) return
+    const item = listRef.current.children[activeIndex] as HTMLElement | undefined
+    item?.scrollIntoView({ block: 'nearest' })
+  }, [activeIndex])
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (!isOpen || results.length === 0) return
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setActiveIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0))
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setActiveIndex((prev) => (prev > 0 ? prev - 1 : results.length - 1))
+        break
+      case 'Enter':
+        e.preventDefault()
+        if (activeIndex >= 0 && results[activeIndex]) {
+          const repo = results[activeIndex]
+          window.location.href = `/project/${repo.owner}/${repo.name}`
+          setIsOpen(false)
+        }
+        break
+      case 'Escape':
+        setIsOpen(false)
+        setActiveIndex(-1)
+        break
+    }
+  }
+
+  const activeId = activeIndex >= 0 ? `search-result-${activeIndex}` : undefined
+
   return (
     <div ref={containerRef} className="relative w-full max-w-xl">
       {/* Input */}
@@ -75,10 +114,15 @@ export default function SearchBar() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setIsOpen(true)}
+          onKeyDown={handleKeyDown}
           placeholder="SEARCH REPOS, TOOLS, CATEGORIES..."
           className="term-input w-full"
+          role="combobox"
           aria-label="Search repositories"
           aria-autocomplete="list"
+          aria-expanded={isOpen}
+          aria-controls={isOpen ? 'search-results' : undefined}
+          aria-activedescendant={activeId}
         />
         {isLoading && (
           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
@@ -95,14 +139,20 @@ export default function SearchBar() {
           <div className="px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
             {'>'} {results.length} result{results.length !== 1 ? 's' : ''} found
           </div>
-          <ul role="listbox" className="max-h-80 overflow-y-auto">
+          <ul ref={listRef} id="search-results" role="listbox" className="max-h-80 overflow-y-auto">
             {results.map((repo, i) => (
-              <li key={repo.id} role="option" aria-selected={false}>
+              <li
+                key={repo.id}
+                id={`search-result-${i}`}
+                role="option"
+                aria-selected={i === activeIndex}
+              >
                 <Link
                   href={`/project/${repo.owner}/${repo.name}`}
                   onClick={() => setIsOpen(false)}
-                  className="flex items-start gap-3 px-3 py-2 font-mono transition-colors hover:bg-[var(--accent)]/5"
+                  className={`flex items-start gap-3 px-3 py-2 font-mono transition-colors hover:bg-[var(--accent)]/5 ${i === activeIndex ? 'bg-[var(--accent)]/5' : ''}`}
                   style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                  tabIndex={-1}
                 >
                   <span className="term-idx shrink-0">[{String(i).padStart(2, '0')}]</span>
                   <div className="min-w-0 flex-1">
