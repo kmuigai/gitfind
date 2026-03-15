@@ -150,6 +150,8 @@ body {
   background: var(--terminal-panel-bg);
   padding: 16px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Accent glow on text */

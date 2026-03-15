@@ -144,11 +144,11 @@ export default function MarketShareChart({ data }: MarketShareChartProps) {
       if (group) group.push(i)
       else monthGroups.set(key, [i])
     })
-    const everyOther = monthGroups.size > 6
+    const step = monthGroups.size > 12 ? 3 : monthGroups.size > 6 ? 2 : 1
     ticks = []
     let count = 0
     for (const [, indices] of monthGroups) {
-      if (!everyOther || count % 2 === 0) {
+      if (count % step === 0) {
         ticks.push(indices[Math.floor(indices.length / 2)])
       }
       count++
@@ -156,7 +156,7 @@ export default function MarketShareChart({ data }: MarketShareChartProps) {
   }
 
   return (
-    <div ref={containerRef}>
+    <div ref={containerRef} className="flex flex-col flex-1">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex gap-1" style={{ fontFamily: MONO }}>
           {RANGES.map((r) => (
@@ -181,8 +181,8 @@ export default function MarketShareChart({ data }: MarketShareChartProps) {
         </span>
       </div>
 
-      <div className="h-48 w-full sm:h-64">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="relative flex-1 min-h-48 sm:min-h-64 w-full">
+        <ResponsiveContainer width="100%" height="100%" className="absolute inset-0">
           <AreaChart data={formatted} margin={{ top: 4, right: 30, left: -8, bottom: 0 }}>
             <CartesianGrid
               strokeDasharray="2 4"

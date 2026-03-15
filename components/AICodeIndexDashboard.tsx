@@ -277,7 +277,7 @@ function Panel({ title, tag, children, className = '' }: {
         </div>
         <div className="panel-tag">{tag}</div>
       </div>
-      <div className="p-4 terminal-scrollbar overflow-auto">
+      <div className="p-4 terminal-scrollbar overflow-auto flex-1 flex flex-col">
         {children}
       </div>
     </div>
@@ -465,10 +465,10 @@ export default function AICodeIndexDashboard({
       }}
     >
       {/* MAIN GRID */}
-      <main className="flex-1 p-4 pb-14 grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-[1800px] mx-auto w-full">
+      <main className="flex-1 p-4 pb-14 grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[1fr] gap-4 max-w-[1800px] mx-auto w-full items-stretch">
 
         {/* LEFT COLUMN (8/12) */}
-        <div className="lg:col-span-8 flex flex-col gap-4">
+        <div className="lg:col-span-8 flex flex-col gap-4 min-h-0">
 
           {/* COMMIT VOLUME INDEX */}
           <Panel title="COMMIT_VOLUME_INDEX" tag="LIVE_FEED">
@@ -623,13 +623,13 @@ export default function AICodeIndexDashboard({
           </div>
 
           {/* MARKET SHARE OVER TIME */}
-          <Panel title="MARKET_SHARE_OVER_TIME" tag="TREND">
+          <Panel title="MARKET_SHARE_OVER_TIME" tag="TREND" className="flex-1">
             <MarketShareChart data={chartData} />
           </Panel>
         </div>
 
         {/* RIGHT COLUMN (4/12) */}
-        <div className="lg:col-span-4 flex flex-col gap-4">
+        <div className="lg:col-span-4 flex flex-col gap-4 min-h-0">
 
           {/* MARKET SHARE 30D - Visual bars */}
           <Panel title="MARKET_SHARE_30D" tag="VISUAL_MAP">
@@ -686,7 +686,7 @@ export default function AICodeIndexDashboard({
           </Panel>
 
           {/* INTELLIGENCE BRIEF */}
-          <Panel title="INTELLIGENCE_BRIEF" tag="TAIL_F" className="h-64 flex flex-col">
+          <Panel title="INTELLIGENCE_BRIEF" tag="TAIL_F" className="h-64">
             <div ref={logRef} className="flex-1 overflow-y-auto terminal-scrollbar space-y-1 text-[9px]">
               {logs.map((log, i) => (
                 <div key={i} className="flex gap-2" style={{ animation: i === 0 ? 'fade-in 0.5s ease-out' : undefined }}>
