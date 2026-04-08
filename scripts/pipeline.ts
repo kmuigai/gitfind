@@ -41,7 +41,7 @@ const CATEGORY_NAMES: Record<CategorySlug, string> = {
 // ── Tuning constants ──
 const SCORE_CONCURRENCY = 10
 const ENRICH_CONCURRENCY = 5
-const MAX_ENRICHMENTS_PER_RUN = 100
+const MAX_ENRICHMENTS_PER_RUN = 150
 
 // ── Concurrency limiter (async semaphore, no external deps) ──
 function createLimiter(limit: number) {
