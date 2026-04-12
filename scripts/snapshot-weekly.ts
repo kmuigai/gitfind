@@ -350,60 +350,95 @@ async function main(): Promise<void> {
     log(`  (${starsChanged.size} active + new repos in last 14d, deduplicated)`)
   }
 
-  // ── Phase 2: REST contributor counts + DB upserts ──
-  log('\n── Phase 2: Fetching contributors (REST) + upserting ──')
+  // ── Phase 2: REST contributor counts (concurrent) ──
+  log('\n── Phase 2: Fetching contributors (REST, 10 concurrent) ──')
+
+  const REST_CONCURRENCY = 10
+  const contributorMap = new Map<string, number>() // repo_id → contributors
+  let carried = 0
+  let restErrors = 0
+
+  // Split repos into those needing REST vs carry-forward
+  const restRepos = allRepos.filter((r) => needsRestRefresh.has(r.id))
+  const carryRepos = allRepos.filter((r) => !needsRestRefresh.has(r.id))
+
+  for (const repo of carryRepos) {
+    contributorMap.set(repo.id, repo.contributors ?? 0)
+    carried++
+  }
+
+  log(`  ${restRepos.length} repos need REST refresh, ${carryRepos.length} carried forward`)
+
+  // Fetch contributors with concurrency limiter
+  for (let i = 0; i < restRepos.length; i += REST_CONCURRENCY) {
+    const chunk = restRepos.slice(i, i + REST_CONCURRENCY)
+
+    const results = await Promise.allSettled(
+      chunk.map(async (repo) => {
+        const count = await getContributorCount(repo.owner, repo.name)
+        return { id: repo.id, contributors: count }
+      })
+    )
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        contributorMap.set(result.value.id, result.value.contributors)
+      } else {
+        restErrors++
+      }
+    }
+
+    if ((i + REST_CONCURRENCY) % 500 < REST_CONCURRENCY) {
+      log(`  REST progress: ${Math.min(i + REST_CONCURRENCY, restRepos.length)}/${restRepos.length}`)
+    }
+  }
+
+  // Batch update repos.contributors for REST-refreshed repos
+  for (let i = 0; i < restRepos.length; i += DB_BATCH_SIZE) {
+    const chunk = restRepos.slice(i, i + DB_BATCH_SIZE)
+    await Promise.all(
+      chunk.map((repo) => {
+        const count = contributorMap.get(repo.id) ?? 0
+        return db.from('repos').update({ contributors: count }).eq('id', repo.id)
+      })
+    )
+  }
+
+  // ── Phase 3: Batch upsert weekly_stats ──
+  log('\n── Phase 3: Upserting weekly stats (batched) ──')
 
   let updated = 0
-  let carried = 0
-  let errors = 0
+  let errors = restErrors
 
-  for (let i = 0; i < allRepos.length; i++) {
-    const repo = allRepos[i]
-    const label = `${repo.owner}/${repo.name}`
-    const key = label.toLowerCase()
+  for (let i = 0; i < allRepos.length; i += DB_BATCH_SIZE) {
+    const chunk = allRepos.slice(i, i + DB_BATCH_SIZE)
 
-    try {
-      let contributors: number
-
-      if (needsRestRefresh.has(repo.id)) {
-        // Fresh REST call
-        contributors = await getContributorCount(repo.owner, repo.name)
-        // Update repos.contributors for scoring
-        await db.from('repos').update({ contributors }).eq('id', repo.id)
-      } else {
-        // Carry forward last known value
-        contributors = repo.contributors ?? 0
-        carried++
-      }
-
+    const rows = chunk.map((repo) => {
+      const key = `${repo.owner}/${repo.name}`.toLowerCase()
       const gql = graphqlData.get(key)
-
-      const { error: upsertError } = await db.from('weekly_stats').upsert(
-        {
-          repo_id: repo.id,
-          snapshot_date: todayStr,
-          contributors,
-          commit_count_4w: gql?.commitCount4w ?? 0,
-          last_release_date: gql?.releaseDate ?? null,
-          last_release_tag: gql?.releaseTag ?? null,
-        },
-        { onConflict: 'repo_id,snapshot_date' }
-      )
-
-      if (upsertError) {
-        log(`  ${label} → upsert error: ${upsertError.message}`)
-        errors++
-      } else {
-        updated++
+      return {
+        repo_id: repo.id,
+        snapshot_date: todayStr,
+        contributors: contributorMap.get(repo.id) ?? repo.contributors ?? 0,
+        commit_count_4w: gql?.commitCount4w ?? 0,
+        last_release_date: gql?.releaseDate ?? null,
+        last_release_tag: gql?.releaseTag ?? null,
       }
+    })
 
-      // Progress log every 500 repos
-      if ((i + 1) % 500 === 0) {
-        log(`  Progress: ${i + 1}/${allRepos.length} (${updated} updated, ${carried} carried forward, ${errors} errors)`)
-      }
-    } catch (err) {
-      log(`  ${label} → error: ${err instanceof Error ? err.message : String(err)}`)
-      errors++
+    const { error: upsertError } = await db
+      .from('weekly_stats')
+      .upsert(rows, { onConflict: 'repo_id,snapshot_date' })
+
+    if (upsertError) {
+      log(`  Batch ${Math.floor(i / DB_BATCH_SIZE) + 1} upsert error: ${upsertError.message}`)
+      errors += chunk.length
+    } else {
+      updated += chunk.length
+    }
+
+    if ((i + DB_BATCH_SIZE) % 1000 < DB_BATCH_SIZE) {
+      log(`  Upsert progress: ${Math.min(i + DB_BATCH_SIZE, allRepos.length)}/${allRepos.length}`)
     }
   }
 

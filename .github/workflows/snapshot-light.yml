@@ -11,7 +11,7 @@ jobs:
   snapshot:
     name: Light Star/Fork Snapshots
     runs-on: ubuntu-latest
-    timeout-minutes: 45 # GraphQL batches + DB upserts for ~10K+ repos
+    timeout-minutes: 60 # GraphQL batches + parallel DB upserts for ~10K+ repos
 
     steps:
       - name: Checkout repository

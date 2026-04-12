@@ -288,23 +288,24 @@ async function main(): Promise<void> {
         }
       }
 
-      // Batch update repos
-      for (const update of repoUpdates) {
-        const { error: updateError } = await db
-          .from('repos')
-          .update({
-            stars: update.stars,
-            forks: update.forks,
-            watchers: update.watchers,
-            license: update.license,
-            topics: update.topics,
-            archived: update.archived,
-            pushed_at: update.pushed_at,
-          })
-          .eq('id', update.id)
-
-        if (updateError) errors++
-      }
+      // Batch update repos (parallel within batch)
+      const updateResults = await Promise.all(
+        repoUpdates.map((update) =>
+          db
+            .from('repos')
+            .update({
+              stars: update.stars,
+              forks: update.forks,
+              watchers: update.watchers,
+              license: update.license,
+              topics: update.topics,
+              archived: update.archived,
+              pushed_at: update.pushed_at,
+            })
+            .eq('id', update.id)
+        )
+      )
+      errors += updateResults.filter((r) => r.error).length
 
       // Batch upsert snapshots
       if (snapshotUpserts.length > 0) {
