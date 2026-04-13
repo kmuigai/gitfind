@@ -23,12 +23,13 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 const RATE_LIMIT_FLOOR = 100
 const GRAPHQL_BATCH_SIZE = 50
 const DB_BATCH_SIZE = 100
+const MAX_REST_CALLS = 4500 // Stay within one rate limit window (5000/hr minus buffer)
 
-// Full sweep on the 1st Sunday of each month (week number in month === 1)
-function isFullSweepWeek(): boolean {
-  const today = new Date()
-  const dayOfMonth = today.getDate()
-  return dayOfMonth <= 7 // First Sunday falls within days 1-7
+// Rotate through repo quartiles each week for full sweep coverage
+// Week 1 (days 1-7): quartile 0, Week 2 (days 8-14): quartile 1, etc.
+function getSweepQuartile(): number {
+  const dayOfMonth = new Date().getDate()
+  return Math.floor((dayOfMonth - 1) / 7) // 0-3
 }
 
 function log(msg: string): void {
@@ -197,11 +198,11 @@ async function main(): Promise<void> {
   fourWeeksAgo.setDate(today.getDate() - 28)
   const sinceDate = fourWeeksAgo.toISOString()
 
-  const fullSweep = isFullSweepWeek()
+  const sweepQuartile = getSweepQuartile()
 
   log('=== Weekly Stats Script (GraphQL + Tiered REST) ===')
   log(`Date: ${todayStr}`)
-  log(`Mode: ${fullSweep ? 'FULL SWEEP (1st Sunday of month)' : 'SMART REFRESH (active + new repos only)'}`)
+  log(`Mode: SMART REFRESH + quartile ${sweepQuartile}/3 sweep (rotates weekly for full monthly coverage)`)
 
   // Fetch all repos from DB, paginated
   let allRepos: RepoRow[] = []
@@ -294,12 +295,8 @@ async function main(): Promise<void> {
   // ── Determine which repos need REST contributor refresh ──
   let needsRestRefresh: Set<string>
 
-  if (fullSweep) {
-    // Full sweep: refresh ALL repos
-    needsRestRefresh = new Set(allRepos.map((r) => r.id))
-    log(`\nFull sweep: all ${needsRestRefresh.size} repos will get REST contributor refresh`)
-  } else {
-    // Smart refresh: only active + new repos
+  {
+    // Smart refresh: active + new repos + rotating quartile sweep
     needsRestRefresh = new Set<string>()
 
     // 1. Find repos where stars changed in last 7 days (compare current vs 7d-ago snapshot)
@@ -324,14 +321,10 @@ async function main(): Promise<void> {
 
         for (const repo of batch) {
           const oldStars = oldStarsMap.get(repo.id)
-          if (oldStars === undefined || oldStars !== repo.stars) {
+          // Only flag if snapshot exists AND stars differ — missing snapshot = carry forward
+          if (oldStars !== undefined && oldStars !== repo.stars) {
             starsChanged.add(repo.id)
           }
-        }
-      } else {
-        // No snapshots = new repos, mark all as needing refresh
-        for (const repo of batch) {
-          starsChanged.add(repo.id)
         }
       }
     }
@@ -346,8 +339,28 @@ async function main(): Promise<void> {
       }
     }
 
-    log(`\nSmart refresh: ${needsRestRefresh.size} repos need REST contributor refresh`)
-    log(`  (${starsChanged.size} active + new repos in last 14d, deduplicated)`)
+    // 3. Rotating quartile sweep — each week refreshes 1/4 of all repos
+    const quartileSize = Math.ceil(allRepos.length / 4)
+    const quartileStart = sweepQuartile * quartileSize
+    const quartileEnd = Math.min(quartileStart + quartileSize, allRepos.length)
+    let quartileAdded = 0
+    for (let i = quartileStart; i < quartileEnd; i++) {
+      if (!needsRestRefresh.has(allRepos[i].id)) {
+        needsRestRefresh.add(allRepos[i].id)
+        quartileAdded++
+      }
+    }
+
+    log(`\nSmart refresh: ${starsChanged.size} active + new repos in last 14d`)
+    log(`Quartile ${sweepQuartile}/3 sweep: added ${quartileAdded} repos`)
+    log(`Total REST refresh: ${needsRestRefresh.size} repos`)
+
+    // Cap to stay within one rate limit window
+    if (needsRestRefresh.size > MAX_REST_CALLS) {
+      log(`  Capping REST calls from ${needsRestRefresh.size} to ${MAX_REST_CALLS}`)
+      const ids = [...needsRestRefresh]
+      needsRestRefresh = new Set(ids.slice(0, MAX_REST_CALLS))
+    }
   }
 
   // ── Phase 2: REST contributor counts (concurrent) ──
