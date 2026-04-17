@@ -311,7 +311,7 @@ async function main(): Promise<void> {
       if (snapshotUpserts.length > 0) {
         const { error: snapError } = await db.from('repo_snapshots').upsert(
           snapshotUpserts,
-          { onConflict: 'repo_id,snapshot_date', ignoreDuplicates: true }
+          { onConflict: 'repo_id,snapshot_date' }
         )
 
         if (snapError) {
