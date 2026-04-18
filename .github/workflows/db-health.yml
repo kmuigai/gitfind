@@ -1,0 +1,57 @@
+name: GitFind DB Health Check
+
+on:
+  # Run daily at 10:00 UTC — after pipeline (00:00), chart-data (05:00),
+  # and snapshot-light (06:00) have had time to complete.
+  schedule:
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Verify database freshness
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install tsx (TypeScript runner)
+        run: npm install -g tsx
+
+      - name: Run health check
+        id: health
+        run: npx tsx scripts/db-health.ts | tee health-output.txt
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Open or update issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BODY=$(cat health-output.txt 2>/dev/null || echo "Health check crashed before producing output.")
+          TITLE="DB health check failed ($(date -u +%Y-%m-%d))"
+          EXISTING=$(gh issue list --label db-health --state open --json number --jq '.[0].number')
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          COMMENT=$(printf '## %s\n\nRun: %s\n\n```\n%s\n```\n' "$TITLE" "$RUN_URL" "$BODY")
+          if [ -n "$EXISTING" ]; then
+            echo "Appending comment to existing issue #$EXISTING"
+            gh issue comment "$EXISTING" --body "$COMMENT"
+          else
+            echo "Opening new db-health issue"
+            gh label create db-health --color d73a4a --description "GitFind DB health check failures" 2>/dev/null || true
+            gh issue create --title "$TITLE" --label db-health --body "$COMMENT"
+          fi
