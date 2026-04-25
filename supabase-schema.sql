@@ -195,3 +195,33 @@ CREATE POLICY "Public can read weekly_stats" ON weekly_stats FOR SELECT USING (t
 
 ALTER TABLE repos ADD COLUMN IF NOT EXISTS package_registry TEXT;
 ALTER TABLE repos ADD COLUMN IF NOT EXISTS package_name TEXT;
+
+-- ============================================================
+-- ANOMALIES (detector outputs for the Anomaly Watcher agent)
+-- One row per detection event so we can track history; cooldown
+-- is enforced in scripts/detect-anomalies.ts, not the schema.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS anomalies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  repo_id UUID NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN (
+    'stars_breakout',
+    'downloads_accel',
+    'maintainer_silent',
+    'release_cadence_shift'
+  )),
+  severity NUMERIC NOT NULL,
+  detected_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  narrative TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX IF NOT EXISTS anomalies_repo_type_detected_idx
+  ON anomalies(repo_id, type, detected_at DESC);
+
+CREATE INDEX IF NOT EXISTS anomalies_detected_severity_idx
+  ON anomalies(detected_at DESC, severity DESC);
+
+ALTER TABLE anomalies ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public can read anomalies" ON anomalies FOR SELECT USING (true);
