@@ -346,6 +346,44 @@ export type Database = {
           }
         ]
       }
+      anomalies: {
+        Row: {
+          id: string
+          repo_id: string
+          type: 'stars_breakout' | 'downloads_accel' | 'maintainer_silent' | 'release_cadence_shift'
+          severity: number
+          detected_at: string
+          narrative: string | null
+          metadata: Json
+        }
+        Insert: {
+          id?: string
+          repo_id: string
+          type: 'stars_breakout' | 'downloads_accel' | 'maintainer_silent' | 'release_cadence_shift'
+          severity: number
+          detected_at?: string
+          narrative?: string | null
+          metadata?: Json
+        }
+        Update: {
+          id?: string
+          repo_id?: string
+          type?: 'stars_breakout' | 'downloads_accel' | 'maintainer_silent' | 'release_cadence_shift'
+          severity?: number
+          detected_at?: string
+          narrative?: string | null
+          metadata?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'anomalies_repo_id_fkey'
+            columns: ['repo_id']
+            isOneToOne: false
+            referencedRelation: 'repos'
+            referencedColumns: ['id']
+          }
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -372,6 +410,8 @@ export type ToolContribution = Tables<'tool_contributions'>
 export type RepoSnapshot = Tables<'repo_snapshots'>
 export type PackageDownload = Tables<'package_downloads'>
 export type WeeklyStat = Tables<'weekly_stats'>
+export type Anomaly = Tables<'anomalies'>
+export type AnomalyType = Anomaly['type']
 
 export type RepoWithEnrichment = Repo & {
   enrichment: Enrichment | null
