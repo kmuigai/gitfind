@@ -450,13 +450,9 @@ ${blocks}
 
 For each anomaly, write ONE short sentence (max ${NARRATIVE_MAX_CHARS} chars) explaining why this is notable RIGHT NOW. Don't restate the numbers — explain the SO WHAT. Plain English, no jargon, no markdown.
 
-Respond with valid JSON only, no fences or extra text:
-{
-  "narratives": [
-    {"anomaly_id": "${items[0]?.anomaly_id ?? ''}", "narrative": "..."},
-    ...one per anomaly, in order...
-  ]
-}`
+Respond with valid JSON only, no fences or extra text. The "narratives" array MUST contain exactly ${items.length} items in the same order as the anomalies above (Anomaly 1 → narratives[0], Anomaly 2 → narratives[1], etc).
+
+{"narratives": ["one sentence for Anomaly 1", "one sentence for Anomaly 2", ...]}`
 }
 
 async function narrateTopAnomalies(
@@ -511,7 +507,7 @@ async function narrateTopAnomalies(
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
   log(`narrating ${items.length} anomalies with Claude...`)
-  let parsed: { narratives: Array<{ anomaly_id: string; narrative: string }> }
+  let parsed: { narratives: string[] }
   try {
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
@@ -530,18 +526,29 @@ async function narrateTopAnomalies(
     return
   }
 
-  for (const n of parsed.narratives ?? []) {
-    if (!n.anomaly_id || !n.narrative) continue
-    const trimmed = n.narrative.length > NARRATIVE_MAX_CHARS + 20
-      ? n.narrative.slice(0, NARRATIVE_MAX_CHARS).trim() + '…'
-      : n.narrative
+  // Match by array position — items[i] corresponds to narratives[i].
+  const pairs = items.slice(0, parsed.narratives?.length ?? 0).map((it, i) => ({
+    anomaly_id: it.anomaly_id,
+    narrative: parsed.narratives[i],
+  }))
+
+  let written = 0
+  for (const p of pairs) {
+    if (!p.narrative) continue
+    const trimmed = p.narrative.length > NARRATIVE_MAX_CHARS + 20
+      ? p.narrative.slice(0, NARRATIVE_MAX_CHARS).trim() + '…'
+      : p.narrative
     const { error } = await db
       .from('anomalies')
       .update({ narrative: trimmed })
-      .eq('id', n.anomaly_id)
-    if (error) logError(`narrator: update failed for ${n.anomaly_id}`, error)
+      .eq('id', p.anomaly_id)
+    if (error) {
+      logError(`narrator: update failed for ${p.anomaly_id}`, error)
+      continue
+    }
+    written++
   }
-  log(`narrator: wrote ${parsed.narratives?.length ?? 0} narratives`)
+  log(`narrator: wrote ${written} narratives`)
 }
 
 // ================== MAIN ==================
