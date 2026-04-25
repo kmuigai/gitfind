@@ -97,12 +97,16 @@ async function sendEmail(subject: string, html: string): Promise<void> {
   if (!to) throw new Error('Missing KAYU_EMAIL')
   const { Resend } = await import('resend')
   const resend = new Resend(apiKey)
-  const { error } = await resend.emails.send({
-    from: 'GitFind <briefing@gitfind.ai>',
-    to,
-    subject,
-    html,
-  })
+  // Using batch.send to match the working Tuesday Briefing path; emails.send
+  // returned a 403 "domain not verified" against the same gitfind.ai sender.
+  const { error } = await resend.batch.send([
+    {
+      from: 'GitFind <briefing@gitfind.ai>',
+      to,
+      subject,
+      html,
+    },
+  ])
   if (error) throw new Error(`Resend rejected the send: ${JSON.stringify(error)}`)
 }
 
