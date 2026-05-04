@@ -10,6 +10,8 @@
 import { config } from 'dotenv'
 config({ path: '.env.local' })
 
+import { upsertPlaceholderRepo } from './upsert-placeholder.js'
+
 interface SDKQuery {
   label: string
   tool: string
@@ -68,31 +70,7 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  const { data: placeholder, error: pErr } = await db
-    .from('repos')
-    .upsert(
-      {
-        github_id: 0,
-        name: '_bigquery_aggregate',
-        owner: '_gitfind',
-        description: 'Aggregate AI coding tool commit data (all public GitHub repos)',
-        stars: 0,
-        forks: 0,
-        contributors: 0,
-        url: 'https://github.com',
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'github_id' }
-    )
-    .select('id')
-    .single()
-
-  if (pErr || !placeholder) {
-    console.error('Failed to upsert placeholder repo:', pErr)
-    process.exit(1)
-  }
-
-  const repoId = placeholder.id
+  const repoId = await upsertPlaceholderRepo(db)
   const today = new Date().toISOString().slice(0, 10)
 
   log(`Searching SDK dependencies — storing results for ${today}`)

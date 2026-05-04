@@ -29,8 +29,13 @@ jobs:
       - name: Install tsx (TypeScript runner)
         run: npm install -g tsx
 
+      # Each data-collection step is independent — one failure must not nuke
+      # the others. `continue-on-error: true` lets the rest run even if one
+      # step throws (e.g. transient Supabase statement timeout).
+
       - name: Update AI Code Index chart data
         run: npx tsx scripts/search-commits.ts
+        continue-on-error: true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -39,6 +44,7 @@ jobs:
 
       - name: Track config file adoption
         run: npx tsx scripts/search-config-files.ts
+        continue-on-error: true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -47,6 +53,7 @@ jobs:
 
       - name: Track SDK dependency adoption
         run: npx tsx scripts/search-sdk-deps.ts
+        continue-on-error: true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -55,6 +62,7 @@ jobs:
 
       - name: Track AI agent PR activity
         run: npx tsx scripts/search-agent-prs.ts
+        continue-on-error: true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -63,6 +71,7 @@ jobs:
 
       - name: Track aggregate AI repo counts
         run: npx tsx scripts/search-aggregate.ts
+        continue-on-error: true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -71,6 +80,7 @@ jobs:
 
       - name: Track HN buzz per AI tool
         run: npx tsx scripts/search-hn-buzz.ts
+        continue-on-error: true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -78,6 +88,7 @@ jobs:
 
       - name: Track Reddit buzz per AI tool
         run: npx tsx scripts/search-reddit-buzz.ts
+        continue-on-error: true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -85,6 +96,7 @@ jobs:
 
       - name: Track GitHub Discussions buzz per AI tool
         run: npx tsx scripts/search-gh-discussions-buzz.ts
+        continue-on-error: true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
