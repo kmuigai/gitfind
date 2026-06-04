@@ -4,7 +4,9 @@ import { getBreakoutRepos } from '@/lib/queries'
 import type { BreakoutRepo } from '@/lib/queries'
 import NewsletterSignup from '@/components/NewsletterSignup'
 
-export const revalidate = 3600
+// force-dynamic: skip build-time generation — queries are too slow until Supabase region is aligned with Vercel
+// TODO: revert to `export const revalidate = 3600` once region latency is fixed
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Breakout Repos — Projects Crossing Star Milestones',
