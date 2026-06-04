@@ -60,10 +60,6 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
-export async function generateStaticParams() {
-  return CATEGORIES.map((cat) => ({ slug: cat.slug }))
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const category = CATEGORIES.find((c) => c.slug === slug)
