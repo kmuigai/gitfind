@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 
-export const revalidate = 3600
+// force-dynamic: skip build-time generation — queries are too slow until Supabase region is aligned with Vercel
+// TODO: revert to `export const revalidate = 3600` once region latency is fixed
+export const dynamic = 'force-dynamic'
 
 // Compute the Sunday of the current week as YYYY-MM-DD
 function getCurrentWeekDate(): string {

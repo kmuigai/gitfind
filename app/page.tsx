@@ -6,8 +6,9 @@ import ProjectCard from '@/components/ProjectCard'
 import SearchBar from '@/components/SearchBar'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ClaudeCodeChart from '@/components/ClaudeCodeChart'
-import TrendingTabs from '@/components/TrendingTabs'
-import { Suspense } from 'react'
+import ViewToggle from '@/components/ViewToggle'
+import type { RepoWithEnrichment } from '@/lib/database.types'
+
 export const metadata: Metadata = {
   title: 'GitFind — GitHub, translated.',
   description:
@@ -17,17 +18,10 @@ export const metadata: Metadata = {
 // Revalidate every hour — pipeline runs nightly but this keeps data fresh during the day
 export const revalidate = 3600
 
-
-interface HomePageProps {
-  searchParams: Promise<{ view?: string }>
-}
-
-export default async function HomePage({ searchParams }: HomePageProps) {
-  const params = await searchParams
-  const view = params.view === 'top' ? 'top' : 'trending'
-
-  const [topProjects, toolData] = await Promise.all([
-    view === 'trending' ? getTrendingRepos(12) : getTopRepos(12),
+export default async function HomePage() {
+  const [trendingProjects, topProjects, toolData] = await Promise.all([
+    getTrendingRepos(12),
+    getTopRepos(12),
     getToolContributionsByDay(),
   ])
 
@@ -57,33 +51,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       {/* Top Projects */}
       <section className="px-4 py-8 sm:px-6 sm:py-12">
         <div className="mx-auto max-w-[1400px]">
-          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="term-label">
-                {view === 'trending'
-                  ? '// THIS_WEEKS_MOVERS'
-                  : '// TOP_RANKED'}
-              </h2>
-              <p className="mt-1 font-mono text-sm text-[var(--foreground-muted)]">
-                {view === 'trending'
-                  ? 'The projects gaining the most traction right now'
-                  : 'Scored by velocity, community growth, and cross-platform buzz'}
-              </p>
-            </div>
-            <Suspense>
-              <TrendingTabs />
-            </Suspense>
-          </div>
-
-          {topProjects.length > 0 ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {topProjects.map((project) => (
-                <ProjectCard key={project.id} project={project} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState />
-          )}
+          <ViewToggle
+            trendingPanel={<ProjectGrid projects={trendingProjects} />}
+            topPanel={<ProjectGrid projects={topProjects} />}
+          />
         </div>
       </section>
 
@@ -117,6 +88,17 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
       {/* Newsletter */}
       <NewsletterSignup />
+    </div>
+  )
+}
+
+function ProjectGrid({ projects }: { projects: RepoWithEnrichment[] }) {
+  if (projects.length === 0) return <EmptyState />
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {projects.map((project) => (
+        <ProjectCard key={project.id} project={project} />
+      ))}
     </div>
   )
 }
