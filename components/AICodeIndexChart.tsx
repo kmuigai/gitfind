@@ -571,7 +571,7 @@ export default function AICodeIndexChart({ data, configTimeSeries, agentPRTimeSe
               {visibleTools.map((tool) => (
                 <Line
                   key={tool}
-                  type="stepAfter"
+                  type="monotone"
                   dataKey={tool}
                   name={tool}
                   stroke={TOOL_COLORS[tool]}
