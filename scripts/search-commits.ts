@@ -168,7 +168,7 @@ async function main(): Promise<void> {
     const startDate = new Date(lastDate + 'T00:00:00Z')
     startDate.setUTCDate(startDate.getUTCDate() + 1)
 
-    if (startDate >= cutoffDate) {
+    if (startDate > cutoffDate) {
       log(`${tool.name}: already up to date`)
       continue
     }
@@ -177,7 +177,7 @@ async function main(): Promise<void> {
     let imported = 0
     const current = new Date(startDate)
 
-    while (current < cutoffDate) {
+    while (current <= cutoffDate) {
       const dateStr = current.toISOString().slice(0, 10)
       const ok = await fetchAndUpsert(tool, dateStr, '  ')
       if (ok) {
