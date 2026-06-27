@@ -370,7 +370,7 @@ export default function ClaudeCodeChart({ data }: ClaudeCodeChartProps) {
               formatter={(value: number | undefined) => [(value ?? 0).toLocaleString(), 'commits']}
             />
             <Line
-              type="stepAfter"
+              type="monotone"
               dataKey="claude_code"
               stroke="var(--chart-line)"
               strokeWidth={1.5}
