@@ -109,12 +109,17 @@ async function main(): Promise<void> {
     if (response.status === 403) {
       const remaining = response.headers.get('X-RateLimit-Remaining')
       if (remaining === '0') {
+        // Primary rate limit — wait until reset
         const reset = response.headers.get('X-RateLimit-Reset')
         const waitMs = reset ? (parseInt(reset) * 1000 - Date.now()) : 60000
-        log(`Rate limited. Waiting ${Math.ceil(waitMs / 1000)}s...`)
+        log(`Rate limited (primary). Waiting ${Math.ceil(waitMs / 1000)}s...`)
         await new Promise((r) => setTimeout(r, Math.max(waitMs, 1000)))
         return false // Signal retry
       }
+      // Secondary rate limit — GitHub throttles heavy search queries; wait and retry
+      log(`${prefix}Secondary rate limit for ${tool.name} ${dateStr} — waiting 90s...`)
+      await new Promise((r) => setTimeout(r, 90000))
+      return false // Signal retry
     }
 
     if (!response.ok) {

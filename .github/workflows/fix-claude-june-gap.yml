@@ -1,0 +1,26 @@
+name: Fix Claude Code June Gap
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix-gap:
+    name: Fetch Claude Code June 5-10
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm install -g tsx
+      - name: Fetch missing dates
+        run: npx tsx scripts/fix-claude-june-gap.ts
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITFIND_GITHUB_TOKEN }}
