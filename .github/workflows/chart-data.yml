@@ -5,8 +5,13 @@ on:
   # time to settle before querying (fills through T-2 days)
   schedule:
     - cron: '0 5 * * *'
-  # Allow manual trigger
+  # Allow manual trigger — set backfill_days > 30 to fix historical zero-gaps
   workflow_dispatch:
+    inputs:
+      backfill_days:
+        description: 'How many days back to scan for zero-commit gaps (default 30)'
+        required: false
+        default: '30'
 
 jobs:
   update-charts:
@@ -32,8 +37,14 @@ jobs:
       # Each data-collection step is independent — one failure must not nuke
       # the others. `continue-on-error: true` lets the rest run even if one
       # step throws (e.g. transient Supabase statement timeout).
+      #
+      # Because continue-on-error masks the step's failure from the job
+      # conclusion, the final "Check for silent failures" step below
+      # re-surfaces any failed step's outcome so the workflow run reports
+      # red and `if: failure()` consumers (notifications, watchdog) fire.
 
       - name: Update AI Code Index chart data
+        id: commits
         run: npx tsx scripts/search-commits.ts
         continue-on-error: true
         env:
@@ -41,8 +52,10 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITFIND_GITHUB_TOKEN }}
+          BACKFILL_DAYS: ${{ github.event.inputs.backfill_days || '30' }}
 
       - name: Track config file adoption
+        id: config_files
         run: npx tsx scripts/search-config-files.ts
         continue-on-error: true
         env:
@@ -52,6 +65,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITFIND_GITHUB_TOKEN }}
 
       - name: Track SDK dependency adoption
+        id: sdk_deps
         run: npx tsx scripts/search-sdk-deps.ts
         continue-on-error: true
         env:
@@ -61,6 +75,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITFIND_GITHUB_TOKEN }}
 
       - name: Track AI agent PR activity
+        id: agent_prs
         run: npx tsx scripts/search-agent-prs.ts
         continue-on-error: true
         env:
@@ -70,6 +85,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITFIND_GITHUB_TOKEN }}
 
       - name: Track aggregate AI repo counts
+        id: aggregate
         run: npx tsx scripts/search-aggregate.ts
         continue-on-error: true
         env:
@@ -79,6 +95,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITFIND_GITHUB_TOKEN }}
 
       - name: Track HN buzz per AI tool
+        id: hn_buzz
         run: npx tsx scripts/search-hn-buzz.ts
         continue-on-error: true
         env:
@@ -87,6 +104,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Track Reddit buzz per AI tool
+        id: reddit_buzz
         run: npx tsx scripts/search-reddit-buzz.ts
         continue-on-error: true
         env:
@@ -95,6 +113,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Track GitHub Discussions buzz per AI tool
+        id: gh_discussions
         run: npx tsx scripts/search-gh-discussions-buzz.ts
         continue-on-error: true
         env:
@@ -102,3 +121,30 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITFIND_GITHUB_TOKEN }}
+
+      - name: Check for silent failures
+        if: always()
+        shell: bash
+        run: |
+          declare -A OUTCOMES=(
+            [commits]="${{ steps.commits.outcome }}"
+            [config_files]="${{ steps.config_files.outcome }}"
+            [sdk_deps]="${{ steps.sdk_deps.outcome }}"
+            [agent_prs]="${{ steps.agent_prs.outcome }}"
+            [aggregate]="${{ steps.aggregate.outcome }}"
+            [hn_buzz]="${{ steps.hn_buzz.outcome }}"
+            [reddit_buzz]="${{ steps.reddit_buzz.outcome }}"
+            [gh_discussions]="${{ steps.gh_discussions.outcome }}"
+          )
+          failed=()
+          for name in "${!OUTCOMES[@]}"; do
+            if [ "${OUTCOMES[$name]}" = "failure" ]; then
+              failed+=("$name")
+            fi
+          done
+          if [ ${#failed[@]} -gt 0 ]; then
+            echo "::error::${#failed[@]} chart-data step(s) failed: ${failed[*]}"
+            echo "::error::Inspect each step's log above for details."
+            exit 1
+          fi
+          echo "All chart-data steps succeeded."

@@ -210,7 +210,52 @@ async function main(): Promise<void> {
     totalRequeried += requeried
   }
 
-  log(`\nDone! Imported ${totalImported} new + re-queried ${totalRequeried} days across ${TOOLS.length} tools.`)
+  // ── Pass 3: Zero-backfill — re-fetch days stored as 0 within lookback window ──
+  // Rows stored as 0 happen when GitHub API errors during initial fill and then
+  // fall outside the Pass 2 re-query window. BACKFILL_DAYS controls lookback depth;
+  // default 30 for daily runs, set higher (e.g. 90) for a manual historical fix.
+  const ZERO_BACKFILL_DAYS = parseInt(process.env.BACKFILL_DAYS ?? '30', 10)
+  log(`\n── Pass 3: Zero-backfill (last ${ZERO_BACKFILL_DAYS} days) ──`)
+
+  let totalZeroFixed = 0
+
+  for (const tool of TOOLS) {
+    const lookbackDate = new Date()
+    lookbackDate.setUTCDate(lookbackDate.getUTCDate() - ZERO_BACKFILL_DAYS)
+    const lookbackStr = lookbackDate.toISOString().slice(0, 10)
+
+    const { data: zeroDays } = await db
+      .from('tool_contributions')
+      .select('month')
+      .eq('repo_id', repoId)
+      .eq('tool_name', tool.name)
+      .eq('commit_count', 0)
+      .gte('month', lookbackStr)
+      .lte('month', cutoffStr)
+      .order('month', { ascending: true })
+
+    if (!zeroDays || zeroDays.length === 0) {
+      log(`${tool.name}: no zero days in window`)
+      continue
+    }
+
+    const zeroDates = (zeroDays as unknown as Array<{ month: string }>).map((r) => r.month)
+    log(`${tool.name}: found ${zeroDates.length} zero day(s) — re-querying`)
+
+    let fixed = 0
+    for (const dateStr of zeroDates) {
+      let ok = false
+      while (!ok) {
+        ok = await fetchAndUpsert(tool, dateStr, '  [zero-fix] ')
+      }
+      fixed++
+    }
+
+    log(`${tool.name}: fixed ${fixed} zero day(s)`)
+    totalZeroFixed += fixed
+  }
+
+  log(`\nDone! Imported ${totalImported} new + re-queried ${totalRequeried} + zero-fixed ${totalZeroFixed} days across ${TOOLS.length} tools.`)
 }
 
 main().catch((err) => {
