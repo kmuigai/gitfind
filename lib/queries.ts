@@ -485,11 +485,9 @@ export async function getToolContributionsByDay(): Promise<
     .lt('month', today)
     .order('month', { ascending: true })
 
-  if (placeholderId) {
-    query.eq('repo_id', placeholderId)
-  }
+  const finalQuery = placeholderId ? query.eq('repo_id', placeholderId) : query
 
-  const { data, error } = await query
+  const { data, error } = await finalQuery
 
   if (error || !data) return []
 
