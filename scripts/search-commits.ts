@@ -255,6 +255,68 @@ async function main(): Promise<void> {
     totalZeroFixed += fixed
   }
 
+  // ── Pass 4: Gap-fill — create rows for dates with NO entry at all ──
+  // Unlike Pass 3 (which finds rows with count=0), this finds completely missing
+  // dates within the lookback window and fetches them. Runs when BACKFILL_DAYS is set
+  // (i.e. a manual dispatch) to avoid slowing down normal nightly runs.
+  const GAP_FILL_DAYS = parseInt(process.env.BACKFILL_DAYS ?? '0', 10)
+
+  if (GAP_FILL_DAYS > 0) {
+    log(`\n── Pass 4: Gap-fill (last ${GAP_FILL_DAYS} days) ──`)
+    let totalGapFilled = 0
+
+    for (const tool of TOOLS) {
+      const lookbackDate = new Date()
+      lookbackDate.setUTCDate(lookbackDate.getUTCDate() - GAP_FILL_DAYS)
+      const lookbackStr = lookbackDate.toISOString().slice(0, 10)
+
+      // Determine effective start: later of tool.startDate or lookback window
+      const effectiveStart = lookbackStr > tool.startDate ? lookbackStr : tool.startDate
+
+      const { data: existingRows } = await db
+        .from('tool_contributions')
+        .select('month')
+        .eq('repo_id', repoId)
+        .eq('tool_name', tool.name)
+        .gte('month', effectiveStart)
+        .lte('month', cutoffStr)
+
+      const present = new Set(
+        (existingRows as unknown as Array<{ month: string }>).map((r) => r.month)
+      )
+
+      // Build list of missing dates
+      const missingDates: string[] = []
+      const cur = new Date(effectiveStart + 'T00:00:00Z')
+      const end = new Date(cutoffStr + 'T00:00:00Z')
+      while (cur <= end) {
+        const d = cur.toISOString().slice(0, 10)
+        if (!present.has(d)) missingDates.push(d)
+        cur.setUTCDate(cur.getUTCDate() + 1)
+      }
+
+      if (missingDates.length === 0) {
+        log(`${tool.name}: no gaps in window`)
+        continue
+      }
+
+      log(`${tool.name}: ${missingDates.length} missing date(s) — fetching`)
+      let gapFilled = 0
+      for (const dateStr of missingDates) {
+        let ok = false
+        while (!ok) {
+          ok = await fetchAndUpsert(tool, dateStr, '  [gap-fill] ')
+        }
+        gapFilled++
+      }
+
+      log(`${tool.name}: gap-filled ${gapFilled} date(s)`)
+      totalGapFilled += gapFilled
+    }
+
+    log(`Gap-fill total: ${totalGapFilled} dates inserted`)
+  }
+
   log(`\nDone! Imported ${totalImported} new + re-queried ${totalRequeried} + zero-fixed ${totalZeroFixed} days across ${TOOLS.length} tools.`)
 }
 
