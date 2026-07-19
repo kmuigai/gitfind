@@ -3,8 +3,8 @@
 import { useState, useEffect, type ReactNode } from 'react'
 
 const TABS = [
-  { key: 'trending', label: 'Trending' },
-  { key: 'top', label: 'Top Score' },
+  { key: 'trending', label: 'trending' },
+  { key: 'top', label: 'top score' },
 ] as const
 
 export type ViewTab = (typeof TABS)[number]['key']
@@ -37,26 +37,28 @@ export default function ViewToggle({ trendingPanel, topPanel }: ViewToggleProps)
 
   return (
     <>
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="term-label">
-            {view === 'trending' ? '// THIS_WEEKS_MOVERS' : '// TOP_RANKED'}
+          <h2 className="font-mono text-[12px] font-bold tracking-[0.2em] text-[var(--ink)]">
+            {view === 'trending' ? '§ 1 — this week’s movers' : '§ 1 — top ranked'}
           </h2>
-          <p className="mt-1 font-mono text-sm text-[var(--foreground-muted)]">
+          <p className="mt-2 max-w-xl font-mono text-[12px] leading-relaxed text-[var(--muted)]">
             {view === 'trending'
-              ? 'The projects gaining the most traction right now'
-              : 'Scored by velocity, community growth, and cross-platform buzz'}
+              ? 'the projects gaining the most traction right now, ranked by early signal score.'
+              : 'scored by velocity, community growth, and cross-platform buzz.'}
           </p>
         </div>
-        <div className="flex gap-1 font-mono">
+        <div className="flex font-mono text-[12px]" role="tablist" aria-label="Project ranking view">
           {TABS.map((tab) => (
             <button
               key={tab.key}
+              role="tab"
+              aria-selected={view === tab.key}
               onClick={() => switchView(tab.key)}
-              className={`rounded-sm border px-3 py-1 text-xs transition-colors ${
+              className={`border-2 border-[var(--line)] px-3.5 py-1.5 font-bold first:border-r-0 ${
                 view === tab.key
-                  ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]'
-                  : 'border-[var(--border)] text-[var(--foreground-subtle)]'
+                  ? 'bg-[var(--ink)] text-[var(--paper)]'
+                  : 'bg-[var(--paper)] text-[var(--muted)] invert-hover'
               }`}
             >
               {tab.label}

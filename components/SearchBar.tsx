@@ -105,18 +105,16 @@ export default function SearchBar() {
   return (
     <div ref={containerRef} className="relative w-full max-w-xl">
       {/* Input */}
-      <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-xs font-bold text-[var(--accent)] animate-pulse">
-          ❯
-        </span>
+      <div className="flex items-center gap-2 border-2 border-[var(--line)] bg-[var(--paper)] px-3 focus-within:bg-white">
+        <span className="pointer-events-none font-mono text-sm font-bold text-[var(--ink)]">❯</span>
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="SEARCH REPOS, TOOLS, CATEGORIES..."
-          className="term-input w-full"
+          placeholder="search repos, tools, categories…"
+          className="h-11 w-full bg-transparent font-mono text-[13px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
           role="combobox"
           aria-label="Search repositories"
           aria-autocomplete="list"
@@ -125,7 +123,7 @@ export default function SearchBar() {
           aria-activedescendant={activeId}
         />
         {isLoading && (
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+          <span className="pointer-events-none">
             <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 12a9 9 0 11-6.219-8.56" strokeLinecap="round" />
             </svg>
@@ -135,9 +133,9 @@ export default function SearchBar() {
 
       {/* Results dropdown */}
       {isOpen && results.length > 0 && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden border border-[var(--border-subtle)] bg-[var(--background-card)]" style={{ boxShadow: 'inset 0 0 10px rgba(0,0,0,0.3)' }}>
-          <div className="px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest text-[var(--foreground-subtle)]" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-            {'>'} {results.length} result{results.length !== 1 ? 's' : ''} found
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 border-2 border-[var(--line)] bg-[var(--paper)] shadow-[5px_5px_0_0_var(--ink)]">
+          <div className="border-b-2 border-[var(--line)] px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-[var(--muted)]">
+            {results.length} result{results.length !== 1 ? 's' : ''} found
           </div>
           <ul ref={listRef} id="search-results" role="listbox" className="max-h-80 overflow-y-auto">
             {results.map((repo, i) => (
@@ -150,30 +148,32 @@ export default function SearchBar() {
                 <Link
                   href={`/project/${repo.owner}/${repo.name}`}
                   onClick={() => setIsOpen(false)}
-                  className={`flex items-start gap-3 px-3 py-2 font-mono transition-colors hover:bg-[var(--accent)]/5 ${i === activeIndex ? 'bg-[var(--accent)]/5' : ''}`}
-                  style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                  className={`flex items-start gap-3 border-b border-[var(--line-soft)] px-3 py-2.5 font-mono last:border-0 ${
+                    i === activeIndex ? 'bg-[var(--ink)] text-[var(--paper)]' : 'hover:bg-[var(--ink)] hover:text-[var(--paper)]'
+                  }`}
                   tabIndex={-1}
                 >
-                  <span className="term-idx shrink-0">[{String(i).padStart(2, '0')}]</span>
+                  <span className="shrink-0 text-[10px] text-[var(--muted)]">[{String(i).padStart(2, '0')}]</span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-[11px] text-[var(--foreground)]">
+                      <span className="truncate text-[12px] font-bold">
                         {repo.owner}/{repo.name}
                       </span>
                       {repo.enrichment && (
-                        <span className="shrink-0 text-[11px] font-bold text-[var(--accent)]">
+                        <span className="shrink-0 text-[11px] font-bold">
                           {repo.enrichment.early_signal_score}
+                          <span className="font-normal opacity-60">/100</span>
                         </span>
                       )}
                     </div>
                     {repo.enrichment?.summary && (
-                      <p className="mt-0.5 truncate text-[10px] text-[var(--foreground-muted)]">
+                      <p className="mt-0.5 truncate text-[11px] opacity-70">
                         {repo.enrichment.summary}
                       </p>
                     )}
                   </div>
                   {repo.language && (
-                    <span className="shrink-0 text-[10px] text-[var(--foreground-subtle)]">
+                    <span className="shrink-0 text-[10px] opacity-60">
                       {repo.language}
                     </span>
                   )}

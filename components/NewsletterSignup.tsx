@@ -40,56 +40,50 @@ export default function NewsletterSignup() {
   }
 
   return (
-    <section className="border-t border-[var(--border)] py-8 sm:py-12">
-      <div className="mx-auto max-w-xl px-4 sm:px-6">
-        <div className="term-label mb-3">{'// SUBSCRIBE'}</div>
-        <p className="font-mono text-xs text-[var(--foreground-muted)] leading-relaxed">
-          The repos that moved this week, why they matter, and what to watch next. One email. No noise.
+    <section className="mx-auto max-w-5xl px-4 pb-16 sm:px-6 sm:pb-20">
+      <div className="press border-2 border-[var(--line)] bg-[var(--paper)] p-5 sm:p-8">
+        <p className="font-mono text-[11px] tracking-[0.2em] text-[var(--muted)]">form 27-b — subscription</p>
+        <h2 className="font-display mt-3 text-xl font-bold text-[var(--ink)] sm:text-2xl">
+          THE TUESDAY BRIEFING
+        </h2>
+        <p className="mt-2 max-w-md font-mono text-[12.5px] leading-[1.8] text-[var(--body)]">
+          The repos that moved this week, why they matter, and what to watch next.
+          One email. No noise.
         </p>
 
         {status === 'success' ? (
-          <div className="mt-4 px-3 py-2 font-mono text-[11px]" style={{ borderLeft: '2px solid var(--score-high)', background: 'rgba(255,255,255,0.02)' }}>
-            <span className="font-bold text-[var(--score-high)]">[OK]</span>
-            {' '}
-            <span className="text-[var(--foreground-muted)]">Subscribed. We&apos;ll email you when the digest launches.</span>
+          <div className="mt-5 border-2 border-[var(--line)] bg-[var(--accent)] px-4 py-3 font-mono text-[12px] font-bold text-[var(--ink)]">
+            ✓ Filed. We&apos;ll email you when the digest launches.
           </div>
         ) : (
-          <form onSubmit={(e) => void handleSubmit(e)} className="mt-4 flex gap-2">
+          <form onSubmit={(e) => void handleSubmit(e)} className="mt-5 flex max-w-md flex-col gap-3 font-mono sm:flex-row">
             <label htmlFor="newsletter-email" className="sr-only">
               Email address
             </label>
-            <div className="relative flex-1">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-xs font-bold text-[var(--accent)]">
-                ❯
-              </span>
-              <input
-                id="newsletter-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="YOU@COMPANY.COM"
-                required
-                disabled={status === 'loading'}
-                className="term-input w-full disabled:opacity-50"
-              />
-            </div>
+            <input
+              id="newsletter-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              required
+              disabled={status === 'loading'}
+              className="h-10 flex-1 border-2 border-[var(--line)] bg-transparent px-3 text-[13px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:bg-white focus:outline-none disabled:opacity-50"
+            />
             <button
               type="submit"
               disabled={status === 'loading' || !email.trim()}
-              className="shrink-0 border border-[var(--accent)] bg-[var(--accent)] px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ boxShadow: '0 0 12px rgba(108,106,246,0.2)' }}
+              className="h-10 shrink-0 border-2 border-[var(--line)] bg-[var(--accent)] px-5 text-[13px] font-bold text-[var(--ink)] transition-colors hover:bg-[#ffd05c] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {status === 'loading' ? 'EXEC...' : 'SUBSCRIBE'}
+              {status === 'loading' ? 'filing…' : 'file it'}
             </button>
           </form>
         )}
 
         {status === 'error' && (
-          <div className="mt-2 font-mono text-[11px]" role="alert">
-            <span className="font-bold text-[var(--error)]">[ERR]</span>
-            {' '}
-            <span className="text-[var(--foreground-muted)]">{errorMessage}</span>
-          </div>
+          <p className="mt-3 font-mono text-[12px] font-bold text-[var(--negative)]" role="alert">
+            ✗ {errorMessage}
+          </p>
         )}
       </div>
     </section>

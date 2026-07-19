@@ -53,89 +53,105 @@ export default function SubmitForm() {
   return (
     <>
       {status === 'success' && response ? (
-        <div className="rounded-sm border border-[var(--score-high)]/30 bg-[var(--score-high)]/5 p-6">
-          <h2 className="text-base font-semibold text-[var(--score-high)]">
-            {response.auto_approved ? 'Auto-approved' : 'Submission received'}
+        <div className="border-2 border-[var(--line)] bg-[var(--paper)] p-5 sm:p-6">
+          <p className="font-mono text-[11px] tracking-[0.2em] text-[var(--muted)]">
+            status — filed
+          </p>
+          <h2 className="font-display mt-3 text-lg font-bold text-[var(--ink)]">
+            {response.auto_approved ? 'AUTO-APPROVED' : 'SUBMISSION RECEIVED'}
           </h2>
-          <p className="mt-2 text-sm text-[var(--foreground-muted)]">{response.message}</p>
+          <p className="mt-3 font-mono text-[13px] leading-[1.75] text-[var(--body)]">
+            {response.message}
+          </p>
           {typeof response.score === 'number' && (
-            <p className="mt-2 text-xs text-[var(--foreground-subtle)]">
-              Early Signal Score: <span className="font-mono font-medium text-[var(--foreground)]">{response.score}</span>/100
+            <p className="mt-3 font-mono text-[12px] text-[var(--muted)]">
+              early signal score: <span className="font-bold text-[var(--ink)]">{response.score}/100</span>
             </p>
           )}
           <Link
             href="/"
-            className="mt-4 inline-block text-xs text-[var(--accent)] transition-opacity hover:opacity-80"
+            className="invert-hover mt-5 inline-block border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 font-mono text-[11.5px] text-[var(--body)]"
           >
-            ← Back to GitFind
+            ← back to the index
           </Link>
         </div>
       ) : (
-        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
-          <div>
-            <label htmlFor="repo_url" className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-              GitHub repository URL <span className="text-[var(--error)]">*</span>
-            </label>
-            <input
-              id="repo_url"
-              type="url"
-              value={repoUrl}
-              onChange={(e) => setRepoUrl(e.target.value)}
-              placeholder="https://github.com/owner/repository"
-              required
-              disabled={status === 'loading'}
-              className="w-full rounded-sm border border-[var(--border)] bg-[var(--background-elevated)] px-4 py-2.5 font-mono text-sm text-[var(--foreground)] placeholder:text-[var(--foreground-subtle)] focus:border-[var(--accent)] focus:outline-none disabled:opacity-50 transition-colors"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-              Your email <span className="text-[var(--error)]">*</span>
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-              required
-              disabled={status === 'loading'}
-              className="w-full rounded-sm border border-[var(--border)] bg-[var(--background-elevated)] px-4 py-2.5 font-mono text-sm text-[var(--foreground)] placeholder:text-[var(--foreground-subtle)] focus:border-[var(--accent)] focus:outline-none disabled:opacity-50 transition-colors"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="note" className="block text-sm font-medium text-[var(--foreground)] mb-1.5">
-              Why should builders care? <span className="text-[var(--foreground-muted)] font-normal">(optional)</span>
-            </label>
-            <textarea
-              id="note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Tell us what makes this project interesting for builders, founders, or investors..."
-              rows={3}
-              disabled={status === 'loading'}
-              className="w-full rounded-sm border border-[var(--border)] bg-[var(--background-elevated)] px-4 py-2.5 font-mono text-sm text-[var(--foreground)] placeholder:text-[var(--foreground-subtle)] focus:border-[var(--accent)] focus:outline-none disabled:opacity-50 resize-none transition-colors"
-            />
-          </div>
-
-          {status === 'error' && response?.error && (
-            <div className="rounded-sm border border-[var(--error)]/20 bg-[var(--error)]/5 px-4 py-3">
-              <p className="text-sm text-[var(--error)]">{response.error}</p>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={status === 'loading' || !repoUrl.trim() || !email.trim()}
-            className="w-full rounded-sm bg-[var(--accent)] py-2.5 font-mono text-sm font-medium uppercase tracking-wider text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {status === 'loading' ? 'Scoring repository...' : 'Submit project'}
-          </button>
-
-          <p className="text-center text-xs text-[var(--foreground-subtle)]">
-            We&apos;ll score your repo instantly. If it qualifies, it&apos;s added automatically. Otherwise, we&apos;ll reach out about listing options.
+        <form
+          onSubmit={(e) => void handleSubmit(e)}
+          className="border-2 border-[var(--line)] bg-[var(--paper)]"
+        >
+          <p className="border-b-2 border-[var(--line)] px-4 py-2 font-mono text-[11px] text-[var(--muted)]">
+            fig. 02 — submission form
           </p>
+
+          <div className="space-y-5 p-4 sm:p-6">
+            <div>
+              <label htmlFor="repo_url" className="mb-1.5 block font-mono text-[12px] font-bold text-[var(--ink)]">
+                github repository url <span className="text-[var(--negative)]">*</span>
+              </label>
+              <input
+                id="repo_url"
+                type="url"
+                value={repoUrl}
+                onChange={(e) => setRepoUrl(e.target.value)}
+                placeholder="https://github.com/owner/repository"
+                required
+                disabled={status === 'loading'}
+                className="w-full border-2 border-[var(--line)] bg-transparent px-3 py-2.5 font-mono text-[13px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:bg-white focus:outline-none disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="email" className="mb-1.5 block font-mono text-[12px] font-bold text-[var(--ink)]">
+                your email <span className="text-[var(--negative)]">*</span>
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                required
+                disabled={status === 'loading'}
+                className="w-full border-2 border-[var(--line)] bg-transparent px-3 py-2.5 font-mono text-[13px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:bg-white focus:outline-none disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="note" className="mb-1.5 block font-mono text-[12px] font-bold text-[var(--ink)]">
+                why should builders care? <span className="font-normal text-[var(--muted)]">(optional)</span>
+              </label>
+              <textarea
+                id="note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Tell us what makes this project interesting for builders, founders, or investors..."
+                rows={3}
+                disabled={status === 'loading'}
+                className="w-full resize-none border-2 border-[var(--line)] bg-transparent px-3 py-2.5 font-mono text-[13px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:bg-white focus:outline-none disabled:opacity-50"
+              />
+            </div>
+
+            {status === 'error' && response?.error && (
+              <div className="border-2 border-[var(--negative)] px-4 py-3" role="alert">
+                <p className="font-mono text-[12px] font-bold text-[var(--negative)]">
+                  ✗ {response.error}
+                </p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={status === 'loading' || !repoUrl.trim() || !email.trim()}
+              className="w-full border-2 border-[var(--line)] bg-[var(--accent)] px-5 py-3 font-mono text-[13px] font-bold text-[var(--ink)] transition-colors hover:bg-[#ffd05c] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {status === 'loading' ? 'scoring repository…' : 'submit project'}
+            </button>
+
+            <p className="text-center font-mono text-[11.5px] leading-[1.75] text-[var(--muted)]">
+              We’ll score your repo instantly. If it qualifies, it’s added automatically. Otherwise, we’ll reach out about listing options.
+            </p>
+          </div>
         </form>
       )}
     </>

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getRisingRepos } from '@/lib/queries'
+import Reveal from '@/components/Reveal'
+import { formatCount } from '@/lib/design'
 
 export const revalidate = 3600
 
@@ -15,11 +17,6 @@ export const metadata: Metadata = {
       'Weekly rankings, trend analysis, and breakout signals from every public GitHub repo.',
     url: 'https://gitfind.ai/insights',
   },
-}
-
-function formatStars(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
-  return String(n)
 }
 
 function getCurrentWeekDate(): string {
@@ -61,128 +58,137 @@ export default async function InsightsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* Header */}
-      <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mx-auto max-w-[1400px]">
-          <nav className="mb-6 flex items-center gap-2 font-mono text-xs text-[var(--foreground-subtle)]">
-            <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
-              GitFind
-            </Link>
-            <span>/</span>
-            <span className="text-[var(--foreground-muted)]">Insights</span>
+      {/* Spec header */}
+      <section className="halftone border-b-2 border-[var(--line)]">
+        <div className="mx-auto max-w-5xl px-4 pb-10 pt-10 sm:px-6 sm:pb-12 sm:pt-12">
+          <nav className="font-mono text-[11px] text-[var(--muted)]" aria-label="Breadcrumb">
+            <Link href="/" className="invert-hover px-1">index</Link>
+            <span className="mx-1">/</span>
+            <span className="text-[var(--ink)]">insights</span>
           </nav>
 
-          <h1 className="font-mono text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-            <span className="text-[var(--accent)]">{'// '}</span>INSIGHTS
+          <h1 className="font-display mt-5 text-2xl font-bold text-[var(--ink)] sm:text-4xl">
+            INSIGHTS
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--foreground-muted)]">
-            Data-driven intelligence from every public GitHub repo. Weekly rankings, breakout signals, and trend analysis — so you see what&apos;s moving before everyone else.
+          <p className="mt-4 max-w-2xl font-mono text-[14px] leading-[1.8] text-[var(--body)]">
+            Data-driven intelligence from every public GitHub repo. Weekly rankings,
+            breakout signals, and trend analysis — so you see what’s moving before
+            everyone else.
           </p>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3 font-mono text-[11.5px]">
+            <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-2 py-0.5 text-[var(--body)]">
+              week of {weekLabel}
+            </span>
+            <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-2 py-0.5 text-[var(--body)]">
+              updated daily
+            </span>
+          </div>
         </div>
       </section>
 
-      {/* Featured: Rising This Week */}
-      <section className="px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-[1400px]">
+      {/* Featured report */}
+      <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
+        <p className="font-mono text-[12px] font-bold tracking-[0.2em] text-[var(--ink)]">
+          § 1 — featured report
+        </p>
+        <Reveal className="mt-5">
           <Link
             href={`/insights/rising-this-week/${weekDate}`}
-            className="group block rounded-sm border border-[var(--border)] bg-[var(--background-card)] transition-colors hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)]"
+            className="press block border-2 border-[var(--line)] bg-[var(--paper)]"
           >
-            <div className="p-6 sm:p-8">
-              <div className="flex items-center gap-3">
-                <span className="rounded-[3px] border border-[var(--score-high)]/30 bg-[var(--score-high)]/5 px-2.5 py-0.5 font-mono text-[10px] font-medium text-[var(--score-high)]">
-                  WEEKLY
-                </span>
-                <span className="font-mono text-[10px] text-[var(--foreground-subtle)]">
-                  Week of {weekLabel}
-                </span>
-              </div>
+            <div className="flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-[var(--line)] px-4 py-2 font-mono text-[11px] text-[var(--muted)]">
+              <p>fig. 01 — weekly ranking</p>
+              <p>week of {weekLabel}</p>
+            </div>
 
-              <h2 className="mt-4 font-mono text-xl font-bold text-[var(--foreground)] sm:text-2xl">
+            <div className="p-4 sm:p-6">
+              <h2 className="font-display text-lg font-bold text-[var(--ink)] sm:text-2xl">
                 RISING THIS WEEK
               </h2>
-              <div className="term-label mt-1">{'// WEEKLY_RANKING'}</div>
-              <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--foreground-muted)]">
-                The 10 fastest-accelerating repos on GitHub right now, ranked by 7-day star velocity with week-over-week momentum.
+              <p className="mt-2 max-w-xl font-mono text-[13px] leading-[1.8] text-[var(--body)]">
+                The 10 fastest-accelerating repos on GitHub right now, ranked by
+                7-day star velocity with week-over-week momentum.
               </p>
 
               {/* Preview of top 3 */}
               {rising.length > 0 && (
-                <div className="mt-6 space-y-3">
+                <div className="mt-5 border-2 border-[var(--line)]">
                   {rising.map((repo, i) => (
                     <div
                       key={repo.id}
-                      className="flex items-center gap-4 bg-[rgba(255,255,255,0.03)] px-4 py-3"
+                      className="flex items-center gap-3 border-b-2 border-[var(--line)] px-3 py-2.5 last:border-0"
                     >
-                      <span className="font-mono text-lg font-bold text-[var(--foreground-subtle)] w-6 text-right">
-                        {i + 1}
+                      <span className="w-7 shrink-0 text-right font-mono text-[12px] font-bold text-[var(--muted)]">
+                        {String(i + 1).padStart(2, '0')}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <span className="font-mono text-sm font-medium text-[var(--foreground)]">
-                          <span className="text-[var(--foreground-muted)]">{repo.owner}/</span>
+                        <p className="truncate font-mono text-[13px] font-bold text-[var(--ink)]">
+                          <span className="font-normal text-[var(--muted)]">{repo.owner}/</span>
                           {repo.name}
-                        </span>
+                        </p>
                         {repo.enrichment?.summary && (
-                          <p className="mt-0.5 text-xs text-[var(--foreground-muted)] truncate">
+                          <p className="truncate font-mono text-[11.5px] text-[var(--muted)]">
                             {repo.enrichment.summary}
                           </p>
                         )}
                       </div>
-                      <div className="flex flex-col items-end gap-0.5 sm:flex-row sm:items-center sm:gap-3 shrink-0">
-                        <span className="font-mono text-xs text-[var(--score-high)]">
-                          +{formatStars(repo.stars_7d)} stars
+                      <div className="flex shrink-0 items-center gap-3 font-mono text-[11px]">
+                        <span className="hidden text-[var(--muted)] sm:inline">
+                          {formatCount(repo.stars)}★ total
                         </span>
-                        <span className="font-mono text-xs text-[var(--foreground-subtle)]">
-                          {formatStars(repo.stars)} total
+                        <span className="border-2 border-[var(--line)] bg-[var(--accent)] px-1.5 py-0.5 font-bold text-[var(--ink)]">
+                          +{formatCount(repo.stars_7d)}★ this week
                         </span>
                       </div>
                     </div>
                   ))}
-                  <p className="font-mono text-xs text-[var(--accent)] group-hover:underline">
-                    View full ranking →
-                  </p>
                 </div>
               )}
+
+              <p className="mt-4 font-mono text-[12px] font-bold text-[var(--ink)]">
+                open the full ranking →
+              </p>
             </div>
           </Link>
-        </div>
+        </Reveal>
       </section>
 
-      {/* Coming soon */}
-      <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-[1400px]">
-          <div className="term-label mb-4">
-            {'// COMING_SOON'}
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Forthcoming */}
+      <section className="mx-auto max-w-5xl px-4 pb-12 sm:px-6 sm:pb-16">
+        <p className="font-mono text-[12px] font-bold tracking-[0.2em] text-[var(--ink)]">
+          § 2 — forthcoming
+        </p>
+        <Reveal className="mt-5">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
-                title: 'Breakout Repos',
+                title: 'breakout repos',
                 description: 'Projects that crossed critical thresholds this month — from unknown to 1k stars, from 1k to 10k.',
               },
               {
-                title: 'Monthly AI Code Report',
+                title: 'monthly ai code report',
                 description: 'Deep-dive into AI coding tool adoption, market share shifts, and what the commit data reveals.',
               },
               {
-                title: 'Category Movers',
+                title: 'category movers',
                 description: 'Which categories are heating up and which are cooling down, backed by aggregate signal data.',
               },
             ].map((item) => (
               <div
                 key={item.title}
-                className="border border-dashed border-[var(--border)] p-5"
+                className="border-2 border-dashed border-[var(--line-soft)] p-4"
               >
-                <h3 className="font-mono text-sm font-medium text-[var(--foreground)]">
+                <h3 className="font-mono text-[13px] font-bold text-[var(--ink)]">
                   {item.title}
                 </h3>
-                <p className="mt-2 text-xs leading-relaxed text-[var(--foreground-muted)]">
+                <p className="mt-2 font-mono text-[12px] leading-[1.75] text-[var(--muted)]">
                   {item.description}
                 </p>
               </div>
             ))}
           </div>
-        </div>
+        </Reveal>
       </section>
     </div>
   )

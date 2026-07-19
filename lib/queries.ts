@@ -86,6 +86,68 @@ export async function getRepo(
   return { ...repo, enrichment }
 }
 
+// Curated open-model layer for the AI Code Index: the model repos themselves
+// (release artifacts — big stars, low velocity) and the runtime/ecosystem
+// layer where open-model energy actually lives (run, fine-tune, build).
+// Enrichment is a LEFT join — repos without enrichment are kept (score shown as —).
+const OPEN_MODEL_REPOS: { group: 'models' | 'runtime'; owner: string; name: string }[] = [
+  { group: 'models', owner: 'deepseek-ai', name: 'DeepSeek-V3' },
+  { group: 'models', owner: 'deepseek-ai', name: 'DeepSeek-R1' },
+  { group: 'models', owner: 'meta-llama', name: 'llama' },
+  { group: 'models', owner: 'mistralai', name: 'mistral-vibe' },
+  { group: 'models', owner: 'zai-org', name: 'GLM-4.5' },
+  { group: 'runtime', owner: 'ollama', name: 'ollama' },
+  { group: 'runtime', owner: 'ggml-org', name: 'llama.cpp' },
+  { group: 'runtime', owner: 'unslothai', name: 'unsloth' },
+  { group: 'runtime', owner: 'MoonshotAI', name: 'kimi-code' },
+]
+
+export interface OpenModelLayer {
+  models: RepoWithEnrichment[]
+  runtime: RepoWithEnrichment[]
+}
+
+export async function getOpenModelLayer(): Promise<OpenModelLayer> {
+  const owners = [...new Set(OPEN_MODEL_REPOS.map((r) => r.owner))]
+
+  const { data: repos, error: rErr } = await supabase
+    .from('repos')
+    .select('*')
+    .in('owner', owners)
+
+  if (rErr || !repos) return { models: [], runtime: [] }
+
+  const wanted = new Set(OPEN_MODEL_REPOS.map((r) => `${r.owner}/${r.name}`))
+  const typedRepos = (repos as unknown as RawRepo[]).filter((r) => wanted.has(`${r.owner}/${r.name}`))
+  if (typedRepos.length === 0) return { models: [], runtime: [] }
+
+  const repoIds = typedRepos.map((r) => r.id)
+  const { data: enrichments } = await supabase
+    .from('enrichments')
+    .select('*')
+    .in('repo_id', repoIds)
+
+  const enrichmentMap = new Map<string, RawEnrichment>()
+  for (const e of (enrichments ?? []) as unknown as RawEnrichment[]) enrichmentMap.set(e.repo_id, e)
+
+  const joined: RepoWithEnrichment[] = typedRepos.map((r) => ({
+    ...r,
+    enrichment: enrichmentMap.get(r.id) ?? null,
+  }))
+
+  // Score desc, unenriched (null) last
+  const byScore = (a: RepoWithEnrichment, b: RepoWithEnrichment) =>
+    (b.enrichment?.early_signal_score ?? -1) - (a.enrichment?.early_signal_score ?? -1)
+
+  const groupOf = (r: RepoWithEnrichment) =>
+    OPEN_MODEL_REPOS.find((m) => m.owner === r.owner && m.name === r.name)?.group
+
+  return {
+    models: joined.filter((r) => groupOf(r) === 'models').sort(byScore),
+    runtime: joined.filter((r) => groupOf(r) === 'runtime').sort(byScore),
+  }
+}
+
 // Search repos by text (name, owner, description)
 export async function searchRepos(query: string, limit = 10): Promise<RepoWithEnrichment[]> {
   const { data: repos, error: rErr } = await supabase
@@ -176,7 +238,12 @@ export async function getAllReposForSitemap(): Promise<
 }
 
 // Fetch top repos by 7-day star velocity (trending this week)
-export async function getTrendingRepos(limit = 6): Promise<RepoWithEnrichment[]> {
+export interface TrendingRepo extends RepoWithEnrichment {
+  stars_7d: number
+  stars_7d_prev: number
+}
+
+export async function getTrendingRepos(limit = 6): Promise<TrendingRepo[]> {
   // Get the latest snapshot date
   const { data: latestRow } = await supabase
     .from('repo_snapshots')
@@ -184,9 +251,17 @@ export async function getTrendingRepos(limit = 6): Promise<RepoWithEnrichment[]>
     .order('snapshot_date', { ascending: false })
     .limit(1)
 
-  if (!latestRow || latestRow.length === 0) return getTopRepos(limit) // fallback
+  if (!latestRow || latestRow.length === 0) {
+    const fallback = await getTopRepos(limit)
+    return fallback.map((r) => ({ ...r, stars_7d: 0, stars_7d_prev: 0 })) // fallback
+  }
 
   const latestDate = (latestRow[0] as unknown as { snapshot_date: string }).snapshot_date
+
+  // Date 7 days prior, for week-over-week acceleration
+  const latestD = new Date(latestDate)
+  latestD.setDate(latestD.getDate() - 7)
+  const prevDate = latestD.toISOString().slice(0, 10)
 
   // Over-fetch so we can drop unenriched repos and still return `limit` results
   const { data: snapshots, error: sErr } = await supabase
@@ -197,10 +272,27 @@ export async function getTrendingRepos(limit = 6): Promise<RepoWithEnrichment[]>
     .order('stars_7d', { ascending: false })
     .limit(limit * 3)
 
-  if (sErr || !snapshots || snapshots.length === 0) return getTopRepos(limit)
+  if (sErr || !snapshots || snapshots.length === 0) {
+    const fallback = await getTopRepos(limit)
+    return fallback.map((r) => ({ ...r, stars_7d: 0, stars_7d_prev: 0 }))
+  }
   const typedSnapshots = snapshots as unknown as Array<{ repo_id: string; stars_7d: number }>
 
   const repoIds = typedSnapshots.map((s) => s.repo_id)
+
+  // Previous week's snapshots for the same repos (delta computation)
+  const { data: prevSnapshots } = await supabase
+    .from('repo_snapshots')
+    .select('repo_id, stars_7d')
+    .eq('snapshot_date', prevDate)
+    .in('repo_id', repoIds)
+
+  const prevMap = new Map<string, number>()
+  if (prevSnapshots) {
+    for (const s of prevSnapshots as unknown as Array<{ repo_id: string; stars_7d: number }>) {
+      prevMap.set(s.repo_id, s.stars_7d)
+    }
+  }
 
   // Fetch repos
   const { data: repos, error: rErr } = await supabase
@@ -226,16 +318,16 @@ export async function getTrendingRepos(limit = 6): Promise<RepoWithEnrichment[]>
   const repoMap = new Map<string, RawRepo>()
   for (const r of typedRepos) repoMap.set(r.id, r)
 
-  const results: RepoWithEnrichment[] = []
+  const results: TrendingRepo[] = []
   for (const s of typedSnapshots) {
     if (results.length >= limit) break
     const repo = repoMap.get(s.repo_id)
     const enrichment = enrichmentMap.get(s.repo_id)
     if (!repo || !enrichment) continue
-    results.push({ ...repo, enrichment })
+    results.push({ ...repo, enrichment, stars_7d: s.stars_7d, stars_7d_prev: prevMap.get(s.repo_id) ?? 0 })
   }
 
-  return hydrateDownloads(results)
+  return hydrateDownloads(results) as Promise<TrendingRepo[]>
 }
 
 // Fetch top rising repos with star velocity data for insights pages

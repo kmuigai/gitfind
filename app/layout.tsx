@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Geist, Geist_Mono, Silkscreen } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
-import TerminalNav from '@/components/TerminalNav'
+import Header from '@/components/Header'
 import Ticker from '@/components/Ticker'
 import Footer from '@/components/Footer'
 import './globals.css'
@@ -13,6 +13,12 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
+  subsets: ['latin'],
+})
+
+const silkscreen = Silkscreen({
+  variable: '--font-silkscreen',
+  weight: ['400', '700'],
   subsets: ['latin'],
 })
 
@@ -38,7 +44,8 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'GitFind — GitHub, Translated | Trending Projects Ranked & Explained',
-    description: 'Discover the fastest-growing open source projects on GitHub, ranked and explained in plain English for builders, founders, and investors.',
+    description:
+      'Discover the fastest-growing open source projects on GitHub, ranked and explained in plain English for builders, founders, and investors.',
   },
   robots: {
     index: true,
@@ -63,11 +70,9 @@ export default function RootLayout({
       <head>
         <link rel="alternate" type="application/rss+xml" title="GitFind Insights" href="/insights/feed.xml" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <div className="sticky top-0 z-50">
-          <TerminalNav />
-          <Ticker />
-        </div>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${silkscreen.variable} antialiased`}>
+        <Header />
+        <Ticker />
 
         {/* Main content */}
         <main className="min-h-[calc(100vh-3.5rem)]" style={{ overflowX: 'clip' }}>{children}</main>
