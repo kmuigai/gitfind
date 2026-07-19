@@ -1,0 +1,306 @@
+/*
+ * Design Lab mock-ups only — imported by app/design-lab/layout.tsx.
+ * Per-direction palettes live as CSS variables under .dl-a / .dl-b / .dl-c
+ * so the mock components can share one set of semantic tokens.
+ * All body/muted text colors are chosen to pass WCAG AA (4.5:1) on their bg.
+ */
+
+.dl-serif {
+  font-family: var(--font-dl-serif), Georgia, 'Times New Roman', serif;
+}
+
+/* Direction A — Refined terminal (dark) */
+.dl-a {
+  --dl-bg: #0b0d11;
+  --dl-surface: #12161d;
+  --dl-surface-2: #171d26;
+  --dl-border: #242c38;
+  --dl-text: #e9edf4;
+  --dl-body: #c3cbd9;
+  --dl-muted: #98a3b6;
+  --dl-accent: #9aa2fd;
+  --dl-accent-strong: #c0c5fe;
+  --dl-on-accent: #0b0d11;
+  --dl-positive: #45cf95;
+  --dl-negative: #ef9388;
+  --dl-tier-breakout: #f08a8a;
+  --dl-tier-hot: #f0b95c;
+  --dl-tier-active: #5ec8dd;
+}
+
+/* Direction B — Editorial publication (light, paper) */
+.dl-b {
+  --dl-bg: #faf9f6;
+  --dl-surface: #ffffff;
+  --dl-surface-2: #f3f1ec;
+  --dl-border: #e3dfd5;
+  --dl-text: #1a1d24;
+  --dl-body: #333947;
+  --dl-muted: #4f5665;
+  --dl-accent: #1d4ed8;
+  --dl-accent-strong: #1e40af;
+  --dl-on-accent: #ffffff;
+  --dl-positive: #047857;
+  --dl-negative: #b91c1c;
+  --dl-tier-breakout: #b91c1c;
+  --dl-tier-hot: #b45309;
+  --dl-tier-active: #0e7490;
+}
+
+/* Direction C — Minimal dashboard (light, neutral) */
+.dl-c {
+  --dl-bg: #fafafa;
+  --dl-surface: #ffffff;
+  --dl-surface-2: #f4f4f5;
+  --dl-border: #e4e4e7;
+  --dl-text: #18181b;
+  --dl-body: #3f3f46;
+  --dl-muted: #52525b;
+  --dl-dim: #71717a;
+  --dl-accent: #4f46e5;
+  --dl-accent-strong: #4338ca;
+  --dl-on-accent: #ffffff;
+  --dl-positive: #047857;
+  --dl-negative: #b91c1c;
+  --dl-tier-breakout: #be123c;
+  --dl-tier-hot: #b45309;
+  --dl-tier-active: #0e7490;
+}
+
+/* Direction D — Phosphor CRT (green-on-black CRT terminal) */
+.dl-d {
+  --dl-bg: #030603;
+  --dl-surface: #061006;
+  --dl-surface-2: #0a180a;
+  --dl-border: #14421f;
+  --dl-text: #e8ffef;
+  --dl-body: #b8f2c9;
+  --dl-muted: #77c18e;
+  --dl-accent: #4dff88;
+  --dl-accent-strong: #b3ffce;
+  --dl-on-accent: #031007;
+  --dl-positive: #4dff88;
+  --dl-negative: #ff9d7a;
+  --dl-tier-breakout: #4dff88;
+  --dl-tier-hot: #d8ff5e;
+  --dl-tier-active: #77c18e;
+}
+
+/* Direction E — Bloomberg (amber/white on charcoal, financial terminal) */
+.dl-e {
+  --dl-bg: #0a0a0c;
+  --dl-surface: #111114;
+  --dl-surface-2: #17171b;
+  --dl-border: #2a2a31;
+  --dl-text: #f5f4ee;
+  --dl-body: #cfcfc6;
+  --dl-muted: #a3a39a;
+  --dl-accent: #ffb000;
+  --dl-accent-strong: #ffcf5c;
+  --dl-on-accent: #1a1200;
+  --dl-positive: #2ee6a8;
+  --dl-negative: #ff6b6b;
+  --dl-tier-breakout: #ff6b6b;
+  --dl-tier-hot: #ffb000;
+  --dl-tier-active: #5ec8dd;
+}
+
+/* Direction F — BBS / ANSI (90s shareware, ANSI palette on deep navy) */
+.dl-f {
+  --dl-bg: #0e0e28;
+  --dl-surface: #151536;
+  --dl-surface-2: #1b1b44;
+  --dl-border: #34346e;
+  --dl-text: #f2f2ff;
+  --dl-body: #c9c9f2;
+  --dl-muted: #9c9cdc;
+  --dl-accent: #4de3ff;
+  --dl-accent-strong: #a5f1ff;
+  --dl-on-accent: #08131a;
+  --dl-positive: #50fa9a;
+  --dl-negative: #ff7a7a;
+  --dl-magenta: #ff5fd0;
+  --dl-yellow: #ffd75f;
+  --dl-tier-breakout: #ff5fd0;
+  --dl-tier-hot: #ffd75f;
+  --dl-tier-active: #4de3ff;
+}
+
+/* Retro primitives */
+@keyframes dl-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.dl-blink {
+  animation: dl-blink 1.1s steps(1) infinite;
+}
+
+@keyframes dl-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.dl-marquee {
+  animation: dl-marquee 36s linear infinite;
+}
+
+.dl-scanlines {
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.22) 0px,
+    rgba(0, 0, 0, 0.22) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+@keyframes dl-boot {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.dl-boot-1 { animation: dl-boot 0.45s ease-out 0.15s both; }
+.dl-boot-2 { animation: dl-boot 0.45s ease-out 0.8s both; }
+.dl-boot-3 { animation: dl-boot 0.45s ease-out 1.45s both; }
+
+.dl-glow-green {
+  text-shadow: 0 0 14px rgba(77, 255, 136, 0.35);
+}
+
+/* --- Round 3: researched retro primitives --- */
+
+.dl-vt323 {
+  font-family: var(--font-dl-vt323), var(--font-geist-mono), monospace;
+}
+.dl-pixel {
+  font-family: var(--font-dl-pixel), var(--font-geist-mono), monospace;
+}
+
+/* Direction G — "Scrollback": one long terminal session (One Dark-adjacent) */
+.dl-g {
+  --dl-bg: #050608;
+  --dl-window: #0a0c10;
+  --dl-chrome: #14171e;
+  --dl-border: #232a38;
+  --dl-text: #dfe5ee;
+  --dl-body: #b6bdca;
+  --dl-muted: #8d95a4;
+  --dl-accent: #98c379;
+  --dl-cyan: #56b6c2;
+  --dl-yellow: #e5c07b;
+  --dl-red: #e06c75;
+  --dl-magenta: #c678dd;
+  --dl-positive: #98c379;
+  --dl-negative: #e06c75;
+  --dl-tier-breakout: #e06c75;
+  --dl-tier-hot: #e5c07b;
+  --dl-tier-active: #56b6c2;
+}
+
+/* Direction H — "GITFIND/95": exact Win95 desktop palette */
+.dl-h {
+  --dl-desktop: #007f7f;
+  --dl-chrome: #c0c0c0;
+  --dl-chrome-dark: #808080;
+  --dl-titlebar: #000080;
+  --dl-titlebar-2: #1084d0;
+  --dl-content: #ffffff;
+  --dl-text: #0a0a0a;
+  --dl-body: #1f1f1f;
+  --dl-muted: #3f3f3f;
+  --dl-accent: #000080;
+  --dl-progress: #0000a8;
+  --dl-tooltip: #ffffe1;
+  --dl-positive: #005500;
+  --dl-negative: #a00000;
+  --dl-tier-breakout: #a00000;
+  --dl-tier-hot: #7a5200;
+  --dl-tier-active: #005a7a;
+}
+
+/* Direction I — "1-bit parts catalog": ink on cream, one yellow */
+.dl-i {
+  --dl-paper: #f4f1e6;
+  --dl-ink: #171512;
+  --dl-body: #33302a;
+  --dl-muted: #565249;
+  --dl-line: #171512;
+  --dl-accent: #ffc833;
+  --dl-positive: #3d6b1f;
+  --dl-negative: #9c3d1e;
+  --dl-tier-breakout: #8f2d1e;
+  --dl-tier-hot: #7a5200;
+  --dl-tier-active: #2f5d6e;
+}
+
+/* Win95 bevel system (poolsuite recipe: layered inset shadows, no border) */
+.dl-bevel {
+  background: #c0c0c0;
+  box-shadow:
+    -2px -2px 0 0 #808080 inset,
+    2px 2px 0 0 #ffffff inset,
+    0 0 0 1px #000000;
+}
+.dl-bevel-thin {
+  background: #c0c0c0;
+  box-shadow:
+    -1px -1px 0 0 #808080 inset,
+    1px 1px 0 0 #ffffff inset,
+    0 0 0 1px #000000;
+}
+.dl-bevel-sunken {
+  background: #ffffff;
+  box-shadow:
+    2px 2px 0 0 #808080 inset,
+    -1px -1px 0 0 #ffffff inset,
+    0 0 0 1px #000000;
+}
+.dl-bevel-pressed {
+  background: #c0c0c0;
+  box-shadow:
+    2px 2px 0 0 #808080 inset,
+    -2px -2px 0 0 #ffffff inset,
+    0 0 0 1px #000000;
+}
+
+/* Hard offset shadow + press-down hover (charm/play.date model) */
+.dl-hardshadow {
+  box-shadow: 5px 5px 0 0 var(--dl-ink);
+  transition: transform 80ms linear, box-shadow 80ms linear;
+}
+.dl-hardshadow:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 3px 3px 0 0 var(--dl-ink);
+}
+.dl-hardshadow:active {
+  transform: translate(5px, 5px);
+  box-shadow: 0 0 0 0 var(--dl-ink);
+}
+
+/* Dither / halftone textures */
+.dl-dither {
+  background-image: repeating-conic-gradient(rgba(23, 21, 18, 0.16) 0% 25%, transparent 0% 50%);
+  background-size: 4px 4px;
+}
+.dl-halftone {
+  background-image: radial-gradient(rgba(23, 21, 18, 0.13) 1px, transparent 1.4px);
+  background-size: 7px 7px;
+}
+
+/* Inverted-block hover (xxiivv) */
+.dl-invert-hover:hover {
+  background: var(--dl-ink);
+  color: var(--dl-paper);
+}
+
+/* Selection colors per direction */
+.dl-i ::selection {
+  background: #ffc833;
+  color: #171512;
+}
+.dl-g ::selection {
+  background: #98c379;
+  color: #0a0c10;
+}
+.dl-h ::selection {
+  background: #000080;
+  color: #ffffff;
+}
