@@ -17,18 +17,19 @@ export default function GlobalError({
   return (
     <html lang="en">
       <body>
-        <div style={{ padding: '2rem', fontFamily: 'monospace', color: '#e8e8f0', background: '#0a0a0f', minHeight: '100vh' }}>
-          <h2 style={{ color: '#6c6af6' }}>{'// ERROR'}</h2>
-          <p style={{ color: '#7a7a9a', marginTop: '0.5rem' }}>Something went wrong.</p>
+        <div style={{ padding: '2rem', fontFamily: 'monospace', color: '#171512', background: '#f4f1e6', minHeight: '100vh' }}>
+          <h2 style={{ color: '#171512' }}>500 — machine error</h2>
+          <p style={{ color: '#565249', marginTop: '0.5rem' }}>Something went wrong on our end.</p>
           <button
             onClick={reset}
             style={{
               marginTop: '1rem',
               padding: '0.5rem 1rem',
-              border: '1px solid #6c6af6',
-              background: 'transparent',
-              color: '#6c6af6',
+              border: '2px solid #171512',
+              background: '#ffc833',
+              color: '#171512',
               fontFamily: 'monospace',
+              fontWeight: 'bold',
               cursor: 'pointer',
             }}
           >

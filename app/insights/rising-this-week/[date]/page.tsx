@@ -4,6 +4,9 @@ import { notFound } from 'next/navigation'
 import { getRisingRepos, getSnapshotDates } from '@/lib/queries'
 import type { RisingRepo } from '@/lib/queries'
 import NewsletterSignup from '@/components/NewsletterSignup'
+import RepoCard from '@/components/RepoCard'
+import Reveal from '@/components/Reveal'
+import { formatCount } from '@/lib/design'
 
 export const revalidate = 3600
 
@@ -63,126 +66,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: `The 10 fastest-accelerating GitHub repos for the week of ${weekLabel}, ranked by 7-day star velocity.`,
     },
   }
-}
-
-function formatStars(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
-  return String(n)
-}
-
-function formatAcceleration(current: number, prev: number): { label: string; positive: boolean } | null {
-  if (prev <= 0) return current > 0 ? { label: 'new', positive: true } : null
-  const pct = ((current - prev) / prev) * 100
-  const sign = pct >= 0 ? '+' : ''
-  return {
-    label: `${sign}${pct.toFixed(0)}% WoW`,
-    positive: pct >= 0,
-  }
-}
-
-function ScoreBadge({ score }: { score: number }) {
-  const tier = score >= 70 ? 'Breakout' : score >= 40 ? 'Hot' : 'Active'
-  const color =
-    score >= 70
-      ? 'text-[var(--badge-breakout)] border-[var(--badge-breakout)]/30 bg-[var(--badge-breakout)]/10'
-      : score >= 40
-        ? 'text-[var(--badge-hot)] border-[var(--badge-hot)]/30 bg-[var(--badge-hot)]/10'
-        : 'text-[var(--badge-active)] border-[var(--badge-active)]/30 bg-[var(--badge-active)]/10'
-
-  return (
-    <span className={`inline-flex flex-col items-center rounded-[3px] border px-2 py-0.5 ${color}`}>
-      <span className="font-mono text-xs font-bold leading-tight">{score}</span>
-      <span className="text-[9px] font-medium leading-tight opacity-80">{tier}</span>
-    </span>
-  )
-}
-
-function RepoRow({ repo, rank }: { repo: RisingRepo; rank: number }) {
-  const score = repo.enrichment?.early_signal_score ?? 0
-  const accel = formatAcceleration(repo.stars_7d, repo.stars_7d_prev)
-
-  return (
-    <article className="group rounded-sm border border-[var(--border)] bg-[var(--background-card)] p-5 transition-colors hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)]">
-      <div className="flex items-start gap-4">
-        <span className="font-mono text-2xl font-bold text-[var(--foreground-subtle)] w-8 text-right shrink-0 pt-1">
-          {rank}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <Link
-                href={`/project/${repo.owner}/${repo.name}`}
-                className="font-mono text-sm font-semibold text-[var(--foreground)] transition-colors hover:text-[var(--accent)]"
-              >
-                <span className="text-[var(--foreground-muted)]">{repo.owner}/</span>
-                <span>{repo.name}</span>
-              </Link>
-              {repo.enrichment?.summary && (
-                <p className="mt-1 text-sm leading-relaxed text-[var(--foreground-muted)]">
-                  {repo.enrichment.summary}
-                </p>
-              )}
-            </div>
-            <ScoreBadge score={score} />
-          </div>
-
-          {repo.enrichment?.why_it_matters && (
-            <div className="mt-3 bg-[var(--accent-subtle)] px-3 py-2">
-              <p className="text-xs leading-relaxed text-[var(--foreground-muted)]">
-                <span className="font-mono font-medium text-[var(--accent)]">{'// why it matters '}</span>
-                {repo.enrichment.why_it_matters}
-              </p>
-            </div>
-          )}
-
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span className="font-mono text-xs text-[var(--score-high)] font-medium">
-              +{formatStars(repo.stars_7d)} stars this week
-            </span>
-            {accel && (
-              <span
-                className="font-mono text-xs font-medium"
-                style={{ color: accel.positive ? 'var(--score-high)' : 'var(--error)' }}
-              >
-                {accel.label}
-              </span>
-            )}
-            <span className="font-mono text-xs text-[var(--foreground-subtle)]">
-              {formatStars(repo.stars)} total stars
-            </span>
-            <span className="font-mono text-xs text-[var(--foreground-subtle)]">
-              {formatStars(repo.forks)} forks
-            </span>
-            {repo.language && (
-              <span className="font-mono text-xs text-[var(--foreground-subtle)]">
-                {repo.language}
-              </span>
-            )}
-          </div>
-
-          <div className="mt-3 flex items-center gap-4">
-            {repo.enrichment?.category && (
-              <Link
-                href={`/category/${repo.enrichment.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}
-                className="text-xs text-[var(--foreground-subtle)] transition-colors hover:text-[var(--accent)]"
-              >
-                {repo.enrichment.category}
-              </Link>
-            )}
-            <a
-              href={repo.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-[var(--foreground-subtle)] transition-colors hover:text-[var(--foreground)]"
-            >
-              GitHub ↗
-            </a>
-          </div>
-        </div>
-      </div>
-    </article>
-  )
 }
 
 function buildJsonLd(repos: RisingRepo[], weekDate: string) {
@@ -246,88 +129,77 @@ export default async function RisingThisWeekDatePage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* Header */}
-      <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mx-auto max-w-[1400px]">
-          <nav className="mb-6 flex items-center gap-2 font-mono text-xs text-[var(--foreground-subtle)]">
-            <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
-              GitFind
-            </Link>
-            <span>/</span>
-            <Link href="/insights" className="transition-colors hover:text-[var(--foreground)]">
-              Insights
-            </Link>
-            <span>/</span>
-            <span className="text-[var(--foreground-muted)]">Rising This Week</span>
+      {/* Spec header */}
+      <section className="halftone border-b-2 border-[var(--line)]">
+        <div className="mx-auto max-w-5xl px-4 pb-10 pt-10 sm:px-6 sm:pb-12 sm:pt-12">
+          <nav className="font-mono text-[11px] text-[var(--muted)]" aria-label="Breadcrumb">
+            <Link href="/" className="invert-hover px-1">index</Link>
+            <span className="mx-1">/</span>
+            <Link href="/insights" className="invert-hover px-1">insights</Link>
+            <span className="mx-1">/</span>
+            <span className="text-[var(--ink)]">rising this week</span>
           </nav>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="rounded-[3px] border border-[var(--score-high)]/30 bg-[var(--score-high)]/5 px-2.5 py-0.5 font-mono text-[10px] font-medium text-[var(--score-high)]">
-                WEEKLY
-              </span>
-              <span className="font-mono text-[10px] text-[var(--foreground-subtle)]">
-                Week of {weekLabel}
-              </span>
-            </div>
+          <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
+            <h1 className="font-display text-2xl font-bold text-[var(--ink)] sm:text-4xl">
+              RISING THIS WEEK
+            </h1>
             {/* Week navigation */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 font-mono text-[11.5px]">
               <Link
                 href={`/insights/rising-this-week/${prevWeek}`}
-                className="rounded-sm border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)]/40 hover:text-[var(--foreground)]"
+                className="invert-hover border-2 border-[var(--line)] bg-[var(--paper)] px-2 py-0.5 text-[var(--body)]"
               >
-                ← Prev
+                ← prev week
               </Link>
               {!isCurrentWeek && (
                 <Link
                   href={`/insights/rising-this-week/${nextWeek}`}
-                  className="rounded-sm border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)]/40 hover:text-[var(--foreground)]"
+                  className="invert-hover border-2 border-[var(--line)] bg-[var(--paper)] px-2 py-0.5 text-[var(--body)]"
                 >
-                  Next →
+                  next week →
                 </Link>
               )}
             </div>
           </div>
 
-          <h1 className="mt-4 font-mono text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-            <span className="text-[var(--accent)]">{'// '}</span>RISING THIS WEEK
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--foreground-muted)]">
-            The {repos.length} fastest-accelerating repos on GitHub for the week of {weekLabel}. Ranked by 7-day star velocity, filtered to projects with enriched context.
+          <p className="mt-4 max-w-2xl font-mono text-[14px] leading-[1.8] text-[var(--body)]">
+            The {repos.length} fastest-accelerating repos on GitHub for the week of {weekLabel}.
+            Ranked by 7-day star velocity, filtered to projects with enriched context.
           </p>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3 font-mono text-[11.5px]">
+            <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-2 py-0.5 text-[var(--body)]">
+              week of {weekLabel}
+            </span>
+          </div>
 
           {/* Summary KPIs */}
           {repos.length > 0 && (
-            <div
-              className="mt-6 grid grid-cols-3 rounded-sm border border-[var(--border-subtle)]"
-              style={{ background: 'rgba(255,255,255,0.03)' }}
-            >
-              <div className="px-4 py-3 text-center border-r border-[var(--border-subtle)]">
-                <div className="font-mono text-lg font-bold text-[var(--foreground)] sm:text-xl">
-                  {formatStars(totalStarsGained)}
-                </div>
-                <div className="font-mono text-[10px] text-[var(--foreground-subtle)] uppercase tracking-wider">
-                  Stars gained
-                </div>
+            <div className="mt-6 grid grid-cols-3 border-2 border-[var(--line)] bg-[var(--paper)]">
+              <div className="border-r-2 border-[var(--line)] px-4 py-3 text-center">
+                <p className="font-mono text-lg font-bold text-[var(--ink)] sm:text-xl">
+                  {formatCount(totalStarsGained)}
+                </p>
+                <p className="mt-0.5 font-mono text-[10px] tracking-wider text-[var(--muted)]">
+                  stars gained
+                </p>
               </div>
-              <div className="px-4 py-3 text-center border-r border-[var(--border-subtle)]">
-                <div className="font-mono text-lg font-bold text-[var(--foreground)] sm:text-xl">
+              <div className="border-r-2 border-[var(--line)] px-4 py-3 text-center">
+                <p className="font-mono text-lg font-bold text-[var(--ink)] sm:text-xl">
                   {repos.length}
-                </div>
-                <div className="font-mono text-[10px] text-[var(--foreground-subtle)] uppercase tracking-wider">
-                  Repos ranked
-                </div>
+                </p>
+                <p className="mt-0.5 font-mono text-[10px] tracking-wider text-[var(--muted)]">
+                  repos ranked
+                </p>
               </div>
               <div className="px-4 py-3 text-center">
-                <div
-                  className="font-mono text-lg font-bold sm:text-xl"
-                  style={{ color: avgAccel >= 0 ? 'var(--score-high)' : 'var(--error)' }}
-                >
+                <p className={`font-mono text-lg font-bold sm:text-xl ${avgAccel >= 0 ? 'text-[var(--positive)]' : 'text-[var(--negative)]'}`}>
                   {avgAccel >= 0 ? '+' : ''}{avgAccel.toFixed(0)}%
-                </div>
-                <div className="font-mono text-[10px] text-[var(--foreground-subtle)] uppercase tracking-wider">
-                  Avg WoW accel
-                </div>
+                </p>
+                <p className="mt-0.5 font-mono text-[10px] tracking-wider text-[var(--muted)]">
+                  avg wow accel
+                </p>
               </div>
             </div>
           )}
@@ -335,59 +207,71 @@ export default async function RisingThisWeekDatePage({ params }: Props) {
       </section>
 
       {/* Rankings */}
-      <section className="px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-[1400px]">
-          {repos.length > 0 ? (
-            <div className="space-y-4">
+      <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between font-mono text-[12px] text-[var(--muted)]">
+          <p className="font-bold tracking-[0.2em] text-[var(--ink)]">§ 1 — the ranking</p>
+          <p>{repos.length} entries</p>
+        </div>
+        {repos.length > 0 ? (
+          <Reveal className="mt-5">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               {repos.map((repo, i) => (
-                <RepoRow key={repo.id} repo={repo} rank={i + 1} />
+                <RepoCard
+                  key={repo.id}
+                  project={repo}
+                  index={i}
+                  stars7d={repo.stars_7d}
+                  pct7d={
+                    repo.stars_7d_prev > 0
+                      ? Math.round(((repo.stars_7d - repo.stars_7d_prev) / repo.stars_7d_prev) * 100)
+                      : null
+                  }
+                />
               ))}
             </div>
-          ) : (
-            <div className="border border-dashed border-[var(--border)] py-16 text-center">
-              <p className="text-sm text-[var(--foreground-muted)]">
-                No snapshot data available for this week.
-              </p>
-              <p className="mt-1 text-xs text-[var(--foreground-subtle)]">
-                Try navigating to a different week, or check the latest ranking.
-              </p>
-              <Link
-                href="/insights/rising-this-week"
-                className="mt-4 inline-block font-mono text-xs text-[var(--accent)] hover:underline"
-              >
-                View latest →
-              </Link>
-            </div>
-          )}
-        </div>
+          </Reveal>
+        ) : (
+          <div className="mt-5 border-2 border-dashed border-[var(--line-soft)] py-16 text-center">
+            <p className="font-mono text-sm text-[var(--muted)]">
+              No snapshot data available for this week.
+            </p>
+            <p className="mt-2 font-mono text-xs text-[var(--muted)]">
+              Try navigating to a different week, or check the latest ranking.
+            </p>
+            <Link
+              href="/insights/rising-this-week"
+              className="invert-hover mt-5 inline-block border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 font-mono text-[11.5px] text-[var(--body)]"
+            >
+              view latest →
+            </Link>
+          </div>
+        )}
       </section>
 
       {/* Methodology */}
-      <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-[1400px]">
-          <h2 className="font-mono text-sm font-medium text-[var(--foreground-muted)]">
-            Methodology
-          </h2>
-          <p className="mt-2 text-xs leading-relaxed text-[var(--foreground-subtle)]">
-            Repos are ranked by 7-day star velocity — the number of new stars gained in the last 7 days.
-            Only repos with enriched context (Claude-generated summaries and Early Signal Scores) are included.
-            Week-over-week acceleration compares this week&apos;s star gain to the previous week&apos;s.
-            Data is sourced from daily GitHub API snapshots and refreshed every hour.
-          </p>
-          <div className="mt-4 flex gap-4">
-            <Link
-              href="/insights"
-              className="font-mono text-xs text-[var(--accent)] transition-colors hover:underline"
-            >
-              ← All Insights
-            </Link>
-            <Link
-              href="/ai-code-index"
-              className="font-mono text-xs text-[var(--accent)] transition-colors hover:underline"
-            >
-              AI Code Index →
-            </Link>
-          </div>
+      <section className="mx-auto max-w-5xl px-4 pb-12 sm:px-6 sm:pb-16">
+        <h2 className="font-mono text-[12px] font-bold tracking-[0.2em] text-[var(--ink)]">
+          § 2 — methodology
+        </h2>
+        <p className="mt-3 max-w-2xl border-l-2 border-[var(--line)] pl-4 font-mono text-[13px] leading-[1.8] text-[var(--body)]">
+          Repos are ranked by 7-day star velocity — the number of new stars gained in the last 7 days.
+          Only repos with enriched context (Claude-generated summaries and Early Signal Scores) are included.
+          Week-over-week acceleration compares this week’s star gain to the previous week’s.
+          Data is sourced from daily GitHub API snapshots and refreshed every hour.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-3 font-mono text-[11.5px]">
+          <Link
+            href="/insights"
+            className="invert-hover border-2 border-[var(--line)] bg-[var(--paper)] px-2 py-0.5 text-[var(--body)]"
+          >
+            ← all insights
+          </Link>
+          <Link
+            href="/ai-code-index"
+            className="invert-hover border-2 border-[var(--line)] bg-[var(--paper)] px-2 py-0.5 text-[var(--body)]"
+          >
+            ai code index →
+          </Link>
         </div>
       </section>
 

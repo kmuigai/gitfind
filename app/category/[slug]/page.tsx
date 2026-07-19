@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { getReposByCategory } from '@/lib/queries'
-import ProjectCard from '@/components/ProjectCard'
-import NewsletterSignup from '@/components/NewsletterSignup'
 import Link from 'next/link'
+import { getReposByCategory } from '@/lib/queries'
+import RepoCard from '@/components/RepoCard'
+import NewsletterSignup from '@/components/NewsletterSignup'
+import Reveal from '@/components/Reveal'
 
 export const revalidate = 3600
 
@@ -92,77 +93,76 @@ export default async function CategoryPage({ params }: Props) {
 
   return (
     <div>
-      {/* Header */}
-      <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mx-auto max-w-[1400px]">
-          {/* Breadcrumb */}
-          <nav className="mb-6 flex items-center gap-2 font-mono text-xs text-[var(--foreground-subtle)]">
-            <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
-              GitFind
-            </Link>
-            <span>/</span>
-            <span className="text-[var(--foreground-muted)]">{category.name}</span>
+      {/* Spec header */}
+      <section className="halftone border-b-2 border-[var(--line)]">
+        <div className="mx-auto max-w-5xl px-4 pb-10 pt-10 sm:px-6 sm:pb-12 sm:pt-12">
+          <nav className="font-mono text-[11px] text-[var(--muted)]" aria-label="Breadcrumb">
+            <Link href="/" className="invert-hover px-1">index</Link>
+            <span className="mx-1">/</span>
+            <span className="text-[var(--ink)]">{category.name.toLowerCase()}</span>
           </nav>
 
-          <div>
-            <h1 className="font-mono text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-              <span className="text-[var(--accent)]">{'// '}</span>{category.name.toUpperCase()}
-            </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--foreground-muted)]">
-                {category.description}
-              </p>
-              <p className="mt-3 font-mono text-xs text-[var(--foreground-subtle)]">
-                Ranked by Early Signal Score — projects most likely to break out before mainstream coverage.
-              </p>
+          <h1 className="font-display mt-5 text-2xl font-bold text-[var(--ink)] sm:text-4xl">
+            {category.name.toUpperCase()}
+          </h1>
+          <p className="mt-4 max-w-2xl font-mono text-[14px] leading-[1.8] text-[var(--body)]">
+            {category.description}
+          </p>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3 font-mono text-[11.5px]">
+            <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-2 py-0.5 text-[var(--body)]">
+              {projects.length} {projects.length === 1 ? 'entry' : 'entries'}
+            </span>
+            <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-2 py-0.5 text-[var(--body)]">
+              ranked by early signal score
+            </span>
           </div>
         </div>
       </section>
 
-      {/* Projects grid */}
-      <section className="px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-[1400px]">
-          {projects.length > 0 ? (
-            <>
-              <div className="mb-4 text-xs text-[var(--foreground-subtle)]">
-                {projects.length} project{projects.length !== 1 ? 's' : ''} in this category
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {projects.map((project) => (
-                  <ProjectCard key={project.id} project={project} />
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="border border-dashed border-[var(--border)] py-16 text-center">
-              <p className="text-sm text-[var(--foreground-muted)]">
-                No {category.name} projects yet.
-              </p>
-              <p className="mt-1 text-xs text-[var(--foreground-subtle)]">
-                The pipeline runs nightly and will populate this category automatically.
-              </p>
+      {/* Catalog grid */}
+      <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
+        <p className="font-mono text-[12px] font-bold tracking-[0.2em] text-[var(--ink)]">
+          § 1 — catalog entries
+        </p>
+        {projects.length > 0 ? (
+          <Reveal className="mt-5">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {projects.map((project, i) => (
+                <RepoCard key={project.id} project={project} index={i} />
+              ))}
             </div>
-          )}
-        </div>
+          </Reveal>
+        ) : (
+          <div className="mt-5 border-2 border-dashed border-[var(--line-soft)] py-16 text-center">
+            <p className="font-mono text-sm text-[var(--muted)]">
+              no {category.name.toLowerCase()} projects yet.
+            </p>
+            <p className="mt-2 font-mono text-xs text-[var(--muted)]">
+              the pipeline runs nightly and will populate this category automatically.
+            </p>
+          </div>
+        )}
       </section>
 
       {/* Other categories */}
-      <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-[1400px]">
-          <h2 className="mb-4 font-mono text-sm font-medium text-[var(--foreground-muted)]">
-            Other categories
-          </h2>
+      <section className="mx-auto max-w-5xl px-4 pb-12 sm:px-6 sm:pb-16">
+        <p className="font-mono text-[12px] font-bold tracking-[0.2em] text-[var(--ink)]">
+          § 2 — other categories
+        </p>
+        <Reveal className="mt-5">
           <div className="flex flex-wrap gap-2">
             {CATEGORIES.filter((c) => c.slug !== slug).map((cat) => (
               <Link
                 key={cat.slug}
                 href={`/category/${cat.slug}`}
-                className="rounded-sm border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)]/40 hover:bg-[var(--background-elevated)] hover:text-[var(--foreground)]"
+                className="invert-hover border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 font-mono text-[11.5px] text-[var(--body)]"
               >
-                {cat.name}
+                {cat.name.toLowerCase()}
               </Link>
             ))}
           </div>
-        </div>
+        </Reveal>
       </section>
 
       <NewsletterSignup />

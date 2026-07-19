@@ -1,37 +1,44 @@
-'use client'
-
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 
-const HIDDEN_ROUTES = ['/ai-code-index']
+const BADGES = ['no gradients', 'works in lynx', 'made with html', '1-bit certified']
 
 export default function Footer() {
-  const pathname = usePathname()
-
-  if (HIDDEN_ROUTES.includes(pathname)) return null
-
   return (
-    <footer
-      className="border-t border-[var(--border)] py-6"
-      style={{ overflowX: 'clip', fontFamily: 'var(--font-geist-mono), ui-monospace, monospace' }}
-    >
-      <div className="px-4 sm:px-6">
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[10px] uppercase tracking-widest text-[var(--foreground-muted)]">
-          <Link href="/" className="flex items-center gap-1.5 hover:text-[var(--accent)] transition-colors">
-            <span className="text-[var(--accent)] font-bold">❯</span>
-            <span className="font-bold text-[var(--foreground)]">gitfind.ai</span>
-          </Link>
-          <span className="text-[var(--border)]">·</span>
-          <Link href="/ai-code-index" className="hover:text-[var(--foreground)] transition-colors">AI Code Index</Link>
-          <span className="text-[var(--border)]">·</span>
-          <Link href="/insights" className="hover:text-[var(--foreground)] transition-colors">Insights</Link>
-          <span className="text-[var(--border)]">·</span>
-          <Link href="/submit" className="hover:text-[var(--foreground)] transition-colors">Submit</Link>
-          <span className="text-[var(--border)]">·</span>
-          <a href="https://github.com/kmuigai/gitfind" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--foreground)] transition-colors">GitHub</a>
+    <footer className="border-t-2 border-[var(--line)]">
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-4 py-8 sm:px-6">
+        <div>
+          <p className="font-display text-sm font-bold text-[var(--ink)]">GITFIND</p>
+          <p className="mt-1 max-w-xs font-mono text-[11px] leading-relaxed text-[var(--muted)]">
+            github, translated. rising open source, explained in plain english.
+          </p>
         </div>
-        <p className="mt-4 text-center text-[10px] uppercase tracking-widest text-[var(--foreground-subtle)]">
-          Git Signal · Git Context · Git Clarity · <strong className="text-[var(--foreground-muted)]">Git Smarter</strong>
+        <nav className="flex flex-wrap gap-x-4 gap-y-2 font-mono text-[11px] text-[var(--muted)]" aria-label="Footer">
+          <Link href="/ai-code-index" className="invert-hover px-1">ai code index</Link>
+          <Link href="/insights" className="invert-hover px-1">insights</Link>
+          <Link href="/submit" className="invert-hover px-1">submit</Link>
+          <a
+            href="https://github.com/kmuigai/gitfind"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="invert-hover px-1"
+          >
+            github
+          </a>
+        </nav>
+        <div className="flex flex-wrap gap-2">
+          {BADGES.map((b) => (
+            <span
+              key={b}
+              className="border-2 border-[var(--line)] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--ink)]"
+            >
+              {b}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="border-t border-[var(--line-soft)]">
+        <p className="mx-auto max-w-5xl px-4 py-3 font-mono text-[10px] text-[var(--muted)] sm:px-6">
+          © 2026 gitfind · the tuesday briefing
         </p>
       </div>
     </footer>

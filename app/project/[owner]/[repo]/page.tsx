@@ -3,8 +3,10 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getRepo, getPackageDownloads, getReposByCategory } from '@/lib/queries'
 import NewsletterSignup from '@/components/NewsletterSignup'
-import ScoreBreakdown from '@/components/ScoreBreakdown'
-import ProjectCard from '@/components/ProjectCard'
+import RepoCard from '@/components/RepoCard'
+import SpecScore, { type SpecScoreBreakdown } from '@/components/SpecScore'
+import Reveal from '@/components/Reveal'
+import { categorySlug, contributorsLabel, formatCount } from '@/lib/design'
 
 export const revalidate = 3600
 
@@ -53,36 +55,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-interface ScoreBreakdownData {
-  star_velocity_score: number
-  contributor_ratio_score: number
-  fork_velocity_score: number
-  mention_velocity_score: number
-  commit_frequency_score: number
-  manipulation_penalty: number
-  raw_score: number
-  final_score: number
-}
-
-function parseBreakdown(raw: unknown): ScoreBreakdownData | null {
+function parseBreakdown(raw: unknown): SpecScoreBreakdown | null {
   if (!raw || typeof raw !== 'object') return null
   const obj = raw as Record<string, unknown>
   if (typeof obj.star_velocity_score !== 'number') return null
-  return obj as unknown as ScoreBreakdownData
-}
-
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-sm border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
-      <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--foreground-muted)]">{label}</div>
-      <div className="mt-1 font-mono text-lg font-semibold text-[var(--foreground)]">{value}</div>
-    </div>
-  )
-}
-
-function formatStars(count: number): string {
-  if (count >= 1000) return `${(count / 1000).toFixed(1)}k`
-  return count.toLocaleString()
+  return obj as unknown as SpecScoreBreakdown
 }
 
 export default async function ProjectPage({ params }: Props) {
@@ -100,6 +77,24 @@ export default async function ProjectPage({ params }: Props) {
     enrichment?.category ? getReposByCategory(enrichment.category, 5) : Promise.resolve([]),
   ])
   const relatedProjects = relatedRaw.filter((r) => r.id !== project.id).slice(0, 4)
+
+  const scoredAt = new Date(enrichment?.scored_at ?? project.updated_at).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+
+  const stats: { label: string; value: string }[] = [
+    { label: 'stars', value: formatCount(project.stars) },
+    { label: 'forks', value: formatCount(project.forks) },
+    { label: 'contributors', value: contributorsLabel(project.contributors) },
+    { label: 'language', value: project.language ?? '—' },
+    {
+      label: 'downloads (7d)',
+      value: downloads && downloads.downloads_7d > 0 ? formatCount(downloads.downloads_7d) : '—',
+    },
+    { label: 'category', value: enrichment?.category ?? '—' },
+  ]
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -132,158 +127,150 @@ export default async function ProjectPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      {/* Header */}
-      <section className="border-b border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-[1400px]">
-          {/* Breadcrumb */}
-          <nav className="mb-6 flex items-center gap-2 font-mono text-xs text-[var(--foreground-subtle)]">
-            <Link href="/" className="transition-colors hover:text-[var(--foreground)]">
-              GitFind
-            </Link>
-            <span>/</span>
-            {enrichment?.category && (
+
+      {/* Spec header */}
+      <div className="halftone border-b-2 border-[var(--line)]">
+        <div className="mx-auto max-w-5xl px-4 pb-8 pt-8 sm:px-6">
+          <nav className="font-mono text-[11px] text-[var(--muted)]" aria-label="Breadcrumb">
+            <Link href="/" className="invert-hover px-1">index</Link>
+            <span className="mx-1">/</span>
+            {enrichment?.category ? (
               <>
-                <Link
-                  href={`/category/${enrichment.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}
-                  className="transition-colors hover:text-[var(--foreground)]"
-                >
-                  {enrichment.category}
+                <Link href={`/category/${categorySlug(enrichment.category)}`} className="invert-hover px-1">
+                  {enrichment.category.toLowerCase()}
                 </Link>
-                <span>/</span>
+                <span className="mx-1">/</span>
               </>
-            )}
-            <span className="text-[var(--foreground-muted)]">{owner}/{repoName}</span>
+            ) : null}
+            <span className="text-[var(--ink)]">{owner}/{repoName}</span>
           </nav>
 
-          {/* Title */}
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="font-mono text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-                <span className="text-[var(--foreground-muted)]">{owner}/</span>
-                {repoName}
-              </h1>
-              {project.description && (
-                <p className="mt-2 max-w-2xl text-sm text-[var(--foreground-muted)]">
-                  {project.description}
-                </p>
-              )}
-            </div>
+          <h1 className="font-display mt-5 text-2xl font-bold text-[var(--ink)] sm:text-4xl">
+            <span className="text-[var(--muted)]">{owner}/</span>
+            {repoName}
+          </h1>
+
+          {enrichment?.summary ? (
+            <p className="mt-4 max-w-2xl font-mono text-[14px] leading-[1.8] text-[var(--body)]">
+              {enrichment.summary}
+            </p>
+          ) : null}
+
+          <div className="mt-5 flex flex-wrap items-center gap-3 font-mono text-[11.5px]">
+            <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-2 py-0.5 text-[var(--body)]">
+              {formatCount(project.stars)}★
+            </span>
+            <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-2 py-0.5 text-[var(--body)]">
+              {formatCount(project.forks)}⑂
+            </span>
+            <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-2 py-0.5 text-[var(--body)]">
+              {project.contributors === 0 ? 'Solo' : `${contributorsLabel(project.contributors)} contributors`}
+            </span>
+            {project.language ? (
+              <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-2 py-0.5 text-[var(--body)]">
+                {project.language}
+              </span>
+            ) : null}
             <a
               href={project.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-sm border border-[var(--border)] px-4 py-2 text-sm text-[var(--foreground-muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              className="invert-hover border-2 border-[var(--line)] px-2 py-0.5 font-bold text-[var(--ink)]"
             >
-              View on GitHub
-              <span aria-hidden="true">↗</span>
+              source ↗
             </a>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Main content */}
-      <section className="px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-[1400px]">
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            {/* Left column — summaries */}
-            <div className="space-y-6 lg:col-span-2">
-              {enrichment?.summary && (
-                <div>
-                  <h2 className="mb-2 font-mono text-xs font-medium uppercase tracking-wider text-[var(--foreground-muted)]">
-                    What it does
+      {/* Body grid */}
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
+          <div className="space-y-8">
+            {enrichment?.summary ? (
+              <Reveal>
+                <section>
+                  <h2 className="font-mono text-[12px] font-bold tracking-[0.2em] text-[var(--ink)]">
+                    § 1 — what it does
                   </h2>
-                  <p className="text-sm leading-relaxed text-[var(--foreground)]">
+                  <p className="mt-3 border-l-2 border-[var(--line)] pl-4 font-mono text-[14px] leading-[1.85] text-[var(--body)]">
                     {enrichment.summary}
                   </p>
-                </div>
-              )}
+                </section>
+              </Reveal>
+            ) : null}
 
-              {enrichment?.why_it_matters && (
-                <div className="rounded-sm border border-[var(--accent)]/20 bg-[var(--accent-subtle)] p-5">
-                  <h2 className="mb-2 font-mono text-xs font-medium uppercase tracking-wider text-[var(--accent)]">
-                    Why it matters
+            {enrichment?.why_it_matters ? (
+              <Reveal>
+                <section>
+                  <h2 className="font-mono text-[12px] font-bold tracking-[0.2em] text-[var(--ink)]">
+                    § 2 — why it matters
                   </h2>
-                  <p className="text-sm leading-relaxed text-[var(--foreground-muted)]">
+                  <p className="mt-3 border-l-2 border-[var(--line)] pl-4 font-mono text-[14px] leading-[1.85] text-[var(--body)]">
                     {enrichment.why_it_matters}
                   </p>
-                </div>
-              )}
+                </section>
+              </Reveal>
+            ) : null}
 
-              {enrichment?.trend_narrative && (
-                <div className="rounded-sm border border-[var(--border)] bg-[var(--background-card)] p-5">
-                  <h2 className="mb-2 font-mono text-xs font-medium uppercase tracking-wider text-[var(--foreground-muted)]">
-                    Why it&apos;s trending
+            {enrichment?.trend_narrative ? (
+              <Reveal>
+                <section>
+                  <h2 className="font-mono text-[12px] font-bold tracking-[0.2em] text-[var(--ink)]">
+                    § 3 — why it’s trending
                   </h2>
-                  <p className="text-sm leading-relaxed text-[var(--foreground)]">
+                  <p className="mt-3 border-l-2 border-[var(--line)] pl-4 font-mono text-[14px] leading-[1.85] text-[var(--body)]">
                     {enrichment.trend_narrative}
                   </p>
-                </div>
-              )}
-            </div>
-
-            {/* Right column — score and stats */}
-            <div className="space-y-4">
-              {/* Score */}
-              <div className="rounded-sm border border-[var(--border)] bg-[var(--background-card)] p-5">
-                <ScoreBreakdown score={score} breakdown={parseBreakdown(enrichment?.score_breakdown)} />
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-2 gap-2">
-                <StatCard label="Stars" value={formatStars(project.stars)} />
-                <StatCard label="Forks" value={formatStars(project.forks)} />
-                <StatCard label="Contributors" value={project.contributors} />
-                {project.language && (
-                  <StatCard label="Language" value={project.language} />
-                )}
-                {downloads && downloads.downloads_7d > 0 && (
-                  <StatCard
-                    label={`Downloads (7d)`}
-                    value={formatStars(downloads.downloads_7d)}
-                  />
-                )}
-              </div>
-              {downloads && downloads.downloads_7d > 0 && (
-                <p className="text-xs text-[var(--foreground-subtle)]">
-                  {downloads.registry}/{downloads.package_name}
-                </p>
-              )}
-
-              {/* Category */}
-              {enrichment?.category && (
-                <div className="rounded-sm border border-[var(--border)] bg-[var(--background-card)] px-4 py-3">
-                  <div className="text-xs text-[var(--foreground-muted)]">Category</div>
-                  <Link
-                    href={`/category/${enrichment.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}
-                    className="mt-1 block text-sm font-medium text-[var(--accent)] transition-opacity hover:opacity-80"
-                  >
-                    {enrichment.category} →
-                  </Link>
-                </div>
-              )}
-
-              {/* Last updated */}
-              <p className="text-xs text-[var(--foreground-subtle)]">
-                Score updated {new Date(enrichment?.scored_at ?? project.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </p>
-            </div>
+                </section>
+              </Reveal>
+            ) : null}
           </div>
-        </div>
-      </section>
 
-      {/* Related projects */}
+          <aside className="space-y-5">
+            <SpecScore
+              score={score}
+              breakdown={parseBreakdown(enrichment?.score_breakdown)}
+              scoredAt={scoredAt}
+            />
+
+            <div className="border-2 border-[var(--line)] bg-[var(--paper)]">
+              <p className="border-b-2 border-[var(--line)] px-4 py-2 font-mono text-[11px] text-[var(--muted)]">
+                fig. 03 — specifications
+              </p>
+              <dl className="p-4 font-mono">
+                {stats.map((s) => (
+                  <div key={s.label} className="flex justify-between gap-3 border-b border-dashed border-[var(--line-soft)] py-1.5 text-[12px] last:border-0">
+                    <dt className="text-[var(--muted)]">{s.label}</dt>
+                    <dd className="font-bold text-[var(--ink)]">{s.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+
+            {downloads && downloads.downloads_7d > 0 ? (
+              <p className="font-mono text-[11px] text-[var(--muted)]">
+                {downloads.registry}/{downloads.package_name}
+              </p>
+            ) : null}
+          </aside>
+        </div>
+      </div>
+
+      {/* Related */}
       {relatedProjects.length > 0 && (
-        <section className="border-t border-[var(--border)] px-4 py-8 sm:px-6 sm:py-10">
-          <div className="mx-auto max-w-[1400px]">
-            <h2 className="mb-4 font-mono text-xs font-medium uppercase tracking-wider text-[var(--foreground-muted)]">
-              Related projects
-            </h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {relatedProjects.map((rp) => (
-                <ProjectCard key={rp.id} project={rp} />
+        <section className="mx-auto max-w-5xl px-4 pb-12 sm:px-6">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between font-mono text-[12px] text-[var(--muted)]">
+            <p className="font-bold tracking-[0.2em] text-[var(--ink)]">§ 4 — related entries</p>
+            <p>{relatedProjects.length} entries</p>
+          </div>
+          <Reveal className="mt-5">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              {relatedProjects.map((rp, i) => (
+                <RepoCard key={rp.id} project={rp} index={i} />
               ))}
             </div>
-          </div>
+          </Reveal>
         </section>
       )}
 
