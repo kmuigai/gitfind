@@ -18,6 +18,18 @@ const MOBILE_EXTRA = [
   { label: 'submit', href: '/submit' },
 ]
 
+export function LogoMark({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 64" className={className} aria-hidden="true">
+      <rect x="8" y="6" width="48" height="52" fill="var(--paper)" stroke="var(--ink)" strokeWidth="4" />
+      <text x="18" y="39" fontFamily="var(--font-silkscreen), monospace" fontSize="28" fontWeight="700" fill="var(--ink)">
+        G
+      </text>
+      <rect className="blink" x="19" y="44" width="26" height="8" fill="var(--accent)" stroke="var(--ink)" strokeWidth="2.5" />
+    </svg>
+  )
+}
+
 export default function Header() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -31,8 +43,9 @@ export default function Header() {
     <header className="border-b-2 border-[var(--line)] bg-[var(--paper)]">
       <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-5">
-          <Link href="/" className="font-display text-sm font-bold text-[var(--ink)]">
-            GITFIND<span className="blink">_</span>
+          <Link href="/" className="flex items-center gap-2.5" aria-label="GitFind home">
+            <LogoMark className="h-7 w-7" />
+            <span className="font-display text-sm font-bold text-[var(--ink)]">GITFIND</span>
           </Link>
           <nav className="hidden items-center gap-4 font-mono text-[12px] md:flex" aria-label="Primary">
             {NAV_LINKS.map((link) => (
