@@ -89,6 +89,7 @@ export default async function ProjectPage({ params }: Props) {
     { label: 'forks', value: formatCount(project.forks) },
     { label: 'contributors', value: contributorsLabel(project.contributors) },
     { label: 'language', value: project.language ?? '—' },
+    { label: 'license', value: project.license ?? 'none' },
     {
       label: 'downloads (7d)',
       value: downloads && downloads.downloads_7d > 0 ? formatCount(downloads.downloads_7d) : '—',

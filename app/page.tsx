@@ -43,14 +43,14 @@ export default async function HomePage() {
       <section className="halftone border-b-2 border-[var(--line)]">
         <div className="mx-auto max-w-5xl px-4 pb-12 pt-12 sm:px-6 sm:pb-16 sm:pt-16">
           <p className="font-mono text-[11px] tracking-[0.2em] text-[var(--muted)]">
-            open source intelligence — updated daily
+            github intelligence — updated daily
           </p>
           <h1 className="font-display mt-5 text-[26px] font-bold leading-[1.15] text-[var(--ink)] sm:text-5xl">
             GITHUB,<br />TRANSLATED<span className="blink">_</span>
           </h1>
           <p className="mt-5 max-w-xl font-mono text-[14px] leading-[1.8] text-[var(--body)]">
-            The rising open-source projects that matter, explained in plain
-            English. Before everyone else sees them.
+            The rising projects that matter, explained in plain
+            English for builders — before everyone else sees them.
           </p>
           <div className="mt-8">
             <SearchBar />
@@ -60,10 +60,10 @@ export default async function HomePage() {
               this week: <b className="text-[var(--ink)]">{trendingProjects.length} movers</b>
             </span>
             <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-[var(--body)]">
-              ai commits yesterday: <b className="text-[var(--ink)]"><CountUp value={latestCommits} /></b>
+              claude code commits yesterday: <b className="text-[var(--ink)]"><CountUp value={latestCommits} /></b>
             </span>
             <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-[var(--body)]">
-              scores: <b className="text-[var(--ink)]">out of 100, explained</b>
+              every score, explained
             </span>
           </div>
         </div>
@@ -83,7 +83,7 @@ export default async function HomePage() {
       {chartData.length >= 2 && (
         <section className="mx-auto max-w-5xl px-4 pb-12 sm:px-6 sm:pb-16">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between font-mono text-[12px] text-[var(--muted)]">
-            <p className="font-bold tracking-[0.2em] text-[var(--ink)]">§ 2 — machine output</p>
+            <p className="font-bold tracking-[0.2em] text-[var(--ink)]">§ 2 — ai-written commits</p>
             <Link href="/ai-code-index" className="invert-hover px-1 text-[var(--ink)]">
               see the full ai code index →
             </Link>
@@ -150,9 +150,6 @@ function EmptyState() {
     <div className="border-2 border-dashed border-[var(--line-soft)] py-16 text-center">
       <p className="font-mono text-sm text-[var(--muted)]">
         no projects yet — the pipeline runs nightly.
-      </p>
-      <p className="mt-2 font-mono text-xs text-[var(--muted)]">
-        run <code className="font-bold text-[var(--ink)]">npx tsx scripts/pipeline.ts</code> locally to seed data.
       </p>
     </div>
   )

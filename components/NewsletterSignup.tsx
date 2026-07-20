@@ -53,7 +53,7 @@ export default function NewsletterSignup() {
 
         {status === 'success' ? (
           <div className="mt-5 border-2 border-[var(--line)] bg-[var(--accent)] px-4 py-3 font-mono text-[12px] font-bold text-[var(--ink)]">
-            ✓ Filed. We&apos;ll email you when the digest launches.
+            ✓ Filed. First issue lands Tuesday.
           </div>
         ) : (
           <form onSubmit={(e) => void handleSubmit(e)} className="mt-5 flex max-w-md flex-col gap-3 font-mono sm:flex-row">

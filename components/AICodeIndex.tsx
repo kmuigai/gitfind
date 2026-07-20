@@ -87,7 +87,7 @@ export function IndexStatsStrip({ rows }: { rows: AICodeIndexRow[] }) {
         commits yesterday: <b className="text-[var(--ink)]"><CountUp value={total} /></b>
       </span>
       <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-[var(--body)]">
-        with commit signal: <b className="text-[var(--ink)]">{withSignal.length} of {stats.length}</b>
+        <b className="text-[var(--ink)]">{stats.length}</b> tools tracked · {withSignal.length} measurable
       </span>
       <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-[var(--body)]">
         leader: <b className="text-[var(--ink)]">{leader.name} {leader.share.toFixed(0)}%</b>
@@ -267,7 +267,7 @@ export function OpenModelLayerSection({ layer }: { layer: OpenModelLayer }) {
       {layer.models.length > 0 ? (
         <div className="border-2 border-[var(--line)] bg-[var(--paper)]">
           <p className="border-b-2 border-[var(--line)] px-4 py-2 font-mono text-[11px] text-[var(--muted)]">
-            models — release artifacts (big stars, low velocity)
+            models — release snapshots (big stars, low velocity)
           </p>
           <ul>
             {layer.models.map((r) => (
