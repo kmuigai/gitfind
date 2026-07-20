@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { LogoMark } from '@/components/Header'
 
 const BADGES = ['no gradients', 'works in lynx', 'made with html', '1-bit certified']
 
@@ -7,7 +8,10 @@ export default function Footer() {
     <footer className="border-t-2 border-[var(--line)]">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-4 py-8 sm:px-6">
         <div>
-          <p className="font-display text-sm font-bold text-[var(--ink)]">GITFIND</p>
+          <p className="flex items-center gap-2">
+            <LogoMark className="h-6 w-6" />
+            <span className="font-display text-sm font-bold text-[var(--ink)]">GITFIND</span>
+          </p>
           <p className="mt-1 max-w-xs font-mono text-[11px] leading-relaxed text-[var(--muted)]">
             github, translated. rising open source, explained in plain english.
           </p>
