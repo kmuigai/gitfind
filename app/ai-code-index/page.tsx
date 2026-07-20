@@ -59,7 +59,7 @@ export default async function AICodeIndexPage() {
       <div className="halftone border-b-2 border-[var(--line)]">
         <div className="mx-auto max-w-5xl px-4 pb-8 pt-8 sm:px-6">
           <p className="font-mono text-[11px] tracking-[0.2em] text-[var(--muted)]">
-            machine output — tracked daily since 2025
+            ai-written commits — tracked daily since 2025
           </p>
           <h1 className="font-display mt-4 text-2xl font-bold text-[var(--ink)] sm:text-4xl">
             THE AI CODE INDEX
