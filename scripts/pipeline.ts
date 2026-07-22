@@ -505,57 +505,93 @@ async function main(): Promise<void> {
     )
   }
 
-  // ── Phase 2c: Backfill unenriched DB repos (highest stars first) ──────
+  // ── Phase 2c: Backfill unenriched DB repos (velocity-first) ──────
+  // The site's premise is velocity — the backfill must use it too.
+  // Two passes: (1) guaranteed floor for anything moving (stars_7d >= VELOCITY_FLOOR),
+  // (2) remaining slots by latest-snapshot stars_7d. Raw star count is only the tiebreak.
+  const VELOCITY_FLOOR = 100
   const backfillSlots = MAX_ENRICHMENTS_PER_RUN - enriched
   if (backfillSlots > 0) {
-    log(`\n── Phase 2c: Backfilling unenriched DB repos (${backfillSlots} slots) ──`)
+    log(`\n── Phase 2c: Backfilling unenriched DB repos (${backfillSlots} slots, velocity-first) ──`)
 
-    // Find repos that exist in DB but have no enrichment, ordered by stars
-    const { data: unenrichedRows } = await db
-      .rpc('get_unenriched_repos' as never, { row_limit: backfillSlots } as never) as unknown as {
-        data: Array<{
-          id: string; github_id: number; name: string; owner: string;
-          description: string | null; stars: number; forks: number;
-          contributors: number; language: string | null; url: string;
-          topics: string[] | null;
-        }> | null
+    const { data: latestRow } = await db
+      .from('repo_snapshots')
+      .select('snapshot_date')
+      .order('snapshot_date', { ascending: false })
+      .limit(1)
+    const latestDate = (latestRow?.[0] as unknown as { snapshot_date: string } | undefined)?.snapshot_date
+
+    type BackfillRow = {
+      id: string; github_id: number; name: string; owner: string;
+      description: string | null; stars: number; forks: number;
+      contributors: number; language: string | null; url: string;
+      topics: string[] | null;
+    }
+
+    async function fetchUnenriched(ids: string[]): Promise<BackfillRow[]> {
+      if (ids.length === 0) return []
+      const { data: enrichedIds } = await db
+        .from('enrichments')
+        .select('repo_id')
+        .in('repo_id', ids)
+      const enrichedSet = new Set(
+        ((enrichedIds ?? []) as unknown as Array<{ repo_id: string }>).map((e) => e.repo_id)
+      )
+      const unenrichedIds = ids.filter((id) => !enrichedSet.has(id))
+      if (unenrichedIds.length === 0) return []
+      const { data: rows } = await db
+        .from('repos')
+        .select('id, github_id, name, owner, description, stars, forks, contributors, language, url, topics')
+        .in('id', unenrichedIds)
+      return (rows ?? []) as unknown as BackfillRow[]
+    }
+
+    let backfillRepos: BackfillRow[] = []
+
+    if (latestDate) {
+      // Pass 1 — guaranteed: anything with real velocity jumps the queue, slots be damned
+      const { data: floorSnaps } = await db
+        .from('repo_snapshots')
+        .select('repo_id')
+        .eq('snapshot_date', latestDate)
+        .gte('stars_7d', VELOCITY_FLOOR)
+        .order('stars_7d', { ascending: false })
+        .limit(30)
+      const floorIds = ((floorSnaps ?? []) as unknown as Array<{ repo_id: string }>).map((s) => s.repo_id)
+      backfillRepos = await fetchUnenriched(floorIds)
+      if (backfillRepos.length > 0) {
+        log(`  Velocity floor (>=${VELOCITY_FLOOR}/wk): ${backfillRepos.length} unenriched movers guaranteed in`)
       }
 
-    // Fallback: if the RPC doesn't exist, query manually
-    let backfillRepos = unenrichedRows
-    if (!backfillRepos) {
-      // Left-anti-join: repos without enrichments, sorted by stars desc
+      // Pass 2 — remaining slots by velocity order (may go below the floor)
+      const remaining = backfillSlots - backfillRepos.length
+      if (remaining > 0) {
+        const { data: snapRows } = await db
+          .from('repo_snapshots')
+          .select('repo_id')
+          .eq('snapshot_date', latestDate)
+          .gt('stars_7d', 0)
+          .order('stars_7d', { ascending: false })
+          .limit(remaining * 3)
+        const snapIds = ((snapRows ?? []) as unknown as Array<{ repo_id: string }>).map((s) => s.repo_id)
+        const already = new Set(backfillRepos.map((r) => r.id))
+        const extra = (await fetchUnenriched(snapIds))
+          .filter((r) => !already.has(r.id))
+          .slice(0, remaining)
+        backfillRepos = [...backfillRepos, ...extra]
+      }
+    } else {
+      // No snapshots yet — star count as last resort
       const { data: allRepoIds } = await db
         .from('repos')
         .select('id')
         .order('stars', { ascending: false })
         .limit(backfillSlots * 3)
-
-      if (allRepoIds && allRepoIds.length > 0) {
-        const ids = (allRepoIds as unknown as Array<{ id: string }>).map((r) => r.id)
-        const { data: enrichedIds } = await db
-          .from('enrichments')
-          .select('repo_id')
-          .in('repo_id', ids)
-
-        const enrichedSet = new Set(
-          ((enrichedIds ?? []) as unknown as Array<{ repo_id: string }>).map((e) => e.repo_id)
-        )
-        const unenrichedIds = ids.filter((id) => !enrichedSet.has(id)).slice(0, backfillSlots)
-
-        if (unenrichedIds.length > 0) {
-          const { data: rows } = await db
-            .from('repos')
-            .select('id, github_id, name, owner, description, stars, forks, contributors, language, url')
-            .in('id', unenrichedIds)
-            .order('stars', { ascending: false })
-
-          backfillRepos = (rows ?? []) as unknown as typeof backfillRepos
-        }
-      }
+      const ids = ((allRepoIds ?? []) as unknown as Array<{ id: string }>).map((r) => r.id)
+      backfillRepos = (await fetchUnenriched(ids)).slice(0, backfillSlots)
     }
 
-    if (backfillRepos && backfillRepos.length > 0) {
+    if (backfillRepos.length > 0) {
       log(`  Found ${backfillRepos.length} unenriched repos to backfill`)
       const backfillLimiter = createLimiter(ENRICH_CONCURRENCY)
 
