@@ -62,9 +62,12 @@ export default async function HomePage() {
             <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-[var(--body)]">
               claude code commits yesterday: <b className="text-[var(--ink)]"><CountUp value={latestCommits} /></b>
             </span>
-            <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-[var(--body)]">
+            <Link
+              href="/methodology"
+              className="invert-hover border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-[var(--body)]"
+            >
               every score, explained
-            </span>
+            </Link>
           </div>
         </div>
       </section>
