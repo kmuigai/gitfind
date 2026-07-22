@@ -2,6 +2,7 @@
 // /100 numeral, tier chip, one-line explainer, methodology tooltip, and
 // per-signal gauges with weights. Manipulation penalty shown when present.
 
+import Link from 'next/link'
 import { gauge, tierFor, tierExplainer, SCORE_EXPLAINER } from '@/lib/design'
 
 export interface SpecScoreBreakdown {
@@ -43,8 +44,9 @@ export default function SpecScore({
   const tier = tierFor(score)
   return (
     <div className="border-2 border-[var(--line)] bg-[var(--paper)]" title={SCORE_EXPLAINER}>
-      <p className="border-b-2 border-[var(--line)] px-4 py-2 font-mono text-[11px] text-[var(--muted)]">
-        fig. 02 — early signal score
+      <p className="flex items-center justify-between border-b-2 border-[var(--line)] px-4 py-2 font-mono text-[11px] text-[var(--muted)]">
+        <span>fig. 02 — early signal score</span>
+        <Link href="/methodology" className="invert-hover px-1 text-[var(--ink)]">methodology →</Link>
       </p>
       <div className="p-4 font-mono">
         <div className="flex items-end justify-between gap-3">

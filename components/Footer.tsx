@@ -19,6 +19,7 @@ export default function Footer() {
         <nav className="flex flex-wrap gap-x-4 gap-y-2 font-mono text-[11px] text-[var(--muted)]" aria-label="Footer">
           <Link href="/ai-code-index" className="invert-hover px-1">ai code index</Link>
           <Link href="/insights" className="invert-hover px-1">insights</Link>
+          <Link href="/methodology" className="invert-hover px-1">methodology</Link>
           <Link href="/submit" className="invert-hover px-1">submit</Link>
           <a
             href="https://github.com/kmuigai/gitfind"
