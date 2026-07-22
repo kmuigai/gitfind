@@ -108,6 +108,10 @@ body {
 .blink {
   animation: blink 1.1s steps(1) infinite;
 }
+/* Logo mark: three blinks on load, then rest solid (signature, not status) */
+.blink-3 {
+  animation: blink 1.1s steps(1) 3;
+}
 
 /* Ticker marquee */
 @keyframes marquee {
@@ -179,7 +183,7 @@ body {
 
 /* Reduced motion — everything renders in final state */
 @media (prefers-reduced-motion: reduce) {
-  .blink, .marquee, .bar-grow, .gauge-fill {
+  .blink, .blink-3, .marquee, .bar-grow, .gauge-fill {
     animation: none;
   }
   .reveal {

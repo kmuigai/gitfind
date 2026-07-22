@@ -25,7 +25,7 @@ export function LogoMark({ className = '' }: { className?: string }) {
       <text x="18" y="39" fontFamily="var(--font-silkscreen), monospace" fontSize="28" fontWeight="700" fill="var(--ink)">
         G
       </text>
-      <rect className="blink" x="19" y="44" width="26" height="8" fill="var(--accent)" stroke="var(--ink)" strokeWidth="2.5" />
+      <rect className="blink-3" x="19" y="44" width="26" height="8" fill="var(--accent)" stroke="var(--ink)" strokeWidth="2.5" />
     </svg>
   )
 }
