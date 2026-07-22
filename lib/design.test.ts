@@ -70,10 +70,18 @@ describe('gauge', () => {
 })
 
 describe('categorySlug', () => {
-  it('slugifies category names', () => {
+  it('maps all 8 canonical categories to real route slugs', () => {
+    expect(categorySlug('AI / Machine Learning')).toBe('ai-ml')
     expect(categorySlug('Developer Tools')).toBe('developer-tools')
-    expect(categorySlug('AI / Machine Learning')).toBe('ai-machine-learning')
+    expect(categorySlug('Security')).toBe('security')
+    expect(categorySlug('Data & Analytics')).toBe('data-analytics')
+    expect(categorySlug('Web Frameworks')).toBe('web-frameworks')
     expect(categorySlug('Infrastructure & DevOps')).toBe('infrastructure-devops')
+    expect(categorySlug('Mobile')).toBe('mobile')
+    expect(categorySlug('Open Source Utilities')).toBe('open-source-utilities')
+  })
+  it('falls back to the formula for unknown categories', () => {
+    expect(categorySlug('Something New')).toBe('something-new')
   })
 })
 

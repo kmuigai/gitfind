@@ -48,6 +48,20 @@ export function gauge(score: number, cells = 10): string {
   return '█'.repeat(filled) + '░'.repeat(cells - filled)
 }
 
+// Canonical enrichment-category → route slug map. The formulaic fallback
+// produces "ai-machine-learning" for "AI / Machine Learning" — a 404, since
+// the category route lives at /category/ai-ml. Map all 8 canonical names.
+const CATEGORY_SLUG_MAP: Record<string, string> = {
+  'AI / Machine Learning': 'ai-ml',
+  'Developer Tools': 'developer-tools',
+  Security: 'security',
+  'Data & Analytics': 'data-analytics',
+  'Web Frameworks': 'web-frameworks',
+  'Infrastructure & DevOps': 'infrastructure-devops',
+  Mobile: 'mobile',
+  'Open Source Utilities': 'open-source-utilities',
+}
+
 export function categorySlug(category: string): string {
-  return category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  return CATEGORY_SLUG_MAP[category] ?? category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
