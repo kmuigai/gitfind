@@ -61,10 +61,10 @@ export default function BarChart({
           <rect
             key={i}
             className="bar-grow"
-            style={{ animationDelay: `${i * 12}ms` }}
+            style={{ animationDelay: `${(i / data.length) * 600}ms` }}
             x={i * barW + 1}
             y={H - padBottom - h}
-            width={Math.max(barW - 2, 1)}
+            width={Math.max(barW - 1, 0.5)}
             height={Math.max(h, 1)}
             fill={isLast ? 'var(--accent)' : 'var(--ink)'}
             stroke={isLast ? 'var(--ink)' : 'none'}
