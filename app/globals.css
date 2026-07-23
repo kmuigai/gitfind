@@ -136,6 +136,14 @@ body {
   transform: none;
 }
 
+/* Chart bars: crosshair cursor + accent fill on hover (no JS needed) */
+.chart-bar {
+  cursor: crosshair;
+}
+.chart-bar:hover {
+  fill: var(--accent);
+}
+
 /* Chart bars grow from baseline on first view */
 @keyframes bar-grow {
   from { transform: scaleY(0); }

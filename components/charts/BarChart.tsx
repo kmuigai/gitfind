@@ -60,7 +60,7 @@ export default function BarChart({
         return (
           <rect
             key={i}
-            className="bar-grow"
+            className="bar-grow chart-bar"
             style={{ animationDelay: `${(i / data.length) * 600}ms` }}
             x={i * barW + 1}
             y={H - padBottom - h}
@@ -69,7 +69,9 @@ export default function BarChart({
             fill={isLast ? 'var(--accent)' : 'var(--ink)'}
             stroke={isLast ? 'var(--ink)' : 'none'}
             strokeWidth={isLast ? 2 : 0}
-          />
+          >
+            <title>{`${data[i].label} — ${formatValue(v)} commits`}</title>
+          </rect>
         )
       })}
       {accentLast && (
