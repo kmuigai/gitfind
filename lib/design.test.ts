@@ -8,6 +8,7 @@ import {
   tierExplainer,
   gauge,
   categorySlug,
+  truncateAtWord,
   SCORE_EXPLAINER,
 } from './design'
 
@@ -85,6 +86,18 @@ describe('categorySlug', () => {
   })
 })
 
+describe('truncateAtWord', () => {
+  it('returns short text untouched', () => {
+    expect(truncateAtWord('short text', 20)).toBe('short text')
+  })
+  it('cuts at a word boundary, never mid-word', () => {
+    const out = truncateAtWord('the quick brown fox jumps over', 16)
+    expect(out).toBe('the quick brown…')
+  })
+  it('strips trailing punctuation before the ellipsis', () => {
+    expect(truncateAtWord('hello, world, again', 8)).toBe('hello…')
+  })
+})
 describe('SCORE_EXPLAINER', () => {
   it('states the scale and all tiers in one line', () => {
     expect(SCORE_EXPLAINER).toContain('0–100')

@@ -12,6 +12,7 @@ import {
   tierExplainer,
   SCORE_EXPLAINER,
   categorySlug,
+  truncateAtWord,
 } from '@/lib/design'
 
 interface RepoCardProps {
@@ -19,6 +20,8 @@ interface RepoCardProps {
   index?: number
   stars7d?: number | null
   pct7d?: number | null
+  /** Index mode: word-boundary-clamped summary + why-it-matters for dense grids. */
+  digest?: boolean
 }
 
 function tierChipClass(tier: string): string {
@@ -27,13 +30,24 @@ function tierChipClass(tier: string): string {
   return 'bg-[var(--tier-active)]'
 }
 
-export default function RepoCard({ project, index, stars7d, pct7d }: RepoCardProps) {
+export default function RepoCard({ project, index, stars7d, pct7d, digest = false }: RepoCardProps) {
   const { owner, name } = project
   const enrichment = project.enrichment
   const score = enrichment?.early_signal_score ?? 0
   const tier = tierFor(score)
   const hasDelta = typeof stars7d === 'number' && stars7d > 0
   const positive = pct7d == null || pct7d >= 0
+
+  const summary = enrichment?.summary
+    ? digest
+      ? truncateAtWord(enrichment.summary, 170)
+      : enrichment.summary
+    : null
+  const whyItMatters = enrichment?.why_it_matters
+    ? digest
+      ? truncateAtWord(enrichment.why_it_matters, 150)
+      : enrichment.why_it_matters
+    : null
 
   return (
     <article className="press flex h-full flex-col border-2 border-[var(--line)] bg-[var(--paper)]">
@@ -73,16 +87,16 @@ export default function RepoCard({ project, index, stars7d, pct7d }: RepoCardPro
           </div>
         </div>
 
-        {enrichment?.summary ? (
-          <p className="mt-2.5 font-mono text-[13px] leading-[1.8] text-[var(--body)]">
-            {enrichment.summary}
+        {summary ? (
+          <p className="mt-2.5 font-mono text-[13px] leading-[1.8] text-[var(--body)]" title={digest ? enrichment?.summary ?? undefined : undefined}>
+            {summary}
           </p>
         ) : null}
 
-        {enrichment?.why_it_matters ? (
-          <p className="mt-3 border-l-2 border-[var(--line)] pl-3 font-mono text-[12.5px] leading-[1.75] text-[var(--muted)]">
+        {whyItMatters ? (
+          <p className="mt-3 border-l-2 border-[var(--line)] pl-3 font-mono text-[12.5px] leading-[1.75] text-[var(--muted)]" title={digest ? enrichment?.why_it_matters ?? undefined : undefined}>
             <span className="font-bold text-[var(--ink)]">why it matters: </span>
-            {enrichment.why_it_matters}
+            {whyItMatters}
           </p>
         ) : null}
 
