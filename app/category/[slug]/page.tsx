@@ -129,7 +129,7 @@ export default async function CategoryPage({ params }: Props) {
           <Reveal className="mt-5">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {projects.map((project, i) => (
-                <RepoCard key={project.id} project={project} index={i} />
+                <RepoCard key={project.id} project={project} index={i} digest />
               ))}
             </div>
           </Reveal>

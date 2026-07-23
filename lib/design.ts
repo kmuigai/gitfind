@@ -39,6 +39,14 @@ export function tierExplainer(tier: Tier): string {
   }
 }
 
+/** Truncate at a word boundary (never mid-word) with an ellipsis. */
+export function truncateAtWord(text: string, max: number): string {
+  if (text.length <= max) return text
+  const cut = text.lastIndexOf(' ', max)
+  if (cut <= 0) return text.slice(0, max) + '\u2026'
+  return text.slice(0, cut).replace(/[,;:.\-\u2014]+$/, '') + '\u2026'
+}
+
 export const SCORE_EXPLAINER =
   'Early Signal Score (0–100) blends star growth, active builders, community buzz, and commit pace. 70+ Breakout · 40–69 Hot · under 40 Active.'
 
