@@ -1054,6 +1054,53 @@ export async function getPackageDownloads(repoId: string): Promise<PackageDownlo
   return data as unknown as PackageDownload
 }
 
+/** Raw evidence behind a repo's score signals — snapshots + commit counts. */
+export interface RepoEvidence {
+  stars_7d: number
+  stars_7d_prev: number | null
+  stars_30d: number | null
+  forks_7d: number | null
+  forks_7d_prev: number | null
+  commits_30d: number
+}
+
+export async function getRepoEvidence(repoId: string, currentStars: number, currentForks: number): Promise<RepoEvidence> {
+  const [{ data: snaps }, { data: weekly }] = await Promise.all([
+    supabase
+      .from('repo_snapshots')
+      .select('snapshot_date, stars, forks, stars_7d')
+      .eq('repo_id', repoId)
+      .order('snapshot_date', { ascending: false })
+      .limit(8),
+    supabase
+      .from('weekly_stats')
+      .select('commit_count_4w')
+      .eq('repo_id', repoId)
+      .order('snapshot_date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  const rows = (snaps ?? []) as unknown as Array<{ snapshot_date: string; stars: number; forks: number; stars_7d: number }>
+  const latest = rows[0]
+  const byAge = (days: number) => rows.find((r) => {
+    const age = (Date.now() - new Date(r.snapshot_date).getTime()) / 86400000
+    return age >= days - 1 && age <= days + 1
+  })
+  const snap7d = byAge(7)
+  const snap14d = byAge(14)
+  const snap30d = byAge(30)
+
+  return {
+    stars_7d: latest?.stars_7d ?? 0,
+    stars_7d_prev: snap7d?.stars_7d ?? null,
+    stars_30d: snap30d ? currentStars - snap30d.stars : null,
+    forks_7d: snap7d ? currentForks - snap7d.forks : null,
+    forks_7d_prev: snap7d && snap14d ? snap7d.forks - snap14d.forks : null,
+    commits_30d: (weekly as unknown as { commit_count_4w: number } | null)?.commit_count_4w ?? 0,
+  }
+}
+
 // Hydrate downloads_7d onto an array of repos (single batch query)
 async function hydrateDownloads(
   repos: RepoWithEnrichment[]

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getRepo, getPackageDownloads, getReposByCategory } from '@/lib/queries'
+import { getRepo, getPackageDownloads, getReposByCategory, getRepoEvidence } from '@/lib/queries'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import RepoCard from '@/components/RepoCard'
 import SpecScore, { type SpecScoreBreakdown } from '@/components/SpecScore'
@@ -72,9 +72,10 @@ export default async function ProjectPage({ params }: Props) {
 
   const enrichment = project.enrichment
   const score = enrichment?.early_signal_score ?? 0
-  const [downloads, relatedRaw] = await Promise.all([
+  const [downloads, relatedRaw, evidence] = await Promise.all([
     getPackageDownloads(project.id),
     enrichment?.category ? getReposByCategory(enrichment.category, 5) : Promise.resolve([]),
+    getRepoEvidence(project.id, project.stars, project.forks),
   ])
   const relatedProjects = relatedRaw.filter((r) => r.id !== project.id).slice(0, 4)
 
@@ -228,11 +229,12 @@ export default async function ProjectPage({ params }: Props) {
             ) : null}
           </div>
 
-          <aside className="space-y-5">
+          <aside className="space-y-5 self-start lg:sticky lg:top-4">
             <SpecScore
               score={score}
               breakdown={parseBreakdown(enrichment?.score_breakdown)}
               scoredAt={scoredAt}
+              evidence={{ ...evidence, contributors: project.contributors }}
             />
 
             <div className="border-2 border-[var(--line)] bg-[var(--paper)]">
