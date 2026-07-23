@@ -1,9 +1,12 @@
 // Spec-sheet score panel ("fig. 02") — the Early Signal Score with full context:
-// /100 numeral, tier chip, one-line explainer, methodology tooltip, and
-// per-signal gauges with weights. Manipulation penalty shown when present.
+// /100 numeral, tier chip, one-line explainer, methodology link, per-signal
+// gauges with weights, and evidence popovers with the raw inputs behind each
+// signal. Manipulation penalty shown when present, with its own evidence.
 
 import Link from 'next/link'
-import { gauge, tierFor, tierExplainer, SCORE_EXPLAINER } from '@/lib/design'
+import { gauge, tierFor, tierExplainer, SCORE_EXPLAINER, formatCount } from '@/lib/design'
+import Evidence from '@/components/Evidence'
+import type { RepoEvidence } from '@/lib/queries'
 
 export interface SpecScoreBreakdown {
   star_velocity_score: number
@@ -16,6 +19,8 @@ export interface SpecScoreBreakdown {
   manipulation_penalty: number
 }
 
+type EvidenceBundle = RepoEvidence & { contributors: number }
+
 const SIGNALS: { key: keyof SpecScoreBreakdown; label: string; weight: number }[] = [
   { key: 'star_velocity_score', label: 'star growth', weight: 25 },
   { key: 'contributor_ratio_score', label: 'active builders', weight: 20 },
@@ -25,6 +30,27 @@ const SIGNALS: { key: keyof SpecScoreBreakdown; label: string; weight: number }[
   { key: 'star_acceleration_score', label: 'star momentum', weight: 10 },
   { key: 'fork_acceleration_score', label: 'fork momentum', weight: 10 },
 ]
+
+function evidenceFor(key: keyof SpecScoreBreakdown, ev: EvidenceBundle): string {
+  switch (key) {
+    case 'star_velocity_score':
+      return `+${formatCount(ev.stars_7d)} stars this week${ev.stars_7d_prev != null ? ` · ${formatCount(ev.stars_7d_prev)} the week before` : ''}`
+    case 'contributor_ratio_score':
+      return `${formatCount(ev.contributors)} contributors on record`
+    case 'mention_velocity_score':
+      return 'measured across hacker news, reddit, and github discussions'
+    case 'commit_frequency_score':
+      return `${formatCount(ev.commits_30d)} commits in the last 30 days`
+    case 'fork_velocity_score':
+      return ev.forks_7d != null ? `+${formatCount(ev.forks_7d)} forks this week` : 'fork snapshot pending'
+    case 'star_acceleration_score':
+      return `${formatCount(ev.stars_7d)}/wk this week vs ${formatCount(ev.stars_7d_prev ?? 0)}/wk last week`
+    case 'fork_acceleration_score':
+      return `${formatCount(ev.forks_7d ?? 0)}/wk this week vs ${formatCount(ev.forks_7d_prev ?? 0)}/wk last week`
+    default:
+      return ''
+  }
+}
 
 function tierChipClass(tier: string): string {
   if (tier === 'Breakout') return 'bg-[var(--tier-breakout)]'
@@ -36,17 +62,19 @@ export default function SpecScore({
   score,
   breakdown,
   scoredAt,
+  evidence,
 }: {
   score: number
   breakdown: SpecScoreBreakdown | null
   scoredAt: string
+  evidence?: EvidenceBundle
 }) {
   const tier = tierFor(score)
   return (
     <div className="border-2 border-[var(--line)] bg-[var(--paper)]" title={SCORE_EXPLAINER}>
       <p className="flex items-center justify-between border-b-2 border-[var(--line)] px-4 py-2 font-mono text-[11px] text-[var(--muted)]">
         <span>fig. 02 — early signal score</span>
-        <Link href="/methodology" className="invert-hover px-1 text-[var(--ink)]">methodology →</Link>
+        <Link href="/methodology" className="invert-hover shrink-0 whitespace-nowrap px-1 text-[var(--ink)]">methodology →</Link>
       </p>
       <div className="p-4 font-mono">
         <div className="flex items-end justify-between gap-3">
@@ -73,18 +101,31 @@ export default function SpecScore({
             {SIGNALS.map(({ key, label, weight }) => {
               const value = breakdown[key]
               if (typeof value !== 'number') return null
+              const valueEl = <b className="text-[var(--ink)]">{value}</b>
               return (
                 <p key={key} className="text-[11px] text-[var(--body)]">
-                  {label.padEnd(18, '\u00a0')}
+                  {label.padEnd(18, ' ')}
                   <span className="text-[var(--ink)]">{gauge(value, 10)}</span>{' '}
-                  <b className="text-[var(--ink)]">{value}</b>{' '}
+                  {evidence ? (
+                    <Evidence label={evidenceFor(key, evidence)}>{valueEl}</Evidence>
+                  ) : (
+                    valueEl
+                  )}{' '}
                   <span className="text-[var(--muted)]">({weight}%)</span>
                 </p>
               )
             })}
             {breakdown.manipulation_penalty > 0 && (
               <p className="pt-1 text-[11px] text-[var(--negative)]">
-                manipulation filter: −{breakdown.manipulation_penalty} points
+                manipulation filter: −
+                {evidence ? (
+                  <Evidence label="points deducted openly — a growth pattern the filter flagged as inorganic. how the filter works: methodology →">
+                    {breakdown.manipulation_penalty}
+                  </Evidence>
+                ) : (
+                  breakdown.manipulation_penalty
+                )}{' '}
+                points
               </p>
             )}
           </div>
