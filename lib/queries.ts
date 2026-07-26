@@ -1054,6 +1054,42 @@ export async function getPackageDownloads(repoId: string): Promise<PackageDownlo
   return data as unknown as PackageDownload
 }
 
+// --- Digest archive (The Tuesday Briefing) ---
+// Table: scripts/migrations/001-digests.sql
+
+export interface DigestIssue {
+  id: string
+  week_date: string
+  subject: string
+  intro: string
+  projects: Array<{ owner: string; name: string; story: string; score: number; stars_7d: number; category: string }>
+  new_entrants: Array<{ owner: string; name: string; blurb: string; score: number }>
+  ai_pulse: string | null
+  created_at: string
+}
+
+export async function getDigests(limit = 20): Promise<DigestIssue[]> {
+  const { data, error } = await supabase
+    .from('digests')
+    .select('*')
+    .order('week_date', { ascending: false })
+    .limit(limit)
+
+  if (error || !data) return []
+  return data as unknown as DigestIssue[]
+}
+
+export async function getDigest(weekDate: string): Promise<DigestIssue | null> {
+  const { data, error } = await supabase
+    .from('digests')
+    .select('*')
+    .eq('week_date', weekDate)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return data as unknown as DigestIssue
+}
+
 /** Raw evidence behind a repo's score signals — snapshots + commit counts. */
 export interface RepoEvidence {
   stars_7d: number

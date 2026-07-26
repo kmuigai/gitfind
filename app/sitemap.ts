@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next'
-import { getAllReposForSitemap, getSnapshotDates } from '@/lib/queries'
+import { getAllReposForSitemap, getSnapshotDates, getDigests } from '@/lib/queries'
 
 const BASE_URL = 'https://gitfind.ai'
 
@@ -49,6 +49,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     },
     {
+      url: `${BASE_URL}/insights/briefing`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    },
+    {
+      url: `${BASE_URL}/search`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.3,
+    },
+    {
       url: `${BASE_URL}/submit`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
@@ -62,9 +74,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ]
 
-  const [repos, snapshotDates] = await Promise.all([
+  const [repos, snapshotDates, digestIssues] = await Promise.all([
     getAllReposForSitemap(),
     getSnapshotDates(),
+    getDigests(52),
   ])
 
   const projectRoutes: MetadataRoute.Sitemap = repos.map((repo) => ({
@@ -72,6 +85,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(repo.updated_at),
     changeFrequency: 'weekly' as const,
     priority: repo.has_enrichment ? 0.7 : 0.3,
+  }))
+
+  const digestRoutes: MetadataRoute.Sitemap = digestIssues.map((issue) => ({
+    url: `${BASE_URL}/insights/briefing/${issue.week_date}`,
+    lastModified: new Date(issue.week_date),
+    changeFrequency: 'monthly' as const,
+    priority: 0.6,
   }))
 
   // Insights pages
@@ -97,5 +117,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ]
 
-  return [...staticRoutes, ...insightsRoutes, ...projectRoutes]
+  return [...staticRoutes, ...insightsRoutes, ...digestRoutes, ...projectRoutes]
 }

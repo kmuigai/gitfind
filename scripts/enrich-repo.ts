@@ -1,5 +1,5 @@
-// One-off targeted enrichment for microsoft/SkillOpt — same scoring
-// inputs and enrichment path as the pipeline, once.
+// One-off targeted enrichment — same scoring inputs and enrichment path
+// as the pipeline. Usage: npx tsx scripts/enrich-repo.ts <owner> <name>
 import { config } from 'dotenv'
 config({ path: '.env.local' })
 
@@ -16,12 +16,16 @@ async function main() {
     import('../lib/supabase.js'),
   ])
 
+  const OWNER = process.argv[2]
+  const NAME = process.argv[3]
+  if (!OWNER || !NAME) { console.error('usage: npx tsx scripts/enrich-repo.ts <owner> <name>'); process.exit(1) }
+
   const db = createServiceClient()
   const { data: repo, error } = await db
     .from('repos')
     .select('*')
-    .eq('owner', 'microsoft')
-    .eq('name', 'SkillOpt')
+    .eq('owner', OWNER)
+    .eq('name', NAME)
     .maybeSingle()
 
   if (error || !repo) {
@@ -62,7 +66,7 @@ async function main() {
     db.from('repo_snapshots').select('stars').eq('repo_id', row.id).eq('snapshot_date', iso(date30dAgo)).maybeSingle(),
     db.from('repo_snapshots').select('stars_7d').eq('repo_id', row.id).order('snapshot_date', { ascending: false }).limit(1).maybeSingle(),
     db.from('weekly_stats').select('commit_count_4w').eq('repo_id', row.id).order('snapshot_date', { ascending: false }).limit(1).maybeSingle(),
-    getHNMentions('microsoft', 'SkillOpt'),
+    getHNMentions(OWNER, NAME),
   ])
 
   const stars_7d = latestSnap?.stars_7d ?? (snap7d ? row.stars - snap7d.stars : 0)
@@ -86,9 +90,9 @@ async function main() {
     forks_7d_prev: forks_7d_prev != null && forks_7d_prev >= 0 ? forks_7d_prev : undefined,
   })
 
-  console.log(`enriching microsoft/SkillOpt — score ${score} (stars_7d ${stars_7d}, stars_30d ${stars_30d}, commits_30d ${commits_30d}, penalty ${breakdown.manipulation_penalty})`)
+  console.log(`enriching ${OWNER}/${NAME} — score ${score} (stars_7d ${stars_7d}, stars_30d ${stars_30d}, commits_30d ${commits_30d}, penalty ${breakdown.manipulation_penalty})`)
 
-  const rawReadme = await getReadme('microsoft', 'SkillOpt')
+  const rawReadme = await getReadme(OWNER, NAME)
   const readmeExcerpt = rawReadme ? cleanReadme(rawReadme) : undefined
 
   await enrichRepo(row.id, {
