@@ -34,7 +34,7 @@ export default async function HomePage() {
     getToolContributionsByDay(),
   ])
 
-  const chartData = toolData.slice(-30).map((d) => ({ label: shortDate(d.date), value: d.claude_code }))
+  const chartData = toolData.slice(-182).map((d) => ({ label: shortDate(d.date), value: d.claude_code }))
   const latestCommits = chartData.length > 0 ? chartData[chartData.length - 1].value : 0
 
   return (
@@ -95,14 +95,14 @@ export default async function HomePage() {
             <figure className="border-2 border-[var(--line)] bg-[var(--paper)]">
               <div className="flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-[var(--line)] px-4 py-2 font-mono text-[11px] text-[var(--muted)]">
                 <p>fig. 01 — claude code commits, daily</p>
-                <p>public github, last 30 days</p>
+                <p>public github, last 6 months</p>
               </div>
               <div className="p-4">
                 <BarChart
                   data={chartData}
-                  ariaLabel="Bar chart of daily Claude Code commits across public GitHub over the last 30 days"
-                  gridValues={[100000, 200000]}
-                  labelEvery={10}
+                  ariaLabel="Bar chart of daily Claude Code commits across public GitHub over the last 6 months"
+                  gridValues={[200000, 400000, 600000]}
+                  labelEvery={Math.max(1, Math.floor(chartData.length / 8))}
                 />
               </div>
             </figure>

@@ -4,7 +4,7 @@
 // Every range shows daily ticks (the stock-chart volume strip) — no weekly
 // aggregation, so every bar is a complete day. The range total is the hero.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import BarChart from '@/components/charts/BarChart'
 import { formatCount } from '@/lib/design'
 import {
@@ -25,9 +25,29 @@ function shortDate(iso: string): string {
   return `${MONTHS[(m ?? 1) - 1]} ${d}`
 }
 
+const STORAGE_KEY = 'gf-volume-range'
+
 export default function VolumeChart({ data }: { data: VolumePoint[] }) {
-  const [range, setRange] = useState<RangeKey>('1m')
+  const [range, setRangeState] = useState<RangeKey>('6m')
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
+
+  // Restore the visitor's last range on return visits (SSR renders 6m first)
+  useEffect(() => {
+    const sync = () => {
+      const saved = window.localStorage.getItem(STORAGE_KEY)
+      if (saved && (RANGE_KEYS as readonly string[]).includes(saved)) {
+        setRangeState(saved as RangeKey)
+      }
+    }
+    sync()
+    window.addEventListener('focus', sync)
+    return () => window.removeEventListener('focus', sync)
+  }, [])
+
+  function setRange(next: RangeKey) {
+    setRangeState(next)
+    window.localStorage.setItem(STORAGE_KEY, next)
+  }
 
   const points = useMemo(() => sliceRange(data, range), [data, range])
   const total = useMemo(() => rangeTotal(points), [points])
