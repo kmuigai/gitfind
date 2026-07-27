@@ -154,13 +154,22 @@ export default async function InsightsPage() {
         </Reveal>
       </section>
 
-      {/* Forthcoming */}
+      {/* Library + forthcoming */}
       <section className="mx-auto max-w-5xl px-4 pb-12 sm:px-6 sm:pb-16">
         <p className="font-mono text-[12px] font-bold tracking-[0.2em] text-[var(--ink)]">
-          § 2 — forthcoming
+          § 2 — the library
         </p>
         <Reveal className="mt-5">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <Link href="/insights/briefing" className="press border-2 border-[var(--line)] bg-[var(--paper)] p-4">
+              <h3 className="font-mono text-[13px] font-bold text-[var(--ink)]">
+                the tuesday briefing
+              </h3>
+              <p className="mt-2 font-mono text-[12px] leading-[1.75] text-[var(--muted)]">
+                Every issue, archived: the repos that moved, why they mattered, what to watch next.
+              </p>
+              <p className="mt-3 font-mono text-[11px] font-bold text-[var(--ink)]">open the archive →</p>
+            </Link>
             {[
               {
                 title: 'breakout repos',

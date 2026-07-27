@@ -91,6 +91,9 @@ export default function SearchBar() {
           const repo = results[activeIndex]
           window.location.href = `/project/${repo.owner}/${repo.name}`
           setIsOpen(false)
+        } else if (query.trim().length >= 2) {
+          window.location.href = `/search?q=${encodeURIComponent(query.trim())}`
+          setIsOpen(false)
         }
         break
       case 'Escape':

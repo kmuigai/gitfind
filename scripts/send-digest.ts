@@ -546,6 +546,38 @@ async function main(): Promise<void> {
   log(`Subject: ${subject}`)
   log(`HTML body: ${htmlBody.length} chars`)
 
+  // Store the issue for the public archive at /insights/briefing
+  const moverLookup = new Map(digestData.topMovers.map((m) => [`${m.owner}/${m.name}`, m]))
+  const entrantLookup = new Map(digestData.newEntrants.map((e) => [`${e.owner}/${e.name}`, e]))
+  const { error: archiveError } = await db.from('digests').upsert(
+    {
+      week_date: digestData.weekDate,
+      subject,
+      intro: digest.intro,
+      projects: digest.projects.map((p) => ({
+        owner: p.owner,
+        name: p.name,
+        story: p.story,
+        score: moverLookup.get(`${p.owner}/${p.name}`)?.score ?? 0,
+        stars_7d: moverLookup.get(`${p.owner}/${p.name}`)?.stars_7d ?? 0,
+        category: moverLookup.get(`${p.owner}/${p.name}`)?.category ?? '',
+      })),
+      new_entrants: digest.new_entrants.map((e) => ({
+        owner: e.owner,
+        name: e.name,
+        blurb: e.blurb,
+        score: entrantLookup.get(`${e.owner}/${e.name}`)?.score ?? 0,
+      })),
+      ai_pulse: digest.ai_pulse,
+    } as never,
+    { onConflict: 'week_date' }
+  )
+  if (archiveError) {
+    logError('Failed to archive digest (continuing — email still sends)', archiveError)
+  } else {
+    log(`Archived issue ${digestData.weekDate} to digests table`)
+  }
+
   if (DRY_RUN) {
     log('\n--- DRY RUN — email preview below ---\n')
     console.log(`Subject: ${subject}\n`)
