@@ -1090,6 +1090,29 @@ export async function getDigest(weekDate: string): Promise<DigestIssue | null> {
   return data as unknown as DigestIssue
 }
 
+// --- Open Model Index ---
+// Table: scripts/migrations/002-model-metrics.sql
+
+export interface ModelMetricRow {
+  model_key: string
+  snapshot_date: string
+  hf_downloads: number
+  hf_likes: number
+  gh_stars: number
+  gh_forks: number
+  gh_contributors: number
+}
+
+export async function getModelMetrics(): Promise<ModelMetricRow[]> {
+  const { data, error } = await supabase
+    .from('model_metrics')
+    .select('*')
+    .order('snapshot_date', { ascending: true })
+
+  if (error || !data) return []
+  return data as unknown as ModelMetricRow[]
+}
+
 /** Raw evidence behind a repo's score signals — snapshots + commit counts. */
 export interface RepoEvidence {
   stars_7d: number
