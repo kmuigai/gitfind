@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { label: 'ai/ml', href: '/category/ai-ml' },
   { label: 'dev tools', href: '/category/developer-tools' },
   { label: 'ai code index', href: '/ai-code-index' },
+  { label: 'open models', href: '/open-model-index' },
   { label: 'insights', href: '/insights' },
 ]
 
