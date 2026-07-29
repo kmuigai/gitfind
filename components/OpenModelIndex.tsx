@@ -121,7 +121,9 @@ export function ModelStatsStrip({ rows }: { rows: ModelMetricRow[] }) {
   if (!hasData(rows)) return null
   const withDelta = stats.filter((m) => m.delta30d != null)
   const totalPerDay = withDelta.reduce((s, m) => s + m.dailyPerDay, 0)
+  const allTimeTotal = stats.filter((m) => !m.isRuntime).reduce((s, m) => s + m.latestCum, 0)
   const leader = [...withDelta].sort((a, b) => b.dailyPerDay - a.dailyPerDay)[0]
+  const allTimeLeader = stats.filter((m) => !m.isRuntime).sort((a, b) => b.latestCum - a.latestCum)[0]
   const fastest = withDelta
     .filter((m) => m.doublingDays != null)
     .sort((a, b) => (a.doublingDays ?? 0) - (b.doublingDays ?? 0))[0]
@@ -129,15 +131,25 @@ export function ModelStatsStrip({ rows }: { rows: ModelMetricRow[] }) {
 
   return (
     <div className="mt-6 flex flex-wrap gap-3 font-mono text-[11.5px]">
-      <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-[var(--body)]">
-        weight downloads: <b className="text-[var(--ink)]"><CountUp value={totalPerDay} />/day</b>
-      </span>
+      {totalPerDay > 0 ? (
+        <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-[var(--body)]">
+          weight downloads: <b className="text-[var(--ink)]"><CountUp value={totalPerDay} />/day</b>
+        </span>
+      ) : (
+        <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-[var(--body)]">
+          all-time pulls: <b className="text-[var(--ink)]"><CountUp value={allTimeTotal} /></b>
+        </span>
+      )}
       <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-[var(--body)]">
         models tracked: <b className="text-[var(--ink)]">{modelCount} + {stats.length - modelCount} runtimes</b>
       </span>
       {leader ? (
         <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-[var(--body)]">
           leader: <b className="text-[var(--ink)]">{leader.name} {leader.share.toFixed(0)}%</b>
+        </span>
+      ) : allTimeLeader ? (
+        <span className="border-2 border-[var(--line)] bg-[var(--paper)] px-3 py-1.5 text-[var(--body)]">
+          leader: <b className="text-[var(--ink)]">{allTimeLeader.name} {formatCount(allTimeLeader.latestCum)} all-time</b>
         </span>
       ) : null}
       {fastest ? (
@@ -152,39 +164,84 @@ export function ModelStatsStrip({ rows }: { rows: ModelMetricRow[] }) {
 /* --- fig. 01: total daily weight downloads --- */
 
 export function ModelVolumeChart({ rows }: { rows: ModelMetricRow[] }) {
-  const totals = totalDailySeries(computeStats(rows))
-  if (totals.length === 0) {
+  const stats = computeStats(rows)
+  const totals = totalDailySeries(stats)
+  if (totals.length > 0) {
+    return (
+      <BarChart
+        data={totals.map((p) => ({ label: shortDate(p.date), value: p.value }))}
+        ariaLabel="Daily Hugging Face weight downloads across tracked open models"
+        labelEvery={Math.max(1, Math.floor(totals.length / 8))}
+      />
+    )
+  }
+
+  // Day-1 fallback: all-time cumulative weight pulls, ranked (deltas start tomorrow)
+  const ranked = stats
+    .filter((m) => !m.isRuntime && m.latestCum > 0)
+    .sort((a, b) => b.latestCum - a.latestCum)
+  if (ranked.length === 0) {
     return (
       <p className="font-mono text-[12px] text-[var(--muted)]">
         collecting daily snapshots — the chart fills in as they accrue.
       </p>
     )
   }
+  const max = ranked[0].latestCum || 1
   return (
-    <BarChart
-      data={totals.map((p) => ({ label: shortDate(p.date), value: p.value }))}
-      ariaLabel="Daily Hugging Face weight downloads across tracked open models"
-      labelEvery={Math.max(1, Math.floor(totals.length / 8))}
-    />
+    <div className="font-mono text-[12px]">
+      {ranked.map((m) => (
+        <div key={m.key} className="flex items-center gap-3 py-1.5">
+          <span className="w-32 shrink-0 truncate text-[var(--body)]">{m.name}</span>
+          <span className="h-2.5 min-w-0 flex-1">
+            <span className="block h-full bg-[var(--ink)]" style={{ width: `${Math.max((m.latestCum / max) * 100, 2)}%` }} />
+          </span>
+          <span className="shrink-0 font-bold tabular-nums text-[var(--ink)]">{formatCount(m.latestCum)}</span>
+        </div>
+      ))}
+      <p className="mt-3 text-[11px] text-[var(--muted)]">
+        all-time cumulative weight pulls today · daily bars start tomorrow as snapshots accrue.
+      </p>
+    </div>
   )
 }
 
-/* --- fig. 02: download share (new downloads, 30d window) --- */
+/* --- fig. 02: download share --- */
 
 export function ModelShareBar({ rows }: { rows: ModelMetricRow[] }) {
   const stats = computeStats(rows)
+  const withDelta = stats
     .filter((m) => !m.isRuntime && (m.delta30d ?? 0) > 0)
     .sort((a, b) => (b.delta30d ?? 0) - (a.delta30d ?? 0))
-  if (stats.length === 0) {
+
+  // Before the 30-day window fills: all-time cumulative share (still real data)
+  if (withDelta.length === 0) {
+    const allTime = stats
+      .filter((m) => !m.isRuntime && m.latestCum > 0)
+      .sort((a, b) => b.latestCum - a.latestCum)
+    if (allTime.length === 0) {
+      return (
+        <p className="font-mono text-[12px] text-[var(--muted)]">
+          share computes once 30 days of snapshots exist — check back as data accrues.
+        </p>
+      )
+    }
     return (
-      <p className="font-mono text-[12px] text-[var(--muted)]">
-        share computes once 30 days of snapshots exist — check back as data accrues.
-      </p>
+      <div>
+        <ShareBar
+          segments={allTime.map((m) => ({ label: m.name, value: m.latestCum }))}
+          ariaLabel="All-time Hugging Face weight download share by model"
+        />
+        <p className="mt-2 font-mono text-[11px] text-[var(--muted)]">
+          all-time cumulative share today · switches to the 30-day window as snapshots accrue.
+        </p>
+      </div>
     )
   }
+
   return (
     <ShareBar
-      segments={stats.map((m) => ({ label: m.name, value: m.delta30d ?? 0 }))}
+      segments={withDelta.map((m) => ({ label: m.name, value: m.delta30d ?? 0 }))}
       ariaLabel="Share of new Hugging Face downloads by model over the last 30 days"
     />
   )
