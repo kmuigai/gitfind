@@ -66,7 +66,7 @@ export default async function OpenModelIndexPage() {
           <div className="border-2 border-[var(--line)] bg-[var(--paper)] p-4">
             <ModelVolumeChart rows={rows} />
             <p className="mt-2 font-mono text-[11px] text-[var(--muted)]">
-              cumulative hugging face weight downloads, delta per day, across all tracked models.
+              hugging face trailing 30-day weight downloads per day, across all tracked models.
             </p>
           </div>
         </Reveal>

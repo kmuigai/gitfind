@@ -17,30 +17,19 @@ const geistMono = fetch(
   'https://fonts.gstatic.com/s/geistmono/v6/or3yQ6H-1_WfwkMZI_qYPLs1a-t7PU0AbeE9KJ5T.ttf'
 ).then((res) => res.arrayBuffer())
 
-function totalPerDay(rows: ModelMetricRow[]): number {
-  const byModel = new Map<string, ModelMetricRow[]>()
+function total30d(rows: ModelMetricRow[]): number {
+  const latest = new Map<string, number>()
   for (const r of rows) {
-    const list = byModel.get(r.model_key) ?? []
-    list.push(r)
-    byModel.set(r.model_key, list)
+    if ((latest.get(r.model_key) ?? -1) < r.hf_downloads) latest.set(r.model_key, r.hf_downloads)
   }
   let total = 0
-  for (const series of byModel.values()) {
-    series.sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date))
-    if (series.length < 2) continue
-    const latest = series[series.length - 1]
-    const prev = series[Math.max(0, series.length - 31)]
-    const days = series.length - 1
-    if (days > 0 && latest.hf_downloads > prev.hf_downloads) {
-      total += Math.round((latest.hf_downloads - prev.hf_downloads) / days)
-    }
-  }
+  for (const key of MODEL_REGISTRY.map((m) => m.key)) total += latest.get(key) ?? 0
   return total
 }
 
 export default async function Image() {
   const [silkscreenData, monoData, rows] = await Promise.all([silkscreen, geistMono, getModelMetrics()])
-  const perDay = totalPerDay(rows)
+  const total = total30d(rows)
   const modelCount = MODEL_REGISTRY.filter((m) => m.family !== 'runtime').length
 
   return new ImageResponse(
@@ -93,7 +82,7 @@ export default async function Image() {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '3px solid #171512', paddingTop: '18px' }}>
           <span style={{ fontSize: '18px', color: '#33302a' }}>
-            <b style={{ color: '#171512', marginRight: '6px' }}>{perDay > 0 ? formatCount(perDay) : '—'}</b>weight downloads/day · {modelCount} models tracked
+            <b style={{ color: '#171512', marginRight: '6px' }}>{total > 0 ? formatCount(total) : '—'}</b>30-day weight pulls · {modelCount} models tracked
           </span>
           <span style={{ fontSize: '16px', letterSpacing: '0.15em', color: '#171512', textTransform: 'uppercase', fontWeight: 700 }}>
             every score, explained
