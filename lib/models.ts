@@ -53,6 +53,14 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     github: { owner: 'MoonshotAI', name: 'kimi-code' },
   },
   {
+    key: 'kimi-k3',
+    name: 'kimi k3',
+    org: 'moonshotai',
+    family: 'kimi',
+    hfRepoId: 'moonshotai/Kimi-K3',
+    github: { owner: 'MoonshotAI', name: 'Kimi-K3' },
+  },
+  {
     key: 'mistral-small-3.1',
     name: 'mistral small 3.1',
     org: 'mistralai',
