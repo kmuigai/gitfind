@@ -35,6 +35,16 @@ export default function Header() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
 
+  // Replay the logo's three-blink on hover: restarting a finished CSS animation
+  // requires removing and re-adding the class across a reflow.
+  function replayLogoBlink(e: React.MouseEvent<HTMLElement>) {
+    const cursor = e.currentTarget.querySelector('.blink-3')
+    if (!cursor) return
+    cursor.classList.remove('blink-3')
+    void cursor.getBoundingClientRect()
+    cursor.classList.add('blink-3')
+  }
+
   function isActive(href: string): boolean {
     if (href === '/') return pathname === '/'
     return pathname.startsWith(href)
@@ -44,7 +54,7 @@ export default function Header() {
     <header className="border-b-2 border-[var(--line)] bg-[var(--paper)]">
       <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-5">
-          <Link href="/" className="flex items-center gap-2.5" aria-label="GitFind home">
+          <Link href="/" className="flex items-center gap-2.5" aria-label="GitFind home" onMouseEnter={replayLogoBlink}>
             <LogoMark className="h-7 w-7" />
             <span className="font-display text-sm font-bold text-[var(--ink)]">GITFIND</span>
           </Link>
