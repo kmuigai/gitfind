@@ -108,7 +108,8 @@ body {
 .blink {
   animation: blink 1.1s steps(1) infinite;
 }
-/* Logo mark: three blinks on load, then rest solid (signature, not status) */
+/* Logo mark: three blinks on load, then rest solid (signature, not status).
+   Replays on home-link hover via replayLogoBlink in Header.tsx. */
 .blink-3 {
   animation: blink 1.1s steps(1) 3;
 }
