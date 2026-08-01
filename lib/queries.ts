@@ -4,6 +4,7 @@
 
 import { supabase } from './supabase'
 import type { Repo, Enrichment, RepoWithEnrichment, PackageDownload } from './database.types'
+import { buildRaceDates, buildBubbleFrames, type BubbleFrame, type BubbleProfile, type BubbleSnapshotRow } from './bubble'
 
 type RawEnrichment = Enrichment
 type RawRepo = Repo
@@ -1293,4 +1294,89 @@ export async function getTickerRepos(limit = 15): Promise<TickerRepo[]> {
   }
 
   return results
+}
+
+// ─── The Race ────────────────────────────────────────────────────────────────
+// Weekly frames of the top repos by 7-day star gains, feeding the interactive
+// bubble race. Frame + scale math lives in lib/bubble.ts (pure, unit-tested).
+
+export interface BubbleRaceData {
+  frames: BubbleFrame[] // chronological, oldest first
+  profiles: Record<string, BubbleProfile> // keyed by "owner/name" — the sports card
+  through: string | null // latest snapshot date in the data
+}
+
+export async function getBubbleRaceData(weeks = 20, topN = 10): Promise<BubbleRaceData> {
+  const empty: BubbleRaceData = { frames: [], profiles: {}, through: null }
+  const { data: latestRow } = await supabase
+    .from('repo_snapshots')
+    .select('snapshot_date')
+    .order('snapshot_date', { ascending: false })
+    .limit(1)
+
+  if (!latestRow || latestRow.length === 0) return empty
+  const latestDate = (latestRow[0] as unknown as { snapshot_date: string }).snapshot_date
+
+  const dates = buildRaceDates(latestDate, weeks)
+
+  // One small ranked query per week, in modest batches: a single bulk fetch
+  // blows past PostgREST's 1000-row cap, and full fan-out drops requests.
+  const typedRows: BubbleSnapshotRow[] = []
+  for (let i = 0; i < dates.length; i += 6) {
+    const chunk = await Promise.all(
+      dates.slice(i, i + 6).map(async (date) => {
+        const { data } = await supabase
+          .from('repo_snapshots')
+          .select('repo_id, snapshot_date, stars, forks, stars_7d')
+          .eq('snapshot_date', date)
+          .gt('stars_7d', 0)
+          .order('stars_7d', { ascending: false })
+          .limit(topN)
+        return (data ?? []) as unknown as BubbleSnapshotRow[]
+      }),
+    )
+    typedRows.push(...chunk.flat())
+  }
+
+  if (typedRows.length === 0) return { ...empty, through: latestDate }
+
+  const repoIds = [...new Set(typedRows.map((r) => r.repo_id))]
+  const [{ data: repos }, { data: enrichments }] = await Promise.all([
+    supabase.from('repos').select('id, owner, name, url').in('id', repoIds),
+    supabase
+      .from('enrichments')
+      .select('repo_id, early_signal_score, summary, why_it_matters, category')
+      .in('repo_id', repoIds),
+  ])
+
+  const names = new Map<string, string>()
+  for (const r of (repos ?? []) as unknown as Array<{ id: string; owner: string; name: string; url: string }>) {
+    names.set(r.id, `${r.owner}/${r.name}`)
+  }
+
+  const urlByRepoId = new Map<string, string>()
+  for (const r of (repos ?? []) as unknown as Array<{ id: string; url: string }>) {
+    urlByRepoId.set(r.id, r.url)
+  }
+
+  const profiles: Record<string, BubbleProfile> = {}
+  for (const e of (enrichments ?? []) as unknown as Array<{
+    repo_id: string
+    early_signal_score: number
+    summary: string
+    why_it_matters: string
+    category: string
+  }>) {
+    const key = names.get(e.repo_id)
+    if (!key) continue
+    profiles[key] = {
+      score: e.early_signal_score,
+      summary: e.summary,
+      whyItMatters: e.why_it_matters,
+      category: e.category,
+      url: urlByRepoId.get(e.repo_id) ?? '',
+    }
+  }
+
+  return { frames: buildBubbleFrames(typedRows, dates, names, topN), profiles, through: latestDate }
 }
