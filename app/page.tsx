@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getTopRepos, getTrendingRepos, getToolContributionsByDay } from '@/lib/queries'
+import { getTopRepos, getTrendingRepos, getToolContributionsByDay, getBubbleRaceData } from '@/lib/queries'
 import RepoCard from '@/components/RepoCard'
 import SearchBar from '@/components/SearchBar'
 import NewsletterSignup from '@/components/NewsletterSignup'
@@ -8,6 +8,7 @@ import ViewToggle from '@/components/ViewToggle'
 import BarChart from '@/components/charts/BarChart'
 import Reveal from '@/components/Reveal'
 import CountUp from '@/components/CountUp'
+import UniverseHero from '@/components/UniverseHero'
 import type { RepoWithEnrichment } from '@/lib/database.types'
 import type { TrendingRepo } from '@/lib/queries'
 
@@ -28,10 +29,11 @@ function shortDate(iso: string): string {
 }
 
 export default async function HomePage() {
-  const [trendingProjects, topProjects, toolData] = await Promise.all([
+  const [trendingProjects, topProjects, toolData, { frames: raceFrames, profiles: raceProfiles }] = await Promise.all([
     getTrendingRepos(12),
     getTopRepos(12),
     getToolContributionsByDay(),
+    getBubbleRaceData(20, 10),
   ])
 
   const chartData = toolData.slice(-182).map((d) => ({ label: shortDate(d.date), value: d.claude_code }))
@@ -71,6 +73,9 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* The universe — scrollytelling hero */}
+      <UniverseHero frames={raceFrames} profiles={raceProfiles} />
 
       {/* Movers grid */}
       <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">

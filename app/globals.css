@@ -122,6 +122,44 @@ body {
 .marquee {
   animation: marquee var(--marquee-duration, 36s) linear infinite;
 }
+
+/* Time dial — the bubble race scrubber. Square thumb, paper fill, accent on hover/focus. */
+.race-dial {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 2px;
+  background: var(--ink);
+  cursor: pointer;
+}
+.race-dial::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  cursor: grab;
+}
+.race-dial::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  cursor: grab;
+}
+.race-dial::-moz-range-track {
+  height: 2px;
+  background: var(--ink);
+}
+.race-dial:hover::-webkit-slider-thumb,
+.race-dial:focus-visible::-webkit-slider-thumb {
+  background: var(--accent);
+}
+.race-dial:hover::-moz-range-thumb,
+.race-dial:focus-visible::-moz-range-thumb {
+  background: var(--accent);
+}
 .marquee:hover {
   animation-play-state: paused;
 }
@@ -163,6 +201,44 @@ body {
   animation-play-state: running;
 }
 
+/* Vortex blobs pop in from the center, one by one, on first view.
+   fill-mode backwards: the from-state holds during the stagger delay, then
+   control returns to inline transforms (hover swell). */
+@keyframes vortex-pop {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+.vortex-pop {
+  animation: vortex-pop 240ms linear backwards;
+}
+.chart-anim .vortex-pop {
+  animation-play-state: paused;
+}
+.chart-anim.is-visible .vortex-pop {
+  animation-play-state: running;
+}
+
+/* Ambient drift — the Obsidian wobble, 1-bit edition. Each blob wanders a
+   tiny diamond path on its own seeded clock (amplitude/duration/delay set
+   per-blob inline from the repo-key hash). Applied to a parent <g> so it
+   composes with the pop + hover transforms on the circle itself.
+   Bounded, not ambient: two cycles after load, then it rests — and one
+   cycle again only when the blob is hovered directly. */
+@keyframes vortex-drift {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(var(--dx, 2px), calc(var(--dy, 2px) * -1)); }
+  50% { transform: translate(0, 0); }
+  75% { transform: translate(calc(var(--dx, 2px) * -1), var(--dy, 2px)); }
+}
+.vortex-drift {
+  animation: vortex-drift var(--dur, 6s) linear 2;
+  animation-delay: var(--drift-delay, 0s);
+}
+.vortex-drift:hover {
+  animation: vortex-drift var(--dur, 6s) linear 1;
+  animation-delay: 0s;
+}
+
 /* Score gauge fill */
 @keyframes gauge-fill {
   from { width: 0; }
@@ -192,7 +268,7 @@ body {
 
 /* Reduced motion — everything renders in final state */
 @media (prefers-reduced-motion: reduce) {
-  .blink, .blink-3, .marquee, .bar-grow, .gauge-fill {
+  .blink, .blink-3, .marquee, .bar-grow, .gauge-fill, .vortex-pop, .vortex-drift {
     animation: none;
   }
   .reveal {
