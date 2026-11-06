@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "updated_at": "2026-11-06T22:19:18.050Z",
+  "days": {
+    "2026-11-06": {
+      "captured_at": "2026-11-06T22:19:18.050Z",
+      "datasets": {
+        "repos": {
+          "rows": 53279,
+          "sha256": "e46568e21fc51945317e5f268d31130e568aa12684b22308df17551b0eba87bd",
+          "path": "archive/2026/11/06/repos.jsonl"
+        },
+        "enrichments": {
+          "rows": 11643,
+          "sha256": "9f4822558ad1c22d3cf6e761efff6f78f3cc3f09223c684857dcae531e2987ce",
+          "path": "archive/2026/11/06/enrichments.jsonl"
+        },
+        "repo_snapshots": {
+          "rows": 28646,
+          "sha256": "128e15984c85d0b1ea95de817c6e4d3ac2105db3908a5f933e4a5c9fa758e5fd",
+          "path": "archive/2026/11/06/repo_snapshots.jsonl"
+        },
+        "package_downloads": {
+          "rows": 1000,
+          "sha256": "be23998445d193d24541f316cb8d15ac7dfabfe99e5f0d2bc1459a90b31c15b2",
+          "path": "archive/2026/11/06/package_downloads.jsonl"
+        },
+        "weekly_stats": {
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "path": "archive/2026/11/06/weekly_stats.jsonl"
+        },
+        "ai_code_index": {
+          "rows": 12134,
+          "sha256": "558e7071bcb462eb013e33a4fdb9e7e16ae1f4b31014bed1b99d4daa6552e62b",
+          "path": "archive/2026/11/06/ai_code_index.jsonl"
+        },
+        "model_metrics": {
+          "rows": 800,
+          "sha256": "6bdfb05d180aa2d7d419067d2dc8ffd4dd8fddc9c880f4c83d3f3a1d76762db0",
+          "path": "archive/2026/11/06/model_metrics.jsonl"
+        }
+      }
+    }
+  }
+}
