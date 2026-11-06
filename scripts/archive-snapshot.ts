@@ -36,13 +36,18 @@ import { join } from 'node:path'
 import {
   archiveDatePath,
   buildDayEntry,
+  collectKeysetPages,
   findMissingDates,
+  idCursorAfter,
   mergeManifest,
+  modelCursorAfter,
+  modelCursorOrFilter,
   parseManifest,
   serializeJsonl,
   sha256Hex,
   type ArchiveManifest,
   type DatasetSnapshotInput,
+  type ModelMetricsCursor,
 } from '../lib/archive.js'
 
 dotenv.config({ path: '.env.local' })
@@ -79,60 +84,86 @@ interface PageResult {
   error: { message: string } | null
 }
 
-/** Fetch every row of a query, paging past PostgREST's 1000-row cap. */
-async function fetchAll(
+/**
+ * Fetch every row of an id-ordered query, paging with a keyset cursor
+ * (`id > last id seen`) instead of OFFSET. Offset paging re-scans the whole
+ * matching set for every page and timed out on repo_snapshots in run #1
+ * (Nov 6, 2026); each keyset page is a bounded index range scan. The row
+ * sequence — and therefore the archived bytes — is unchanged.
+ */
+async function fetchKeysetById(
   label: string,
-  query: (from: number, to: number) => PromiseLike<PageResult>,
+  query: (afterId: string | null) => PromiseLike<PageResult>,
 ): Promise<Row[]> {
-  const rows: Row[] = []
-  let offset = 0
-  for (;;) {
-    const { data, error } = await query(offset, offset + PAGE_SIZE - 1)
-    if (error) throw new Error(`${label}: ${error.message}`)
-    if (!data || data.length === 0) break
-    rows.push(...data)
-    if (data.length < PAGE_SIZE) break
-    offset += PAGE_SIZE
-  }
-  return rows
+  return collectKeysetPages<Row, string>(
+    PAGE_SIZE,
+    async (afterId: string | null) => {
+      const { data, error } = await query(afterId)
+      if (error) throw new Error(`${label}: ${error.message}`)
+      return data ?? []
+    },
+    (page) => idCursorAfter(page),
+  )
 }
 
 async function fetchDataset(name: string, date: string, repoKeyById: Map<string, string>, placeholderId: string | null): Promise<Row[]> {
   switch (name) {
     case 'repos':
-      return fetchAll('repos', (from, to) =>
-        db().from('repos').select('*').order('id', { ascending: true }).range(from, to),
-      )
+      return fetchKeysetById('repos', (afterId) => {
+        const q = db().from('repos').select('*').order('id', { ascending: true }).limit(PAGE_SIZE)
+        return afterId === null ? q : q.gt('id', afterId)
+      })
     case 'enrichments': {
-      const rows = await fetchAll('enrichments', (from, to) =>
-        db().from('enrichments').select('*').order('id', { ascending: true }).range(from, to),
-      )
+      const rows = await fetchKeysetById('enrichments', (afterId) => {
+        const q = db().from('enrichments').select('*').order('id', { ascending: true }).limit(PAGE_SIZE)
+        return afterId === null ? q : q.gt('id', afterId)
+      })
       // Denormalize owner/name so the file stands alone without the repos join.
       return rows.map((row) => ({ ...row, repo_key: repoKeyById.get(String(row.repo_id)) ?? null }))
     }
+    // The dated slices keep select('*'): their rows are a handful of narrow
+    // scalar columns and every column is derived state the archive exists to
+    // preserve. The run #1 timeout was a scan problem (no index leads with
+    // snapshot_date — see migration 007), not a row-width problem.
     case 'repo_snapshots':
-      return fetchAll('repo_snapshots', (from, to) =>
-        db().from('repo_snapshots').select('*').eq('snapshot_date', date).order('id', { ascending: true }).range(from, to),
-      )
+      return fetchKeysetById('repo_snapshots', (afterId) => {
+        const q = db().from('repo_snapshots').select('*').eq('snapshot_date', date).order('id', { ascending: true }).limit(PAGE_SIZE)
+        return afterId === null ? q : q.gt('id', afterId)
+      })
     case 'package_downloads':
-      return fetchAll('package_downloads', (from, to) =>
-        db().from('package_downloads').select('*').eq('snapshot_date', date).order('id', { ascending: true }).range(from, to),
-      )
+      return fetchKeysetById('package_downloads', (afterId) => {
+        const q = db().from('package_downloads').select('*').eq('snapshot_date', date).order('id', { ascending: true }).limit(PAGE_SIZE)
+        return afterId === null ? q : q.gt('id', afterId)
+      })
     case 'weekly_stats':
-      return fetchAll('weekly_stats', (from, to) =>
-        db().from('weekly_stats').select('*').eq('snapshot_date', date).order('id', { ascending: true }).range(from, to),
-      )
+      return fetchKeysetById('weekly_stats', (afterId) => {
+        const q = db().from('weekly_stats').select('*').eq('snapshot_date', date).order('id', { ascending: true }).limit(PAGE_SIZE)
+        return afterId === null ? q : q.gt('id', afterId)
+      })
     case 'ai_code_index': {
       if (!placeholderId) {
         throw new Error('ai_code_index: _bigquery_aggregate placeholder repo not found in repos export')
       }
-      return fetchAll('ai_code_index', (from, to) =>
-        db().from('tool_contributions').select('*').eq('repo_id', placeholderId).order('id', { ascending: true }).range(from, to),
-      )
+      return fetchKeysetById('ai_code_index', (afterId) => {
+        const q = db().from('tool_contributions').select('*').eq('repo_id', placeholderId).order('id', { ascending: true }).limit(PAGE_SIZE)
+        return afterId === null ? q : q.gt('id', afterId)
+      })
     }
     case 'model_metrics':
-      return fetchAll('model_metrics', (from, to) =>
-        db().from('model_metrics').select('*').order('snapshot_date', { ascending: true }).order('model_key', { ascending: true }).range(from, to),
+      // No id column: the primary key is (model_key, snapshot_date). Page on
+      // the (snapshot_date, model_key) ordering with a tuple cursor.
+      return collectKeysetPages<Row, ModelMetricsCursor>(
+        PAGE_SIZE,
+        async (cursor: ModelMetricsCursor | null) => {
+          const q = db().from('model_metrics').select('*')
+            .order('snapshot_date', { ascending: true })
+            .order('model_key', { ascending: true })
+            .limit(PAGE_SIZE)
+          const { data, error } = await (cursor === null ? q : q.or(modelCursorOrFilter(cursor)))
+          if (error) throw new Error(`model_metrics: ${error.message}`)
+          return (data ?? []) as Row[]
+        },
+        (page) => modelCursorAfter(page),
       )
     default:
       throw new Error(`Unknown dataset: ${name}`)
