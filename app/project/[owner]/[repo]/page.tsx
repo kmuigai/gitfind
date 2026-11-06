@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getRepo, getPackageDownloads, getReposByCategory, getRepoEvidence } from '@/lib/queries'
+import { getRepo, getPackageDownloads, getReposByCategory, getRepoEvidence, getIndexableProjectKeys } from '@/lib/queries'
+import { projectKey } from '@/lib/index-gate'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import RepoCard from '@/components/RepoCard'
 import SpecScore, { type SpecScoreBreakdown } from '@/components/SpecScore'
@@ -37,9 +38,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const url = `https://gitfind.ai/project/${owner}/${repo}`
 
+  // E1: only the gated top set (top 500 by Early Signal Score, spam gate
+  // applied — the same set the sitemap submits, via lib/index-gate.ts)
+  // stays indexable. Every other project page is noindex, follow: it stays
+  // live for direct visits and internal links, but leaves Google's queue.
+  const indexableKeys = await getIndexableProjectKeys()
+  const indexable = indexableKeys.has(projectKey(owner, repo))
+
   return {
     title: pageTitle,
     description,
+    robots: { index: indexable, follow: true },
     alternates: { canonical: url },
     openGraph: {
       title: fullTitle,

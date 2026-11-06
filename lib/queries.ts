@@ -2,9 +2,16 @@
 // Supabase JS v2.96+ needs explicit type casts for select('*') with hand-crafted Database types.
 // All casts are at the query boundary — the rest of the codebase is fully typed via RepoWithEnrichment.
 
+import { unstable_cache } from 'next/cache'
 import { supabase } from './supabase'
 import type { Repo, Enrichment, RepoWithEnrichment, PackageDownload } from './database.types'
 import { buildRaceDates, buildBubbleFrames, type BubbleFrame, type BubbleProfile, type BubbleSnapshotRow } from './bubble'
+import {
+  INDEXABLE_PROJECT_LIMIT,
+  indexableProjectKeys,
+  selectIndexableProjects,
+  type IndexCandidate,
+} from './index-gate'
 
 type RawEnrichment = Enrichment
 type RawRepo = Repo
@@ -199,43 +206,88 @@ export async function getCategoryCounts(): Promise<Record<string, number>> {
   return counts
 }
 
-// Get all repos for sitemap generation
-export async function getAllReposForSitemap(): Promise<
-  Array<{ owner: string; name: string; updated_at: string; has_enrichment: boolean }>
-> {
-  // Paginate to handle 1000-row Supabase/PostgREST cap (DB has 5K+ repos)
-  const allRows: Array<{ owner: string; name: string; updated_at: string; has_enrichment: boolean }> = []
-  let offset = 0
-  const PAGE_SIZE = 1000
+// --- E1: the indexable project set ---------------------------------------
+// The gate itself (ranking, spam filter, limit) is pure and lives in
+// lib/index-gate.ts; this is the database fetch that feeds it. The Early
+// Signal Score lives on enrichments, so the fetch reads enrichments
+// best-first and lets the gate make the final cut.
+//
+// The fetch is a SINGLE bounded query: only the columns the gate needs,
+// ordered best-first, capped at INDEX_FETCH_LIMIT rows. (The first version
+// paginated through the table with repo rows embedded; re-sorting the full
+// ~40K-row join page after page exceeded Supabase's statement timeout when
+// the sitemap prerendered at build time — Postgres error 57014.) A failed
+// query throws rather than returning an empty set, so a transient database
+// error can never masquerade as "index nothing".
 
-  while (true) {
-    const { data } = await supabase
-      .from('repos')
-      .select('owner, name, updated_at, enrichments(id)')
-      .order('updated_at', { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1)
+// Rows fetched per indexable-set computation: the gate keeps
+// INDEXABLE_PROJECT_LIMIT (500); the extra 150 are headroom for spam-gate
+// rejects inside the fetched window. The spam patterns are conservative
+// piracy signals and the top of the score table is established projects, so
+// rejects in this band are rare — the one known live case ranked nowhere
+// near the top. 30% headroom is generous; if rejects ever exceeded it the
+// gate would return slightly fewer than 500, visible in the sitemap URL
+// count, never a silently wrong set.
+const INDEX_FETCH_LIMIT = INDEXABLE_PROJECT_LIMIT + 150
 
-    if (!data || data.length === 0) break
+async function fetchIndexableProjects(): Promise<IndexCandidate[]> {
+  const { data, error } = await supabase
+    .from('enrichments')
+    .select('early_signal_score, scored_at, repos(owner, name, description, updated_at)')
+    // Nulls last: the gate ranks a missing score as -1, below every real
+    // score. Postgres DESC defaults to nulls first, which would let
+    // unscored rows fill the bounded window instead.
+    .order('early_signal_score', { ascending: false, nullsFirst: false })
+    .limit(INDEX_FETCH_LIMIT)
 
-    const typed = data as unknown as Array<{
-      owner: string
-      name: string
-      updated_at: string
-      enrichments: { id: string }[] | null
-    }>
-    allRows.push(
-      ...typed.map((r) => ({
-        owner: r.owner,
-        name: r.name,
-        updated_at: r.updated_at,
-        has_enrichment: Array.isArray(r.enrichments) && r.enrichments.length > 0,
-      }))
-    )
-    if (data.length < PAGE_SIZE) break
-    offset += PAGE_SIZE
+  if (error) throw error
+
+  const rows = (data ?? []) as unknown as Array<{
+    early_signal_score: number | null
+    scored_at: string | null
+    repos:
+      | { owner: string; name: string; description: string | null; updated_at: string }
+      | { owner: string; name: string; description: string | null; updated_at: string }[]
+      | null
+  }>
+
+  const candidates: IndexCandidate[] = []
+  for (const row of rows) {
+    const repo = Array.isArray(row.repos) ? row.repos[0] : row.repos
+    if (!repo) continue
+    candidates.push({
+      owner: repo.owner,
+      name: repo.name,
+      description: repo.description,
+      score: row.early_signal_score,
+      updated_at: repo.updated_at,
+      scored_at: row.scored_at,
+    })
   }
 
-  return allRows
+  // The gate applies the canonical ordering (score desc → updated_at desc
+  // → key asc) and the spam filter, then cuts to the limit. Feeding it the
+  // bounded window gives the identical set as feeding it the whole table:
+  // every row that could survive the cut is inside the window (see
+  // INDEX_FETCH_LIMIT above).
+  return selectIndexableProjects(candidates)
+}
+
+/**
+ * The E1 indexable set: the top INDEXABLE_PROJECT_LIMIT project pages by
+ * Early Signal Score (enrichments.early_signal_score), spam gate applied.
+ * This one set drives both the sitemap (app/sitemap.ts) and the per-page
+ * robots metadata (app/project/[owner]/[repo]/page.tsx). Cached for an
+ * hour — the set only changes when scores are recomputed, and project
+ * pages revalidate on the same hourly cadence.
+ */
+export const getIndexableProjects = unstable_cache(fetchIndexableProjects, ['indexable-projects'], {
+  revalidate: 3600,
+})
+
+/** Membership keys (see projectKey in lib/index-gate.ts) for the indexable set. */
+export async function getIndexableProjectKeys(): Promise<Set<string>> {
+  return indexableProjectKeys(await getIndexableProjects())
 }
 
 // Fetch top repos by 7-day star velocity (trending this week)
