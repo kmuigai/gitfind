@@ -3,9 +3,17 @@ import { getIndexableProjects, getSnapshotDates, getDigests } from '@/lib/querie
 
 const BASE_URL = 'https://gitfind.ai'
 
-// Regenerate daily: lastModified below stays truthful (generation time for
-// static routes) and the E1 index gate tracks Early Signal Score changes.
-export const revalidate = 86400
+// Generated on demand, never at build time. The indexable-set fetch behind
+// this route runs as the anon role (3s statement timeout), and its
+// cold-cache latency (~3.8s: 650 nested-loop disk reads on a Micro instance
+// with a nearly depleted Disk IO Budget) can exceed that limit — which
+// intermittently killed builds with Postgres 57014 while the sitemap was
+// being prerendered. force-dynamic takes the build out of that path (a
+// route-level `revalidate` is ignored under force-dynamic, so it is
+// removed). Freshness is unaffected: getIndexableProjects is wrapped in
+// unstable_cache with revalidate 3600, so the gated set still refreshes at
+// most hourly and sitemap responses reuse the cached fetch.
+export const dynamic = 'force-dynamic'
 
 const CATEGORY_SLUGS = [
   'ai-ml',
