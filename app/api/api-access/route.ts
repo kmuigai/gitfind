@@ -1,25 +1,17 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
+import { createServiceClient } from '@/lib/supabase'
 
-// API access requests are emailed, not stored — Phase 0 validates demand
-// before any API (or schema) exists. Recipient defaults to Kayu; KAYU_EMAIL
-// (already used by the digest scripts) can override it.
-const NOTIFY_EMAIL = process.env.KAYU_EMAIL ?? 'k.muigai@gmail.com'
-const FROM = 'GitFind <briefing@gitfind.ai>'
+// API access requests are stored, not emailed — Phase 0 validates demand
+// before any API exists. Submissions land in the api_access_requests table
+// (scripts/migrations/004-api-access-requests.sql) and are read in the
+// Supabase dashboard. Written via the service role, the same pattern as
+// /api/newsletter and /api/submit.
 
 const TIERS = ['Free', 'Builder', 'Growth', 'Scale', 'Not sure'] as const
 type Tier = (typeof TIERS)[number]
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }
 
 function field(body: Record<string, unknown>, key: string): string {
@@ -65,58 +57,20 @@ export async function POST(request: NextRequest) {
     ? (tierRaw as Tier)
     : 'Not sure'
 
-  const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) {
-    console.error('API access request error: RESEND_API_KEY is not configured')
-    return NextResponse.json(
-      { error: 'Failed to send your request. Please try again.' },
-      { status: 500 },
-    )
-  }
+  const db = createServiceClient()
 
-  const resend = new Resend(apiKey)
-
-  const rows: Array<[string, string]> = [
-    ['Name', name],
-    ['Work email', email],
-    ['Company', company],
-    ['Tier interest', tier],
-    ['What they would build', useCase],
-  ]
-  const html = `
-<div style="font-family:'Geist',system-ui,-apple-system,sans-serif;color:#1a1a2e;max-width:640px;">
-  <h1 style="font-size:18px;margin:0 0 16px 0;">New GitFind API access request</h1>
-  <table style="border-collapse:collapse;font-size:14px;line-height:1.6;">
-    ${rows
-      .map(
-        ([label, value]) => `
-    <tr>
-      <td style="padding:4px 16px 4px 0;font-weight:700;vertical-align:top;white-space:nowrap;">${label}</td>
-      <td style="padding:4px 0;">${escapeHtml(value).replace(/\n/g, '<br>')}</td>
-    </tr>`,
-      )
-      .join('')}
-  </table>
-  <p style="margin:16px 0 0 0;font-size:12px;color:#7a7a9a;">Sent from the /developers request-access form. Reply to this email to answer the requester.</p>
-</div>`
-
-  // batch.send matches the working digest path — emails.send returned a 403
-  // "domain not verified" against this same sender (see
-  // scripts/email-anomaly-digest.ts).
-  const { error } = await resend.batch.send([
-    {
-      from: FROM,
-      to: NOTIFY_EMAIL,
-      replyTo: email,
-      subject: `GitFind API access request — ${company} (${tier})`,
-      html,
-    },
-  ])
+  const { error } = await db.from('api_access_requests').insert({
+    name,
+    email,
+    company,
+    use_case: useCase,
+    tier_interest: tier,
+  })
 
   if (error) {
     console.error('API access request error:', error)
     return NextResponse.json(
-      { error: 'Failed to send your request. Please try again.' },
+      { error: 'Failed to save your request. Please try again.' },
       { status: 500 },
     )
   }
