@@ -21,6 +21,7 @@ export default function Footer() {
           <Link href="/open-model-index" className="invert-hover px-1">open models</Link>
           <Link href="/insights" className="invert-hover px-1">insights</Link>
           <Link href="/methodology" className="invert-hover px-1">methodology</Link>
+          <Link href="/developers" className="invert-hover px-1">api</Link>
           <Link href="/submit" className="invert-hover px-1">submit</Link>
           <a
             href="https://github.com/kmuigai/gitfind"
