@@ -185,6 +185,36 @@ export type Database = {
         }
         Relationships: []
       }
+      api_access_requests: {
+        Row: {
+          id: string
+          created_at: string
+          name: string
+          email: string
+          company: string
+          use_case: string
+          tier_interest: string
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          name: string
+          email: string
+          company: string
+          use_case: string
+          tier_interest: string
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          name?: string
+          email?: string
+          company?: string
+          use_case?: string
+          tier_interest?: string
+        }
+        Relationships: []
+      }
       repo_snapshots: {
         Row: {
           id: string
@@ -406,6 +436,7 @@ export type Enrichment = Tables<'enrichments'>
 export type Category = Tables<'categories'>
 export type Subscriber = Tables<'subscribers'>
 export type Submission = Tables<'submissions'>
+export type ApiAccessRequest = Tables<'api_access_requests'>
 export type ToolContribution = Tables<'tool_contributions'>
 export type RepoSnapshot = Tables<'repo_snapshots'>
 export type PackageDownload = Tables<'package_downloads'>
