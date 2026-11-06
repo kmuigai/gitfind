@@ -141,6 +141,72 @@ export function parseManifest(raw: string, nowIso: string): ArchiveManifest {
   }
 }
 
+/**
+ * Drive a keyset (cursor) paginated fetch to completion.
+ *
+ * Offset paging (LIMIT n OFFSET m) re-scans and re-sorts the whole matching
+ * set for every page; on the dated fact tables (millions of rows) that is
+ * what timed out Archive Snapshot run #1 (Nov 6, 2026). Keyset paging —
+ * `WHERE key > <last key of the previous page> ORDER BY key LIMIT n` — makes
+ * every page a bounded index range scan of at most pageSize rows, however
+ * deep into the set it is. For a stable total order the row sequence (and
+ * therefore the archived bytes) is identical to offset paging.
+ *
+ * `fetchPage(null)` must return the first page; later calls receive the
+ * cursor produced by `cursorAfter` for the previous page. Fetching stops at
+ * the first short page (an exactly-full final page costs one extra fetch,
+ * which returns zero rows). If a full page's cursor does not advance, the
+ * source is ignoring the cursor — throw rather than loop forever.
+ */
+export async function collectKeysetPages<T, C>(
+  pageSize: number,
+  fetchPage: (cursor: C | null) => Promise<readonly T[]>,
+  cursorAfter: (page: readonly T[]) => C,
+): Promise<T[]> {
+  if (!Number.isInteger(pageSize) || pageSize < 1) {
+    throw new Error(`pageSize must be a positive integer, got ${pageSize}`)
+  }
+  const all: T[] = []
+  let cursor: C | null = null
+  for (;;) {
+    const page = await fetchPage(cursor)
+    all.push(...page)
+    if (page.length < pageSize) return all
+    const next = cursorAfter(page)
+    if (cursor !== null && JSON.stringify(next) === JSON.stringify(cursor)) {
+      throw new Error('Keyset cursor failed to advance — the page source is ignoring the cursor')
+    }
+    cursor = next
+  }
+}
+
+/** Cursor after a page of id-ordered rows: the last row's id. */
+export function idCursorAfter(rows: readonly Record<string, unknown>[]): string {
+  return String(rows[rows.length - 1].id)
+}
+
+/** Position in the model_metrics series: the (snapshot_date, model_key) primary key. */
+export interface ModelMetricsCursor {
+  snapshotDate: string
+  modelKey: string
+}
+
+/** Cursor after a page of model_metrics rows ordered by (snapshot_date, model_key). */
+export function modelCursorAfter(rows: readonly Record<string, unknown>[]): ModelMetricsCursor {
+  const last = rows[rows.length - 1]
+  return { snapshotDate: String(last.snapshot_date), modelKey: String(last.model_key) }
+}
+
+/**
+ * PostgREST `or` filter selecting model_metrics rows strictly after the
+ * cursor in (snapshot_date, model_key) order:
+ * a later date, or the same date with a greater model key.
+ */
+export function modelCursorOrFilter(cursor: ModelMetricsCursor): string {
+  const key = cursor.modelKey.replace(/"/g, '')
+  return `snapshot_date.gt.${cursor.snapshotDate},and(snapshot_date.eq.${cursor.snapshotDate},model_key.gt."${key}")`
+}
+
 function nextDay(date: string): string {
   const d = new Date(`${date}T00:00:00Z`)
   d.setUTCDate(d.getUTCDate() + 1)
