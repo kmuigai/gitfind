@@ -9,7 +9,7 @@ interface AccessResponse {
   error?: string
 }
 
-const TIER_OPTIONS = ['Free', 'Builder', 'Growth', 'Scale', 'Not sure'] as const
+const TIER_OPTIONS = ['Free', 'Builder', 'Growth', 'Data License', 'Not sure'] as const
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 

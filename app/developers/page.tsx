@@ -146,16 +146,16 @@ const TIERS: Tier[] = [
     ],
   },
   {
-    name: 'Scale',
-    price: '$499/mo+',
+    name: 'Data License',
+    price: 'from $12,000/yr',
     rows: [
-      { label: 'calls / month', value: '150,000+' },
-      { label: 'project records + top lists', value: '✓' },
-      { label: 'search + trending', value: '✓' },
-      { label: 'ai code index', value: 'full history' },
-      { label: 'score history', value: 'full + bulk export' },
-      { label: 'support', value: 'priority + invoicing' },
-      { label: 'attribution', value: 'not required' },
+      { label: 'point-in-time archive', value: 'full access' },
+      { label: 'scores + ai code index history', value: 'as published, daily' },
+      { label: 'enrichment history', value: '✓' },
+      { label: 'delivery', value: 'bulk files / warehouse sync' },
+      { label: 'use in your own product', value: '✓' },
+      { label: 'internal redistribution', value: '✓' },
+      { label: 'pricing', value: 'founding, by archive depth' },
     ],
   },
 ]
@@ -310,9 +310,11 @@ export default function DevelopersPage() {
         <p className="mt-4 max-w-2xl font-mono text-[11.5px] leading-[1.75] text-[var(--muted)]">
           Early access: the prices above are founding pricing for the first
           cohort, and keys are issued in small batches while we watch load.
-          There is no SLA yet — if uptime terms matter to you, that is a Scale
-          conversation. Free tier carries attribution; raw-dump resale is a
-          Scale-only right.
+          There is no SLA yet — if uptime terms matter to you, that is a Data
+          License conversation. Free tier carries attribution; bulk use in
+          your own product is a Data License right. The point-in-time archive
+          is young — daily snapshots began Nov 6, 2026 — and founding license
+          pricing reflects its depth today, rising as the archive grows.
         </p>
 
         {/* § 5 — request access */}
