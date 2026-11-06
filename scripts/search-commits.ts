@@ -24,7 +24,7 @@ const TOOLS = [
   },
   {
     name: 'GitHub Copilot',
-    query: (date: string) => `author:copilot-swe-agent committer-date:${date}`,
+    query: (date: string) => `author:copilot-swe-agent[bot] committer-date:${date}`,
     startDate: '2025-10-08',
   },
   {
@@ -39,7 +39,7 @@ const TOOLS = [
   },
   {
     name: 'Devin',
-    query: (date: string) => `author-email:bot@devin.ai committer-date:${date}`,
+    query: (date: string) => `"Co-authored-by: Devin" committer-date:${date}`,
     startDate: '2025-10-08',
   },
   {
@@ -129,6 +129,30 @@ async function main(): Promise<void> {
 
     const data = await response.json() as { total_count: number }
     const count = data.total_count
+
+    // Zero-guard: a 200 with total_count 0 can mean a broken query string
+    // (see issue #41), not a real zero. Never overwrite a stored non-zero
+    // value with 0 — keep the stored value and warn loudly instead.
+    // Brand-new dates have no stored row, so genuine zeros still upsert.
+    if (count === 0) {
+      const { data: existing } = await db
+        .from('tool_contributions')
+        .select('commit_count')
+        .eq('repo_id', repoId)
+        .eq('tool_name', tool.name)
+        .eq('month', dateStr)
+        .limit(1)
+
+      const stored = existing && existing.length > 0
+        ? (existing[0] as unknown as { commit_count: number }).commit_count
+        : 0
+
+      if (stored > 0) {
+        log(`${prefix}WARNING: ${tool.name} ${dateStr}: API returned 0 but ${stored.toLocaleString()} commits are stored — keeping stored value, not overwriting`)
+        await new Promise((r) => setTimeout(r, 2200))
+        return true // Skip the upsert
+      }
+    }
 
     await db.from('tool_contributions').upsert(
       {
