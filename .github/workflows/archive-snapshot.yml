@@ -1,0 +1,123 @@
+name: GitFind Archive Snapshot
+
+# Board Directive 1 (Nov 6, 2026): freeze each day's derived data — scores,
+# enrichments, AI Code Index series, Open Model Index metrics — into immutable
+# dated files on the dedicated `archive` branch, with a checksummed manifest.
+# If this workflow (or the pipelines before it) silently dies again the way
+# they did in Sep–Oct 2026, the manifest makes the gap provable instead of
+# invisible, and a failure issue is opened below.
+
+on:
+  # Run daily at 12:00 UTC — after pipeline (00:00), model-metrics (00:30),
+  # chart-data (05:00), snapshot-light (06:00), and db-health (10:00) have
+  # all had time to complete.
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Archive date to (re)write, YYYY-MM-DD — leave blank for today (UTC)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: archive-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    name: Freeze daily derived-data snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout main (export script)
+        uses: actions/checkout@v4
+        with:
+          path: src
+
+      - name: Ensure archive branch exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git ls-remote --exit-code --heads "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" archive > /dev/null 2>&1; then
+            echo "archive branch already exists"
+          else
+            echo "Creating archive branch (orphan, README only)"
+            TMP=$(mktemp -d)
+            cd "$TMP"
+            git init -q
+            git checkout -q --orphan archive
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            printf '# GitFind data archive\n\nImmutable daily snapshots of GitFind derived data (Board Directive 1). Layout: `archive/YYYY/MM/DD/<dataset>.jsonl`, index in `archive/manifest.json`. Written only by the Archive Snapshot workflow — do not edit by hand.\n' > README.md
+            git add README.md
+            git commit -qm "Initialize archive branch"
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" archive
+          fi
+
+      - name: Checkout archive branch
+        uses: actions/checkout@v4
+        with:
+          ref: archive
+          path: archive-repo
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/package-lock.json
+
+      - name: Install dependencies
+        working-directory: src
+        run: npm ci
+
+      - name: Install tsx (TypeScript runner)
+        run: npm install -g tsx
+
+      - name: Run archive export
+        working-directory: src
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ARCHIVE_OUT: ${{ github.workspace }}/archive-repo
+        run: |
+          if [ -n "${{ inputs.date }}" ]; then
+            npx tsx scripts/archive-snapshot.ts --date "${{ inputs.date }}"
+          else
+            npx tsx scripts/archive-snapshot.ts
+          fi
+
+      - name: Commit and push the snapshot
+        working-directory: archive-repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes — archive already up to date for this date."
+          else
+            git commit -m "archive: daily snapshot ${{ inputs.date || 'today' }} ($(date -u +%Y-%m-%d))"
+            git push origin HEAD:archive
+          fi
+
+      - name: Open or update issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="Archive snapshot failed ($(date -u +%Y-%m-%d))"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BODY=$(printf '## %s\n\nRun: %s\n\nA missing day in `archive/manifest.json` is a permanent hole in the point-in-time record — check whether the export or an upstream pipeline failed, then re-run this workflow with the missed date as the `date` input.' "$TITLE" "$RUN_URL")
+          EXISTING=$(gh issue list --label archive-snapshot --state open --json number --jq '.[0].number')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh label create archive-snapshot --color d73a4a --description "GitFind archive snapshot failures" 2>/dev/null || true
+            gh issue create --title "$TITLE" --label archive-snapshot --body "$BODY"
+          fi
