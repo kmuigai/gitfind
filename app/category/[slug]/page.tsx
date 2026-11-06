@@ -5,6 +5,7 @@ import { getReposByCategory } from '@/lib/queries'
 import RepoCard from '@/components/RepoCard'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import Reveal from '@/components/Reveal'
+import DemandTracker from '@/components/DemandTracker'
 
 export const revalidate = 3600
 
@@ -93,6 +94,8 @@ export default async function CategoryPage({ params }: Props) {
 
   return (
     <div>
+      {/* Demand Graph: one category_view event per category page view. */}
+      <DemandTracker event="category_view" target={slug} />
       {/* Spec header */}
       <section className="halftone border-b-2 border-[var(--line)]">
         <div className="mx-auto max-w-5xl px-4 pb-10 pt-10 sm:px-6 sm:pb-12 sm:pt-12">

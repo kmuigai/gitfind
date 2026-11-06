@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import type { RepoWithEnrichment } from '@/lib/database.types'
+import { trackDemandEvent } from '@/lib/track'
 
 type SearchResult = RepoWithEnrichment
 
@@ -89,6 +90,10 @@ export default function SearchBar() {
         e.preventDefault()
         if (activeIndex >= 0 && results[activeIndex]) {
           const repo = results[activeIndex]
+          trackDemandEvent('project_click', {
+            target: `${repo.owner}/${repo.name}`,
+            query: query.trim(),
+          })
           window.location.href = `/project/${repo.owner}/${repo.name}`
           setIsOpen(false)
         } else if (query.trim().length >= 2) {
@@ -150,7 +155,13 @@ export default function SearchBar() {
               >
                 <Link
                   href={`/project/${repo.owner}/${repo.name}`}
-                  onClick={() => setIsOpen(false)}
+                  onClick={() => {
+                    trackDemandEvent('project_click', {
+                      target: `${repo.owner}/${repo.name}`,
+                      query: query.trim(),
+                    })
+                    setIsOpen(false)
+                  }}
                   className={`flex items-start gap-3 border-b border-[var(--line-soft)] px-3 py-2.5 font-mono last:border-0 ${
                     i === activeIndex ? 'bg-[var(--ink)] text-[var(--paper)]' : 'hover:bg-[var(--ink)] hover:text-[var(--paper)]'
                   }`}
