@@ -37,9 +37,9 @@ export interface ScoreInputs {
 }
 
 export interface ScoreBreakdown {
-  star_velocity_score: number       // 0–100, weighted 30%
-  contributor_ratio_score: number   // 0–100, weighted 25%
-  fork_velocity_score: number       // 0–100, weighted 15%
+  star_velocity_score: number       // 0–100, weighted 25%
+  contributor_ratio_score: number   // 0–100, weighted 20%
+  fork_velocity_score: number       // 0–100, weighted 10%
   mention_velocity_score: number    // 0–100, weighted 15%
   commit_frequency_score: number    // 0–100, weighted 10%
   star_acceleration_score: number   // 0–100, weighted 10%
