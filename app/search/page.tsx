@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { searchRepos } from '@/lib/queries'
 import RepoCard from '@/components/RepoCard'
 import SearchBar from '@/components/SearchBar'
+import DemandTracker from '@/components/DemandTracker'
 
 export const metadata: Metadata = {
   title: 'Search — GitFind',
@@ -40,6 +41,8 @@ export default async function SearchPage({
           </p>
         ) : (
           <>
+            {/* Demand Graph: one search event per executed search (incl. zero-result searches — the unmet-demand signal). */}
+            <DemandTracker event="search" query={query} />
             <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between font-mono text-[12px] text-[var(--muted)]">
               <p className="font-bold tracking-[0.2em] text-[var(--ink)]">
                 § 1 — results for “{query}”
@@ -59,11 +62,13 @@ export default async function SearchPage({
                 </p>
               </div>
             ) : (
-              <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {results.map((project, i) => (
-                  <RepoCard key={project.id} project={project} index={i} digest />
-                ))}
-              </div>
+              <DemandTracker captureProjectClicks query={query}>
+                <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {results.map((project, i) => (
+                    <RepoCard key={project.id} project={project} index={i} digest />
+                  ))}
+                </div>
+              </DemandTracker>
             )}
           </>
         )}

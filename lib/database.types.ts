@@ -215,6 +215,36 @@ export type Database = {
         }
         Relationships: []
       }
+      demand_events: {
+        Row: {
+          id: string
+          created_at: string
+          event_type: string
+          query: string | null
+          target: string | null
+          referrer_page: string | null
+          session_hash: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          event_type: string
+          query?: string | null
+          target?: string | null
+          referrer_page?: string | null
+          session_hash?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          event_type?: string
+          query?: string | null
+          target?: string | null
+          referrer_page?: string | null
+          session_hash?: string | null
+        }
+        Relationships: []
+      }
       project_outcomes: {
         Row: {
           id: string
@@ -481,6 +511,7 @@ export type Category = Tables<'categories'>
 export type Subscriber = Tables<'subscribers'>
 export type Submission = Tables<'submissions'>
 export type ApiAccessRequest = Tables<'api_access_requests'>
+export type DemandEvent = Tables<'demand_events'>
 export type ProjectOutcome = Tables<'project_outcomes'>
 export type ToolContribution = Tables<'tool_contributions'>
 export type RepoSnapshot = Tables<'repo_snapshots'>
