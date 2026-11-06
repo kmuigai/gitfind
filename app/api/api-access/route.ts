@@ -7,7 +7,7 @@ import { createServiceClient } from '@/lib/supabase'
 // Supabase dashboard. Written via the service role, the same pattern as
 // /api/newsletter and /api/submit.
 
-const TIERS = ['Free', 'Builder', 'Growth', 'Scale', 'Not sure'] as const
+const TIERS = ['Free', 'Builder', 'Growth', 'Data License', 'Not sure'] as const
 type Tier = (typeof TIERS)[number]
 
 function isValidEmail(email: string): boolean {
