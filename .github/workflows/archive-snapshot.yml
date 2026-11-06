@@ -106,18 +106,45 @@ jobs:
             git push origin HEAD:archive
           fi
 
+      # Via the API, not the gh CLI: the old gh-based step ran in the
+      # workspace root, which is not a git checkout (checkouts live in src/
+      # and archive-repo/), so gh died with "failed to run git: fatal: not a
+      # git repository" and no issue was ever opened (run #1, Nov 6, 2026).
+      # github-script talks to the API directly — no git, no checkout needed.
       - name: Open or update issue on failure
         if: failure()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TITLE="Archive snapshot failed ($(date -u +%Y-%m-%d))"
-          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          BODY=$(printf '## %s\n\nRun: %s\n\nA missing day in `archive/manifest.json` is a permanent hole in the point-in-time record — check whether the export or an upstream pipeline failed, then re-run this workflow with the missed date as the `date` input.' "$TITLE" "$RUN_URL")
-          EXISTING=$(gh issue list --label archive-snapshot --state open --json number --jq '.[0].number')
-          if [ -n "$EXISTING" ]; then
-            gh issue comment "$EXISTING" --body "$BODY"
-          else
-            gh label create archive-snapshot --color d73a4a --description "GitFind archive snapshot failures" 2>/dev/null || true
-            gh issue create --title "$TITLE" --label archive-snapshot --body "$BODY"
-          fi
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Archive snapshot failing'
+            const label = 'archive-snapshot'
+            const today = new Date().toISOString().slice(0, 10)
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            const body = [
+              `## Archive snapshot failed (${today})`,
+              '',
+              `Run: ${runUrl}`,
+              '',
+              'A missing day in `archive/manifest.json` is a permanent hole in the point-in-time record — check whether the export or an upstream pipeline failed, then re-run this workflow with the missed date as the `date` input.',
+            ].join('\n')
+            const { owner, repo } = context.repo
+            try {
+              await github.rest.issues.createLabel({
+                owner, repo, name: label, color: 'd73a4a',
+                description: 'GitFind archive snapshot failures',
+              })
+            } catch (e) {
+              if (e.status !== 422) throw e // 422 = label already exists
+            }
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: label, per_page: 1,
+            })
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: open.data[0].number, body,
+              })
+            } else {
+              await github.rest.issues.create({
+                owner, repo, title, labels: [label], body,
+              })
+            }

@@ -5,10 +5,14 @@ import { describe, it, expect } from 'vitest'
 import {
   archiveDatePath,
   buildDayEntry,
+  collectKeysetPages,
   emptyManifest,
   findMissingDates,
+  idCursorAfter,
   isArchiveDate,
   mergeManifest,
+  modelCursorAfter,
+  modelCursorOrFilter,
   parseManifest,
   serializeJsonl,
   sha256Hex,
@@ -131,6 +135,79 @@ describe('parseManifest', () => {
 
   it('throws on a corrupt manifest instead of silently resetting history', () => {
     expect(() => parseManifest('{"nope": true}', NOW)).toThrow()
+  })
+})
+
+describe('collectKeysetPages', () => {
+  type Row = Record<string, unknown> & { id: string }
+  const makeRows = (n: number): Row[] =>
+    Array.from({ length: n }, (_, i) => ({ id: `id-${String(i).padStart(5, '0')}` }))
+
+  // A page source over an id-ordered array, honoring the cursor exactly the
+  // way the export's `id > cursor ORDER BY id LIMIT n` queries do.
+  function source(rows: Row[], pageSize: number, calls: (string | null)[]) {
+    return async (cursor: string | null): Promise<Row[]> => {
+      calls.push(cursor)
+      const start = cursor === null ? 0 : rows.findIndex((r) => r.id > cursor)
+      return rows.slice(start === -1 ? rows.length : start, (start === -1 ? rows.length : start) + pageSize)
+    }
+  }
+
+  it('collects every row in order across page boundaries', async () => {
+    const rows = makeRows(2500)
+    const calls: (string | null)[] = []
+    const out = await collectKeysetPages(1000, source(rows, 1000, calls), (page) => idCursorAfter(page))
+    expect(out).toEqual(rows)
+    expect(calls).toEqual([null, 'id-00999', 'id-01999'])
+  })
+
+  it('terminates on an exact page-size multiple with one extra empty fetch', async () => {
+    const rows = makeRows(2000)
+    const calls: (string | null)[] = []
+    const out = await collectKeysetPages(1000, source(rows, 1000, calls), (page) => idCursorAfter(page))
+    expect(out).toEqual(rows)
+    expect(calls).toEqual([null, 'id-00999', 'id-01999'])
+  })
+
+  it('returns an empty first page as zero rows after a single fetch', async () => {
+    const calls: (string | null)[] = []
+    const out = await collectKeysetPages(1000, source([], 1000, calls), (page) => idCursorAfter(page))
+    expect(out).toEqual([])
+    expect(calls).toEqual([null])
+  })
+
+  it('throws instead of looping forever when the source ignores the cursor', async () => {
+    const rows = makeRows(1000)
+    const ignoringSource = async (): Promise<Row[]> => rows
+    await expect(
+      collectKeysetPages(1000, ignoringSource, (page) => idCursorAfter(page)),
+    ).rejects.toThrow(/cursor failed to advance/)
+  })
+
+  it('rejects a non-positive page size', async () => {
+    await expect(
+      collectKeysetPages(0, async () => [], (page) => idCursorAfter(page)),
+    ).rejects.toThrow(/pageSize/)
+  })
+})
+
+describe('keyset cursor helpers', () => {
+  it('idCursorAfter takes the last row id', () => {
+    expect(idCursorAfter([{ id: 'a' }, { id: 'b' }])).toBe('b')
+  })
+
+  it('modelCursorAfter takes the last row (snapshot_date, model_key)', () => {
+    const cursor = modelCursorAfter([
+      { snapshot_date: '2026-11-05', model_key: 'llama' },
+      { snapshot_date: '2026-11-06', model_key: 'qwen' },
+    ])
+    expect(cursor).toEqual({ snapshotDate: '2026-11-06', modelKey: 'qwen' })
+  })
+
+  it('modelCursorOrFilter renders a strict (date, key) successor filter', () => {
+    expect(modelCursorOrFilter({ snapshotDate: '2026-11-06', modelKey: 'qwen' })).toBe(
+      'snapshot_date.gt.2026-11-06,and(snapshot_date.eq.2026-11-06,model_key.gt."qwen")',
+    )
   })
 })
 
