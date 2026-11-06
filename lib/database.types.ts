@@ -215,6 +215,50 @@ export type Database = {
         }
         Relationships: []
       }
+      project_outcomes: {
+        Row: {
+          id: string
+          repo_id: string
+          event_type: string
+          event_date: string
+          source_url: string | null
+          details: string | null
+          confidence: string
+          detected_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          repo_id: string
+          event_type: string
+          event_date: string
+          source_url?: string | null
+          details?: string | null
+          confidence?: string
+          detected_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          repo_id?: string
+          event_type?: string
+          event_date?: string
+          source_url?: string | null
+          details?: string | null
+          confidence?: string
+          detected_by?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'project_outcomes_repo_id_fkey'
+            columns: ['repo_id']
+            isOneToOne: false
+            referencedRelation: 'repos'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       repo_snapshots: {
         Row: {
           id: string
@@ -437,6 +481,7 @@ export type Category = Tables<'categories'>
 export type Subscriber = Tables<'subscribers'>
 export type Submission = Tables<'submissions'>
 export type ApiAccessRequest = Tables<'api_access_requests'>
+export type ProjectOutcome = Tables<'project_outcomes'>
 export type ToolContribution = Tables<'tool_contributions'>
 export type RepoSnapshot = Tables<'repo_snapshots'>
 export type PackageDownload = Tables<'package_downloads'>
