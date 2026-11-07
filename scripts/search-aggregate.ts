@@ -7,7 +7,8 @@
 //
 // Run: npx tsx scripts/search-aggregate.ts
 //
-// Rate limit: 1 code search (10 req/min) + 1 commit search (30 req/min) = 2 requests total
+// Rate limit: 1 code search (10 req/min) + 1 commit search (30 req/min) on a
+// normal day; days spent backfilling aggregate gaps add 1 commit search each.
 
 import { config } from 'dotenv'
 config({ path: '.env.local' })
@@ -116,7 +117,6 @@ async function main(): Promise<void> {
   }
 
   // ── 2. Aggregate commit count (OR query for a single day) ──
-  log(`Fetching aggregate commit count for ${commitDate}...`)
   const commitQuery = [
     `"Co-Authored-By: Claude"`,
     `"Co-authored-by: Cursor"`,
@@ -124,55 +124,118 @@ async function main(): Promise<void> {
     `"Co-authored-by: Codex"`,
     `"gemini-code-assist"`,
   ].join(' OR ')
-  const fullCommitQuery = `${commitQuery} committer-date:${commitDate}`
 
-  const commitUrl = `https://api.github.com/search/commits?q=${encodeURIComponent(fullCommitQuery)}&per_page=1`
+  // Fetch the deduplicated aggregate commit count for one date.
+  // Returns null on a hard API error so the caller can skip the day.
+  async function fetchCommitAggregate(dateStr: string): Promise<number | null> {
+    const url = `https://api.github.com/search/commits?q=${encodeURIComponent(`${commitQuery} committer-date:${dateStr}`)}&per_page=1`
 
-  let commitCount: number | null = null
-  let commitSuccess = false
-  while (!commitSuccess) {
-    const response = await fetch(commitUrl, {
-      headers: {
-        ...headers,
-        Accept: 'application/vnd.github.cloak-preview+json',
-      },
-    })
+    while (true) {
+      const response = await fetch(url, {
+        headers: {
+          ...headers,
+          Accept: 'application/vnd.github.cloak-preview+json',
+        },
+      })
 
-    if (response.status === 403) {
-      const remaining = response.headers.get('X-RateLimit-Remaining')
-      if (remaining === '0') {
-        const reset = response.headers.get('X-RateLimit-Reset')
-        const waitMs = reset ? parseInt(reset) * 1000 - Date.now() : 60000
-        log(`Rate limited. Waiting ${Math.ceil(waitMs / 1000)}s...`)
-        await new Promise((r) => setTimeout(r, Math.max(waitMs, 1000)))
+      if (response.status === 403) {
+        const remaining = response.headers.get('X-RateLimit-Remaining')
+        if (remaining === '0') {
+          // Primary rate limit — wait until reset
+          const reset = response.headers.get('X-RateLimit-Reset')
+          const waitMs = reset ? parseInt(reset) * 1000 - Date.now() : 60000
+          log(`Rate limited. Waiting ${Math.ceil(waitMs / 1000)}s...`)
+          await new Promise((r) => setTimeout(r, Math.max(waitMs, 1000)))
+          continue
+        }
+        // Secondary rate limit — wait and retry (same as search-commits.ts)
+        log(`Secondary rate limit for aggregate ${dateStr} — waiting 90s...`)
+        await new Promise((r) => setTimeout(r, 90000))
         continue
       }
+
+      if (!response.ok) {
+        log(`  Error fetching commit aggregate for ${dateStr}: ${response.status} ${response.statusText}`)
+        return null
+      }
+
+      const data = (await response.json()) as { total_count: number }
+      return data.total_count
     }
-
-    if (!response.ok) {
-      log(`  Error fetching commit aggregate: ${response.status} ${response.statusText}`)
-      commitSuccess = true
-      continue
-    }
-
-    const data = (await response.json()) as { total_count: number }
-    commitCount = data.total_count
-
-    log(`  Commit aggregate: ${commitCount.toLocaleString()} commits`)
-    commitSuccess = true
   }
 
-  if (commitCount !== null) {
+  async function upsertCommitAggregate(dateStr: string, count: number): Promise<void> {
     const { error } = await db.from('tool_contributions').upsert(
       {
         repo_id: repoId,
         tool_name: 'All Tools [commit-aggregate]',
-        commit_count: commitCount,
-        month: commitDate,
+        commit_count: count,
+        month: dateStr,
       },
       { onConflict: 'repo_id,tool_name,month' }
     )
-    if (error) log(`  ERROR upserting commit aggregate: ${error.message}`)
+    if (error) log(`  ERROR upserting commit aggregate for ${dateStr}: ${error.message}`)
+  }
+
+  log(`Fetching aggregate commit count for ${commitDate}...`)
+  const commitCount = await fetchCommitAggregate(commitDate)
+
+  if (commitCount !== null) {
+    log(`  Commit aggregate: ${commitCount.toLocaleString()} commits`)
+    await upsertCommitAggregate(commitDate, commitCount)
+  }
+
+  // ── 3. Backfill interior gaps in the commit-aggregate series ──
+  // When the Chart Data workflow doesn't run for a stretch (e.g. the
+  // Sep 30 – Nov 4, 2026 freeze), every missed day is missing for good:
+  // the pass above only ever writes T-2. The per-tool rows for those days
+  // are complete, and the OR query is date-scoped, so a missing aggregate
+  // day can be recomputed exactly. Fill only dates inside the stored
+  // range — never extend the series before its first row.
+  const { data: aggRows } = await db
+    .from('tool_contributions')
+    .select('month')
+    .eq('repo_id', repoId)
+    .eq('tool_name', 'All Tools [commit-aggregate]')
+    .order('month', { ascending: true })
+
+  if (aggRows && aggRows.length > 0) {
+    const months = (aggRows as unknown as Array<{ month: string }>).map((r) => r.month)
+    const present = new Set(months)
+
+    const missingDates: string[] = []
+    const cur = new Date(months[0] + 'T00:00:00Z')
+    const end = new Date(commitDate + 'T00:00:00Z')
+    cur.setUTCDate(cur.getUTCDate() + 1)
+    while (cur <= end) {
+      const d = cur.toISOString().slice(0, 10)
+      if (!present.has(d)) missingDates.push(d)
+      cur.setUTCDate(cur.getUTCDate() + 1)
+    }
+
+    if (missingDates.length === 0) {
+      log('Commit aggregate: no interior gaps')
+    } else {
+      log(`Commit aggregate: backfilling ${missingDates.length} missing day(s)...`)
+      let backfilled = 0
+      for (const dateStr of missingDates) {
+        const count = await fetchCommitAggregate(dateStr)
+        if (count === null) continue
+        // Zero-guard: the OR query spans five tools, so a 0 means a broken
+        // query string (see issue #41), not a real zero. Leave the day
+        // missing so a later run retries it instead of storing a bogus 0.
+        if (count === 0) {
+          log(`  [backfill] WARNING: ${dateStr}: API returned 0 — skipping, will retry next run`)
+          continue
+        }
+        await upsertCommitAggregate(dateStr, count)
+        log(`  [backfill] ${dateStr}: ${count.toLocaleString()} commits`)
+        backfilled++
+        // Respect the commit search rate limit: 30 requests/min
+        await new Promise((r) => setTimeout(r, 2200))
+      }
+      log(`Commit aggregate: backfilled ${backfilled} day(s)`)
+    }
   }
 
   log('\nDone! Stored aggregate counts.')
