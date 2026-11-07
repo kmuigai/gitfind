@@ -5,6 +5,14 @@
 // GitHub API cost: ~1 GraphQL point per 100 repos. 10K repos ≈ 100 queries ≈ 2 minutes.
 // (Previously used REST: 1 call per repo = 2 hours for 10K repos.)
 //
+// Coverage note: repos are processed stalest-first (oldest repos.updated_at first)
+// and repo rows are written back with one bulk upsert per 100-repo batch. The old
+// version wrote each repo with its own UPDATE in fixed id order; at ~53K repos it
+// hit the workflow's 60-minute timeout every run, so the same prefix was refreshed
+// daily and the tail of the catalog was never reached (46% of rows went >30 days
+// stale). Stalest-first ordering means even a partial run always makes progress on
+// the stalest repos, and bulk upserts cut ~53K DB round trips to ~530.
+//
 // Run locally: npx tsx scripts/snapshot-light.ts
 // Run nightly: GitHub Actions at 06:00 UTC (separate workflow)
 
@@ -26,6 +34,7 @@ interface RepoRow {
   github_id: number
   owner: string
   name: string
+  url: string
   stars: number
   forks: number
 }
@@ -134,7 +143,10 @@ async function main(): Promise<void> {
   log('=== Light Snapshot Script (GraphQL) ===')
   log(`Date: ${todayStr}`)
 
-  // Fetch all repos from DB, paginated
+  // Fetch all repos from DB, paginated, stalest first. The updated_at trigger
+  // refreshes a row's timestamp whenever this script writes it back, so ordering
+  // by updated_at (id as a deterministic tiebreak) guarantees the least-recently
+  // refreshed repos are always processed first — no repo can starve.
   let allRepos: RepoRow[] = []
   let offset = 0
   const pageSize = 1000
@@ -142,8 +154,9 @@ async function main(): Promise<void> {
   while (true) {
     const { data, error } = await db
       .from('repos')
-      .select('id, github_id, owner, name, stars, forks')
-      .order('id')
+      .select('id, github_id, owner, name, url, stars, forks')
+      .order('updated_at', { ascending: true })
+      .order('id', { ascending: true })
       .range(offset, offset + pageSize - 1)
 
     if (error) {
@@ -225,7 +238,7 @@ async function main(): Promise<void> {
       const foundRepos = new Set<string>()
 
       // Process returned repos
-      const repoUpdates: Array<{ id: string; stars: number; forks: number; watchers: number; license: string | null; topics: string[]; archived: boolean; pushed_at: string | null }> = []
+      const repoUpdates: Array<{ id: string; github_id: number; name: string; owner: string; url: string; stars: number; forks: number; watchers: number; license: string | null; topics: string[]; archived: boolean; pushed_at: string | null }> = []
       const snapshotUpserts: Array<{ repo_id: string; snapshot_date: string; stars: number; forks: number; stars_7d: number; open_issues: number }> = []
 
       for (const node of nodes) {
@@ -252,6 +265,10 @@ async function main(): Promise<void> {
 
         repoUpdates.push({
           id: repo.id,
+          github_id: repo.github_id,
+          name: repo.name,
+          owner: repo.owner,
+          url: repo.url,
           stars: currentStars,
           forks: currentForks,
           watchers,
@@ -288,24 +305,20 @@ async function main(): Promise<void> {
         }
       }
 
-      // Batch update repos (parallel within batch)
-      const updateResults = await Promise.all(
-        repoUpdates.map((update) =>
-          db
-            .from('repos')
-            .update({
-              stars: update.stars,
-              forks: update.forks,
-              watchers: update.watchers,
-              license: update.license,
-              topics: update.topics,
-              archived: update.archived,
-              pushed_at: update.pushed_at,
-            })
-            .eq('id', update.id)
-        )
-      )
-      errors += updateResults.filter((r) => r.error).length
+      // Write the whole batch back in one bulk upsert (was: one UPDATE per repo,
+      // ~100 round trips per batch — the main reason runs hit the 60-min timeout).
+      // github_id/name/owner/url are included because repos' NOT NULL columns must
+      // be present in an upsert payload even when every row already exists.
+      if (repoUpdates.length > 0) {
+        const { error: updateError } = await db
+          .from('repos')
+          .upsert(repoUpdates, { onConflict: 'id' })
+
+        if (updateError) {
+          log(`  Batch ${batchNum} repo upsert error: ${updateError.message}`)
+          errors += repoUpdates.length
+        }
+      }
 
       // Batch upsert snapshots
       if (snapshotUpserts.length > 0) {
