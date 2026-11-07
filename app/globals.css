@@ -201,44 +201,6 @@ body {
   animation-play-state: running;
 }
 
-/* Vortex blobs pop in from the center, one by one, on first view.
-   fill-mode backwards: the from-state holds during the stagger delay, then
-   control returns to inline transforms (hover swell). */
-@keyframes vortex-pop {
-  from { transform: scale(0); }
-  to { transform: scale(1); }
-}
-.vortex-pop {
-  animation: vortex-pop 240ms linear backwards;
-}
-.chart-anim .vortex-pop {
-  animation-play-state: paused;
-}
-.chart-anim.is-visible .vortex-pop {
-  animation-play-state: running;
-}
-
-/* Ambient drift — the Obsidian wobble, 1-bit edition. Each blob wanders a
-   tiny diamond path on its own seeded clock (amplitude/duration/delay set
-   per-blob inline from the repo-key hash). Applied to a parent <g> so it
-   composes with the pop + hover transforms on the circle itself.
-   Bounded, not ambient: two cycles after load, then it rests — and one
-   cycle again only when the blob is hovered directly. */
-@keyframes vortex-drift {
-  0%, 100% { transform: translate(0, 0); }
-  25% { transform: translate(var(--dx, 2px), calc(var(--dy, 2px) * -1)); }
-  50% { transform: translate(0, 0); }
-  75% { transform: translate(calc(var(--dx, 2px) * -1), var(--dy, 2px)); }
-}
-.vortex-drift {
-  animation: vortex-drift var(--dur, 6s) linear 2;
-  animation-delay: var(--drift-delay, 0s);
-}
-.vortex-drift:hover {
-  animation: vortex-drift var(--dur, 6s) linear 1;
-  animation-delay: 0s;
-}
-
 /* Score gauge fill */
 @keyframes gauge-fill {
   from { width: 0; }
@@ -268,7 +230,7 @@ body {
 
 /* Reduced motion — everything renders in final state */
 @media (prefers-reduced-motion: reduce) {
-  .blink, .blink-3, .marquee, .bar-grow, .gauge-fill, .vortex-pop, .vortex-drift {
+  .blink, .blink-3, .marquee, .bar-grow, .gauge-fill {
     animation: none;
   }
   .reveal {
