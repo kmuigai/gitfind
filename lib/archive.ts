@@ -1,7 +1,8 @@
 // Pure helpers for the daily data archive (Board Directive 1, Nov 6, 2026).
 //
 // The archive freezes GitFind's derived data — Early Signal Scores, enrichment
-// summaries, the AI Code Index series, and Open Model Index metrics — into
+// summaries, the AI Code Index series, Open Model Index metrics, the Outcomes
+// Ledger, and the Demand Graph's raw events — into
 // immutable dated files on the `archive` branch, with a manifest recording row
 // counts and SHA-256 checksums per dataset per day. A day with no manifest
 // entry is a provable gap; a day whose files no longer match their checksums
