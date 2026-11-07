@@ -96,14 +96,74 @@ is enforced in validation, not just by convention.
 - **Confidence** — `confirmed` only when the item is a primary source
   (the project's, company's, or acquirer's own announcement) **and** its
   quote verified; secondary reporting is `likely`, however strong.
+- **Rejections are logged, not just counted** — every proposal the
+  validation gate turns away produces one log line naming the repo, the
+  proposed event type, and the specific gate that refused it (evidence
+  quote not verbatim in the fetched item, source URL not among the
+  fetched items, invalid or future event date, a non-news class such as
+  `dead`, empty details, duplicate of an accepted proposal). Across a
+  1,000-repo backfill, those lines are the audit trail for the gate
+  itself: they show what it caught, and would show it misfiring.
 - **Idempotency** — one row per (repo, event type, event date): existing
   keys are skipped in code, and migration `009` adds the matching partial
   unique index (005's one-`dead`-per-repo index is the same pattern).
 - **Runs** — dry-run by default, `--write` to insert, `--repo` /
-  `--limit` / `--since-days` bound the input. It runs on dispatch today;
-  scheduling follows the lifecycle scan's pattern, and the 2025–26
-  backfill over the top 1,000 projects is a separate runner that also
-  records each "checked, no outcome" pass.
+  `--limit` / `--since-days` bound the input. It runs weekly on Tuesdays
+  (`.github/workflows/news-sweep.yml`) over recent candidates, and the
+  2025–26 backfill below covers the historical window it cannot reach.
+
+## The 2025–26 backfill (gate G8)
+
+`scripts/backfill-outcomes.ts` runs the same sweep engine over the top
+1,000 projects for the full 2025–26 window, and — unlike the weekly
+sweep — records every pass it completes. Gate G8 is measured on that
+record, not on the outcomes themselves: **1,000 / 1,000 projects carrying
+an outcome row or a recorded "checked, no outcome" pass.**
+
+- **The target set** is the site's own definition of "top": `enrichments`
+  ordered by Early Signal Score descending (the ranking `getTopRepos`
+  serves), capped at 1,000. Only scored projects can be in it — the score
+  is the thing the ledger exists to validate.
+- **The window** is 2025-01-01 through the day each pass runs. A pass
+  fetches one day wider than the window and records only outcomes dated
+  inside it, so an opening-day event can never be missed by an hour or
+  leaked in from 2024.
+- **`outcome_checks` (migration `010`)** is the coverage record: one row
+  per completed pass — `repo_id`, `checked_at`, `window_start`,
+  `window_end`, `checker` (`news-sweep-backfill`), `result`
+  (`outcome_found` / `none_found`), and `outcomes_found`. It exists
+  because `project_outcomes` cannot prove a negative: no outcome row
+  might mean "nothing happened" or "nobody looked". A check row is
+  written only after the pass completes and its outcomes are inserted;
+  a failed pass records nothing and is retried by a later batch, so a
+  recorded pass always means the pass actually happened.
+- **Running it** — dry-run by default (a dry run sweeps and reports but
+  writes nothing: no outcomes, no check rows). Real batches are explicit
+  and bounded, sized to sit comfortably inside one GitHub Actions window
+  alongside the per-repo fetch + classification time:
+
+  ```
+  npx tsx scripts/backfill-outcomes.ts                  # dry run, first 50 unchecked
+  npx tsx scripts/backfill-outcomes.ts --write          # one batch of 50
+  npx tsx scripts/backfill-outcomes.ts --write --limit 100
+  npx tsx scripts/backfill-outcomes.ts --write --offset 200   # skip 200 unchecked
+  ```
+
+  The full set is ~20 batches of 50. Run them sequentially — each batch
+  skips everything already checked, so the campaign is resumable across
+  days and a stopped batch costs nothing. Progress is logged every 25
+  repos, with a checked / found / none / failed summary at the end.
+- **Measuring G8** — count the target set's coverage in `outcome_checks`:
+
+  ```sql
+  SELECT COUNT(DISTINCT repo_id) FROM outcome_checks
+  WHERE checker = 'news-sweep-backfill' AND window_start = '2025-01-01';
+  ```
+
+  1,000 distinct repos (against the current top-1,000 ranking) closes
+  the gate. Events that occur after a project's pass are not lost: the
+  weekly Tuesday sweep keeps covering the recent window for every repo,
+  checked or not.
 
 ## How the ledger joins to score history
 
@@ -132,6 +192,9 @@ repo_snapshots.snapshot_date / enrichments.scored_at  →  the score as it was
 The table has RLS enabled and **no public policies at all** — every read and
 write goes through the service role. Nothing on the public site reads it.
 That is deliberate: the ledger is a proprietary asset, not site content.
+
+`outcome_checks` (migration `010`) carries the identical posture — RLS
+enabled, no policies, service-role only — for the same reason.
 
 It is also frozen in full every day by the Archive Snapshot workflow
 (Directive 1), alongside the score history it joins to. The ledger is small

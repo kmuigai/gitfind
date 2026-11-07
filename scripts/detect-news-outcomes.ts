@@ -16,6 +16,10 @@
 //      a row: verbatim evidence quote in the fetched item, source URL among
 //      the fetched items, valid non-future date, never 'dead'.
 //
+// The fetch → classify → validate pipeline itself lives in
+// lib/news-sweep.ts, shared with the 2025–26 backfill runner
+// (scripts/backfill-outcomes.ts) so the two can never drift apart.
+//
 // Idempotent: rows are keyed by (repo_id, event_type, event_date); existing
 // keys are skipped, and migration 009 adds the matching partial unique
 // index so the guarantee also holds at the database level.
@@ -39,29 +43,19 @@ import { config } from 'dotenv'
 config({ path: '.env.local' })
 
 import { createServiceClient } from '../lib/supabase.js'
-import type Anthropic from '@anthropic-ai/sdk'
+import type { NewsCandidate, NewsOutcome } from '../lib/news-outcomes.js'
 import {
-  buildClassificationPrompt,
-  buildGoogleNewsQueries,
-  googleNewsRssUrl,
-  hnHitsToNewsItems,
-  hnSearchUrl,
-  nominatedEventTypes,
-  outcomeDedupeKey,
-  parseGoogleNewsRss,
-  validateProposals,
-  type LlmOutcomeProposal,
-  type NewsCandidate,
-  type NewsItem,
-  type NewsOutcome,
-} from '../lib/news-outcomes.js'
+  createClassifier,
+  insertOutcomeRows,
+  loadExistingOutcomeKeys,
+  rejectionLogLine,
+  sweepRepo,
+  toOutcomeInsertRow,
+} from '../lib/news-sweep.js'
 
 const WRITE = process.argv.includes('--write')
-const PAGE_SIZE = 1000
 const INSERT_CHUNK = 500
 const SAMPLE_LINES = 10
-const MAX_ITEMS_PER_REPO = 12
-const FETCH_TIMEOUT_MS = 15_000
 
 function argValue(flag: string): string | null {
   const index = process.argv.indexOf(flag)
@@ -79,66 +73,12 @@ interface RepoRow extends NewsCandidate {
   stars: number
 }
 
-async function fetchText(url: string): Promise<string | null> {
-  try {
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'GitFind/1.0' },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    })
-    if (!response.ok) return null
-    return await response.text()
-  } catch {
-    return null
-  }
-}
-
-async function fetchJson(url: string): Promise<unknown> {
-  const text = await fetchText(url)
-  if (!text) return null
-  try {
-    return JSON.parse(text)
-  } catch {
-    return null
-  }
-}
-
-/** All candidate headlines for one repo, deduped by URL, newest first. */
-async function fetchCandidates(repo: NewsCandidate, sinceEpoch: number): Promise<NewsItem[]> {
-  const byUrl = new Map<string, NewsItem>()
-
-  for (const query of buildGoogleNewsQueries(repo)) {
-    const xml = await fetchText(googleNewsRssUrl(query))
-    if (!xml) continue
-    for (const item of parseGoogleNewsRss(xml)) byUrl.set(item.url, item)
-  }
-
-  const hn = (await fetchJson(hnSearchUrl(repo, sinceEpoch))) as { hits?: unknown[] } | null
-  if (hn && Array.isArray(hn.hits)) {
-    for (const item of hnHitsToNewsItems(hn.hits as Parameters<typeof hnHitsToNewsItems>[0])) {
-      if (!byUrl.has(item.url)) byUrl.set(item.url, item)
-    }
-  }
-
-  return [...byUrl.values()].sort((a, b) => b.publishedDate.localeCompare(a.publishedDate))
-}
-
 async function main() {
   const supabase = createServiceClient()
   const now = new Date()
-  const sinceEpoch = Math.floor(now.getTime() / 1000) - SINCE_DAYS * 24 * 60 * 60
 
   // Repos already carrying a news-class outcome — never written twice.
-  const existingKeys = new Set<string>()
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase
-      .from('project_outcomes')
-      .select('repo_id, event_type, event_date')
-      .neq('event_type', 'dead')
-      .range(from, from + PAGE_SIZE - 1)
-    if (error) throw new Error(`reading existing outcomes: ${error.message}`)
-    for (const row of data ?? []) existingKeys.add(outcomeDedupeKey(row.repo_id, row.event_type, row.event_date))
-    if (!data || data.length < PAGE_SIZE) break
-  }
+  const existingKeys = await loadExistingOutcomeKeys(supabase)
 
   // The bounded input: an explicit --repo list, or the top repos by stars.
   let repos: RepoRow[] = []
@@ -170,55 +110,20 @@ async function main() {
       `${existingKeys.size} existing news outcomes on record`,
   )
 
-  // The Anthropic client is only needed once a repo has nominated
-  // candidates — a sweep over quiet repos runs keyless end to end.
-  let anthropic: Anthropic | null = null
-  async function classify(repo: NewsCandidate, items: NewsItem[]): Promise<LlmOutcomeProposal[]> {
-    if (!anthropic) {
-      if (!process.env.ANTHROPIC_API_KEY) {
-        throw new Error('ANTHROPIC_API_KEY is required once candidates are nominated')
-      }
-      const { default: AnthropicClient } = await import('@anthropic-ai/sdk')
-      anthropic = new AnthropicClient({ apiKey: process.env.ANTHROPIC_API_KEY })
-    }
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
-      messages: [{ role: 'user', content: buildClassificationPrompt(repo, items) }],
-    })
-    const content = message.content[0]
-    if (!content || content.type !== 'text') return []
-    const cleaned = content.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-    try {
-      const parsed: unknown = JSON.parse(cleaned)
-      return Array.isArray(parsed) ? (parsed as LlmOutcomeProposal[]) : []
-    } catch {
-      return []
-    }
-  }
-
+  const classify = createClassifier()
   let checked = 0
   let withCandidates = 0
   let rejectedCount = 0
+  const rejectedLines: string[] = []
   const pending: { repo_id: string; label: string; outcome: NewsOutcome }[] = []
 
   for (const repo of repos) {
     checked++
-    const items = await fetchCandidates(repo, sinceEpoch)
-    const nominated = items
-      .filter((item) => item.publishedDate >= new Date(sinceEpoch * 1000).toISOString().slice(0, 10))
-      .filter((item) => nominatedEventTypes(item).length > 0)
-      .slice(0, MAX_ITEMS_PER_REPO)
-    if (nominated.length === 0) continue
-    withCandidates++
-
-    const proposals = await classify(repo, nominated)
-    const { accepted, rejected } = validateProposals(proposals, nominated, now)
-    rejectedCount += rejected.length
-    for (const outcome of accepted) {
-      const key = outcomeDedupeKey(repo.id, outcome.event_type, outcome.event_date)
-      if (existingKeys.has(key)) continue
-      existingKeys.add(key)
+    const result = await sweepRepo(repo, { sinceDays: SINCE_DAYS, now, classify, existingKeys })
+    if (result.hadCandidates) withCandidates++
+    rejectedCount += result.rejectedCount
+    for (const r of result.rejected) rejectedLines.push(rejectionLogLine(r))
+    for (const outcome of result.accepted) {
       pending.push({ repo_id: repo.id, label: `${repo.owner}/${repo.name}`, outcome })
     }
   }
@@ -229,6 +134,10 @@ async function main() {
     `Checked ${checked} repos · ${withCandidates} had nominated candidates · ` +
       `${rejectedCount} proposals rejected by validation`,
   )
+  // One line per rejection — repo, proposed type, and the specific gate
+  // that turned it away — so a run's audit trail shows what was refused
+  // and why, not just how much.
+  for (const line of rejectedLines) console.log(`  ${line}`)
   console.log(
     `New news outcomes: ${pending.length}` +
       (byType.size > 0 ? ` (${[...byType.entries()].map(([t, n]) => `${t}: ${n}`).join(', ')})` : ''),
@@ -247,17 +156,8 @@ async function main() {
 
   let inserted = 0
   for (let i = 0; i < pending.length; i += INSERT_CHUNK) {
-    const chunk = pending.slice(i, i + INSERT_CHUNK).map((p) => ({
-      repo_id: p.repo_id,
-      event_type: p.outcome.event_type,
-      event_date: p.outcome.event_date,
-      source_url: p.outcome.source_url,
-      details: p.outcome.details,
-      confidence: p.outcome.confidence,
-      detected_by: p.outcome.detected_by,
-    }))
-    const { error } = await supabase.from('project_outcomes').insert(chunk)
-    if (error) throw new Error(`inserting outcomes: ${error.message}`)
+    const chunk = pending.slice(i, i + INSERT_CHUNK).map((p) => toOutcomeInsertRow(p.repo_id, p.outcome))
+    await insertOutcomeRows(supabase, chunk)
     inserted += chunk.length
   }
   console.log(`\nInserted ${inserted} rows into project_outcomes.`)
