@@ -88,12 +88,14 @@ async function main(): Promise<void> {
     { getHNMentions },
     { enrichRepo },
     { createServiceClient },
+    { rescoreEnrichments },
   ] = await Promise.all([
     import('../lib/github.js'),
     import('../lib/score.js'),
     import('../lib/hn.js'),
     import('../lib/enrichment.js'),
     import('../lib/supabase.js'),
+    import('../lib/rescore.js'),
   ])
 
   type Repo = Awaited<ReturnType<typeof searchReposByCategory>>[number]
@@ -635,6 +637,24 @@ async function main(): Promise<void> {
       log(`  Backfill complete`)
     } else {
       log('  No unenriched repos found for backfill')
+    }
+  }
+
+  // ── Phase 2d: Rescore stalest enrichments (score-only, no Claude) ──────
+  // Scores used to advance only for repos the discovery layers happened to
+  // resurface, so most enrichments went months without a recompute. Each night
+  // now recomputes the stalest RESCORE_LIMIT scores from current DB inputs,
+  // keeping every score on a short rotation. Set RESCORE_LIMIT=0 to disable.
+  const RESCORE_LIMIT = Number(process.env.RESCORE_LIMIT ?? 3000)
+  if (RESCORE_LIMIT > 0) {
+    log(`\n── Phase 2d: Rescoring stalest enrichments (limit ${RESCORE_LIMIT}) ──`)
+    try {
+      const res = await rescoreEnrichments(db, { limit: RESCORE_LIMIT, log })
+      log(
+        `  Rescore complete: ${res.updated} updated, ${res.bigMovers} big movers (>10 pts), ${res.errors} errors`
+      )
+    } catch (err) {
+      logError('Phase 2d rescore failed (continuing)', err)
     }
   }
 
