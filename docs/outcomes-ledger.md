@@ -64,6 +64,47 @@ The scan is idempotent (it skips repos that already have a `dead` row, and a
 partial unique index enforces one `dead` row per repo) and dry-runs by
 default — writing requires an explicit `--write`.
 
+## Phase 2 — the news sweep
+
+`scripts/detect-news-outcomes.ts` detects the seven company/product event
+types (`funding`, `acquired`, `shutdown`, `pivot`, `adopted`,
+`maintainer_move`, `breakout`) from news and writes them with
+`detected_by = 'news-sweep'`. It never writes `dead` — that class belongs
+to the lifecycle scan, and the taxonomy's `shutdown` ≠ `dead` distinction
+is enforced in validation, not just by convention.
+
+- **Sources** — two keyless feeds, both reachable from GitHub Actions:
+  Google News RSS search (per repo: the exact `owner/name` path, plus the
+  bare project name fenced by event vocabulary) and Hacker News via the
+  Algolia API (story search by `owner/name`). Google News item links are
+  Google News article links that redirect to the publisher; the publisher
+  is named in each row's `details`, and HN items link the article (or the
+  HN item page for self-posts).
+- **Method** — classification is two-stage. Keyword patterns nominate the
+  plausible event classes for each headline; an item with no nomination
+  never goes further. Nominated candidates for one repo go to a single
+  Anthropic call (`claude-sonnet-4-6`, the digest's model and secret)
+  that returns structured proposals. Proposals are opinions until the
+  deterministic validation in `lib/news-outcomes.ts` accepts them:
+  the event type must be a news class, the `source_url` must be one of
+  the fetched items, the evidence quote must appear **verbatim** in that
+  item's headline or snippet, the event date must be a real date not in
+  the future (the article's date when the text states none), and
+  `details` must be non-empty. Every accepted row carries the quote into
+  its `details` (`Evidence: "…" (Publisher, date)`), so the evidence a
+  row rests on is readable from the row itself.
+- **Confidence** — `confirmed` only when the item is a primary source
+  (the project's, company's, or acquirer's own announcement) **and** its
+  quote verified; secondary reporting is `likely`, however strong.
+- **Idempotency** — one row per (repo, event type, event date): existing
+  keys are skipped in code, and migration `009` adds the matching partial
+  unique index (005's one-`dead`-per-repo index is the same pattern).
+- **Runs** — dry-run by default, `--write` to insert, `--repo` /
+  `--limit` / `--since-days` bound the input. It runs on dispatch today;
+  scheduling follows the lifecycle scan's pattern, and the 2025–26
+  backfill over the top 1,000 projects is a separate runner that also
+  records each "checked, no outcome" pass.
+
 ## How the ledger joins to score history
 
 The point of the table is this query shape:
@@ -96,3 +137,4 @@ It is also frozen in full every day by the Archive Snapshot workflow
 (Directive 1), alongside the score history it joins to. The ledger is small
 and append-only, and as the ledger of record it is copied whole rather than
 sliced by date — no slice boundary can ever drop an outcome.
+
