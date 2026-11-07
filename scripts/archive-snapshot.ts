@@ -14,6 +14,10 @@
 //   full daily copy preserves them "as published" on that day):
 //     repos            — catalog state (stars, forks, metadata) as of the date
 //     enrichments      — scores, breakdowns, and AI summaries as of the date
+//     project_outcomes — the full Outcomes Ledger (Directive 2). Small and
+//                        append-only, and it is the ledger of record, so it
+//                        is frozen whole: a slice boundary must never be
+//                        able to lose an outcome
 //     ai_code_index    — tool_contributions rows for the _bigquery_aggregate
 //                        placeholder repo: the full AI Code Index series,
 //                        agent-PR series, config-adoption and SDK/buzz rows
@@ -24,6 +28,10 @@
 //     package_downloads— rows where snapshot_date = date
 //     weekly_stats     — rows where snapshot_date = date (weekly cadence;
 //                        zero rows on other days is expected, not a failure)
+//     demand_events    — rows where created_at falls on the date (Directive
+//                        3; the table has no snapshot_date column — its day
+//                        is the UTC day of created_at). High-volume event
+//                        data: a small day is legitimate, not a failure
 //
 // The script only ever SELECTs — it never writes to the database. Output for
 // a date overwrites that date's files and manifest entry only, so re-running
@@ -70,7 +78,9 @@ const PAGE_SIZE = 1000
 // Datasets that must never come back empty — an empty result here means the
 // pipeline or the query broke, not that there was nothing to archive (the
 // Sep–Oct 2026 silent-zero failure is the lesson behind this guard).
-const NON_EMPTY_DATASETS = new Set(['repos', 'enrichments', 'ai_code_index', 'model_metrics'])
+// project_outcomes is guarded on the same logic: the ledger holds rows and
+// is append-only, so a zero-row export can only be a broken query.
+const NON_EMPTY_DATASETS = new Set(['repos', 'enrichments', 'ai_code_index', 'model_metrics', 'project_outcomes'])
 
 function log(msg: string): void {
   const timestamp = new Date().toISOString().replace('T', ' ').split('.')[0]
@@ -121,6 +131,16 @@ async function fetchDataset(name: string, date: string, repoKeyById: Map<string,
       // Denormalize owner/name so the file stands alone without the repos join.
       return rows.map((row) => ({ ...row, repo_key: repoKeyById.get(String(row.repo_id)) ?? null }))
     }
+    case 'project_outcomes': {
+      const rows = await fetchKeysetById('project_outcomes', (afterId) => {
+        const q = db().from('project_outcomes').select('*').order('id', { ascending: true }).limit(PAGE_SIZE)
+        return afterId === null ? q : q.gt('id', afterId)
+      })
+      // Same repo_key denormalization as enrichments: the ledger is the
+      // record outcomes are joined from, and a repo row can later be edited
+      // or deleted — the frozen ledger file must stand alone.
+      return rows.map((row) => ({ ...row, repo_key: repoKeyById.get(String(row.repo_id)) ?? null }))
+    }
     // The dated slices keep select('*'): their rows are a handful of narrow
     // scalar columns and every column is derived state the archive exists to
     // preserve. The run #1 timeout was a scan problem (no index leads with
@@ -138,6 +158,18 @@ async function fetchDataset(name: string, date: string, repoKeyById: Map<string,
     case 'weekly_stats':
       return fetchKeysetById('weekly_stats', (afterId) => {
         const q = db().from('weekly_stats').select('*').eq('snapshot_date', date).order('id', { ascending: true }).limit(PAGE_SIZE)
+        return afterId === null ? q : q.gt('id', afterId)
+      })
+    case 'demand_events':
+      // No snapshot_date column: the day's slice is the created_at range
+      // [date 00:00Z, next day 00:00Z). Keyset on id within the range —
+      // the same bounded range scans as the snapshot_date slices (backed
+      // by the (created_at, id) index in migration 008).
+      return fetchKeysetById('demand_events', (afterId) => {
+        const q = db().from('demand_events').select('*')
+          .gte('created_at', `${date}T00:00:00Z`)
+          .lt('created_at', `${nextUtcDate(date)}T00:00:00Z`)
+          .order('id', { ascending: true }).limit(PAGE_SIZE)
         return afterId === null ? q : q.gt('id', afterId)
       })
     case 'ai_code_index': {
@@ -173,12 +205,21 @@ async function fetchDataset(name: string, date: string, repoKeyById: Map<string,
 const DATASETS = [
   'repos',
   'enrichments',
+  'project_outcomes',
   'repo_snapshots',
   'package_downloads',
   'weekly_stats',
+  'demand_events',
   'ai_code_index',
   'model_metrics',
 ] as const
+
+/** The UTC calendar day after an archive date (YYYY-MM-DD). */
+function nextUtcDate(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
 
 function argValue(flag: string): string | null {
   const idx = process.argv.indexOf(flag)

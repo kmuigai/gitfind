@@ -91,3 +91,8 @@ repo_snapshots.snapshot_date / enrichments.scored_at  →  the score as it was
 The table has RLS enabled and **no public policies at all** — every read and
 write goes through the service role. Nothing on the public site reads it.
 That is deliberate: the ledger is a proprietary asset, not site content.
+
+It is also frozen in full every day by the Archive Snapshot workflow
+(Directive 1), alongside the score history it joins to. The ledger is small
+and append-only, and as the ledger of record it is copied whole rather than
+sliced by date — no slice boundary can ever drop an outcome.

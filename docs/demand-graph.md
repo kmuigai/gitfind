@@ -83,4 +83,7 @@ Raw rows are the asset — do not delete them casually; a search string from
 2026 is unobservable in 2027. When volume makes raw scans slow, aggregate
 **monthly** into rollup tables (query × week counts, clicks × project ×
 week) and keep the raw rows archived alongside, the same point-in-time
-discipline as the archive snapshots (Directive 1).
+discipline as the archive snapshots (Directive 1). The daily archive
+snapshot does this literally: `demand_events` is one of its dated slices
+(the UTC day of `created_at`), frozen to the `archive` branch with the
+checksummed manifest.
