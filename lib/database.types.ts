@@ -289,6 +289,47 @@ export type Database = {
           }
         ]
       }
+      outcome_checks: {
+        Row: {
+          id: string
+          repo_id: string
+          checked_at: string
+          window_start: string
+          window_end: string
+          checker: string
+          result: string
+          outcomes_found: number
+        }
+        Insert: {
+          id?: string
+          repo_id: string
+          checked_at?: string
+          window_start: string
+          window_end: string
+          checker: string
+          result: string
+          outcomes_found?: number
+        }
+        Update: {
+          id?: string
+          repo_id?: string
+          checked_at?: string
+          window_start?: string
+          window_end?: string
+          checker?: string
+          result?: string
+          outcomes_found?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'outcome_checks_repo_id_fkey'
+            columns: ['repo_id']
+            isOneToOne: false
+            referencedRelation: 'repos'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       repo_snapshots: {
         Row: {
           id: string
@@ -513,6 +554,7 @@ export type Submission = Tables<'submissions'>
 export type ApiAccessRequest = Tables<'api_access_requests'>
 export type DemandEvent = Tables<'demand_events'>
 export type ProjectOutcome = Tables<'project_outcomes'>
+export type OutcomeCheck = Tables<'outcome_checks'>
 export type ToolContribution = Tables<'tool_contributions'>
 export type RepoSnapshot = Tables<'repo_snapshots'>
 export type PackageDownload = Tables<'package_downloads'>
