@@ -31,7 +31,9 @@ jobs:
 
       - name: Run health check
         id: health
-        run: npx tsx scripts/db-health.ts | tee health-output.txt
+        run: |
+          set -o pipefail
+          npx tsx scripts/db-health.ts | tee health-output.txt
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
